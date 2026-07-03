@@ -58,7 +58,9 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 - estructura FSD minima real
 - tipos compartidos del dominio
 - layout base
-- rutas `qr` y `staff`
+- soporte i18n base con `next-intl`
+- ruta `admin` localizada para onboarding administrativo conectado a backend
+- rutas localizadas `qr` y `staff`
 - ruta o area de backoffice para carta
 - base para area administrativa del restaurante
 
@@ -108,7 +110,8 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 
 ## 5. Tareas frontend
 
-- [ ] Consolidar estructura `src/app`, `src/pages`, `src/features`, `src/entities`, `src/shared`
+- [ ] Consolidar estructura `src/app`, `src/views`, `src/features`, `src/entities`, `src/shared`
+- [ ] Consolidar i18n base (`es` y `en`) y matcher de rutas localizadas
 - [ ] Definir tipos frontend para `Menu`, `Order`, `Bill`, `TableSession`, `StationTicket`
 - [ ] Crear shell visual para experiencia QR
 - [ ] Crear shell visual para experiencia staff

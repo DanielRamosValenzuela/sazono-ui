@@ -1,9 +1,9 @@
 import { useTranslations } from "next-intl";
-import { FloorConsole } from "@/widgets/floor-console";
+import { AdminConsole } from "@/widgets/admin-console/ui/admin-console";
 import { PageShell } from "@/shared/ui/page-shell";
 
-export function StaffDashboardPage() {
-  const t = useTranslations("StaffPage");
+export function AdminWorkspacePage() {
+  const t = useTranslations("AdminPage");
 
   return (
     <PageShell
@@ -11,7 +11,7 @@ export function StaffDashboardPage() {
       title={t("title")}
       description={t("description")}
     >
-      <FloorConsole />
+      <AdminConsole />
     </PageShell>
   );
 }

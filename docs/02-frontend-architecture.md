@@ -4,10 +4,11 @@
 
 Para este proyecto recomiendo:
 
-- Next.js App Router en la carpeta raiz `app/`
+- Next.js App Router en `src/app/`
 - capas FSD bajo `src/`
 - rutas de Next delgadas
-- logica de negocio fuera de `app/page.tsx`
+- routing localizado con `next-intl`
+- logica de negocio fuera de los route segments
 
 No recomiendo meter toda la app directamente en `app/` a medida que crece. Para este producto eso se vuelve desordenado muy rapido.
 
@@ -16,25 +17,27 @@ No recomiendo meter toda la app directamente en `app/` a medida que crece. Para 
 ### Estructura
 
 ```text
-app/
-  layout.tsx
-  page.tsx
-  qr/
-  staff/
-
 src/
   app/
+    [locale]/
+      layout.tsx
+      page.tsx
+      admin/
+      qr/
+      staff/
+    api/
+      backend/
     providers/
-    styles/
-    routes/
-  pages/
-    qr-menu/
-    staff-table/
-    cashier-bill/
+  views/
+    home/
+    admin-workspace/
+    qr-entry/
+    staff-dashboard/
   widgets/
     menu-browser/
     cart-summary/
     station-ticket-board/
+    admin-console/
   features/
     start-table-session/
     add-item-to-order/
@@ -63,6 +66,7 @@ Porque tu frontend no es solo una landing ni una sola app lineal. Tendra por lo 
 
 - QR client flow
 - waiter flow
+- admin onboarding flow
 - cashier/supervisor flow
 - kitchen/bar flow
 
@@ -84,11 +88,12 @@ Mi recomendacion:
 
 ## Reglas de organizacion
 
-1. `app/` de Next solo para rutas y layouts
-2. `src/pages` para composicion de pantallas
+1. `src/app/` de Next solo para rutas, layouts, proxy API y wiring de framework
+2. `src/views` para composicion de pantallas
 3. `src/features` para acciones de usuario
 4. `src/entities` para conceptos de negocio
 5. `src/shared` para piezas reutilizables sin logica de dominio
+6. las pantallas localizadas viven bajo `src/app/[locale]` y delegan a `src/views`
 
 ## Ejemplos
 
@@ -124,6 +129,7 @@ Mi recomendacion inicial:
 
 1. No meter logica de negocio compleja directamente en archivos dentro de `app/`.
 2. No mezclar UI de cliente QR con UI de mesero en el mismo componente salvo shell compartido.
-3. Si algo representa un concepto de negocio, primero evaluar si va en `entities`.
-4. Si algo representa una accion del usuario, primero evaluar si va en `features`.
-5. Si una sucursal puede cambiar una regla, no hardcodearla en UI.
+3. Si algo representa onboarding administrativo o staff management, primero evaluar si vive en `views/admin-*`, `widgets/admin-*` o `features/admin-*`.
+4. Si algo representa un concepto de negocio, primero evaluar si va en `entities`.
+5. Si algo representa una accion del usuario, primero evaluar si va en `features`.
+6. Si una sucursal puede cambiar una regla, no hardcodearla en UI.
