@@ -34,6 +34,10 @@ export interface OpenTableSessionRequest {
   openedBySource: TableSessionSource;
 }
 
+export interface CloseTableSessionRequest {
+  closeReason: string;
+}
+
 export interface TableSessionDetail {
   tableSessionId: string;
   tableId: string;

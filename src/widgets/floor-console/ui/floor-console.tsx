@@ -6,15 +6,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Armchair,
+  CheckCircle2,
+  Copy,
   CircleDot,
   ClipboardList,
   DoorOpen,
   Plus,
+  QrCode,
   RefreshCcw,
+  Wallet,
   Sparkles,
   Users,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,14 +30,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
 import { authApi } from "@/shared/api/auth-api";
+import { billingApi } from "@/shared/api/billing-api";
 import { floorApi } from "@/shared/api/floor-api";
 import { ApiError } from "@/shared/api/http-client";
+import { formatMoney } from "@/shared/lib/format";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 import type { BranchRole, AuthenticatedProfile } from "@/shared/types/auth";
+import type { CurrentBill } from "@/shared/types/billing";
 import type {
   FloorTable,
   TableSessionSource,
@@ -56,6 +67,10 @@ interface CreateTableFormValues {
   code: string;
   name: string;
   capacity: number;
+}
+
+interface CloseSessionFormValues {
+  closeReason: string;
 }
 
 const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
@@ -146,6 +161,10 @@ function formatDateTime(locale: string, value: string) {
   }).format(new Date(value));
 }
 
+function isBillSettled(bill: CurrentBill | undefined) {
+  return bill ? Number(bill.remainingAmount) <= 0 : false;
+}
+
 export function FloorConsole() {
   const t = useTranslations("FloorConsole");
   const locale = useLocale();
@@ -156,7 +175,11 @@ export function FloorConsole() {
   const syncUser = useAdminSessionStore((state) => state.syncUser);
   const clearSession = useAdminSessionStore((state) => state.clearSession);
 
-  const currentUserQuery = useQuery({
+  const {
+    data: currentUserData,
+    isError: isCurrentUserError,
+    error: currentUserError,
+  } = useQuery({
     queryKey: ["staff", "me", accessToken],
     enabled: isClientReady && Boolean(accessToken),
     retry: false,
@@ -176,7 +199,7 @@ export function FloorConsole() {
     },
   });
 
-  const currentUser = currentUserQuery.data ?? storedUser;
+  const currentUser = currentUserData ?? storedUser;
   const branchAccessList = useMemo(
     () => (currentUser ? getBranchAccessList(currentUser) : []),
     [currentUser]
@@ -202,7 +225,12 @@ export function FloorConsole() {
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
 
-  const tablesQuery = useQuery({
+  const {
+    data: tablesData,
+    isLoading: isTablesLoading,
+    isError: isTablesError,
+    error: tablesError,
+  } = useQuery({
     queryKey: ["floor", "tables", accessToken, selectedBranchId],
     enabled:
       isClientReady &&
@@ -213,13 +241,18 @@ export function FloorConsole() {
     queryFn: () => floorApi.listTables(accessToken!, selectedBranchId),
   });
 
-  const tables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
+  const tables = useMemo(() => tablesData ?? [], [tablesData]);
   const focusedTableId = tables.some((table) => table.tableId === rawFocusedTableId)
     ? rawFocusedTableId
     : tables.find((table) => table.currentSession)?.tableId ?? tables[0]?.tableId ?? "";
   const focusedTable = tables.find((table) => table.tableId === focusedTableId) ?? null;
 
-  const currentSessionQuery = useQuery({
+  const {
+    data: currentSessionData,
+    isFetching: isCurrentSessionFetching,
+    isError: isCurrentSessionError,
+    error: currentSessionError,
+  } = useQuery({
     queryKey: ["floor", "current-session", accessToken, focusedTableId],
     enabled:
       isClientReady &&
@@ -231,13 +264,35 @@ export function FloorConsole() {
     queryFn: () => floorApi.getCurrentSession(accessToken!, focusedTableId),
   });
   const focusedSessionSource =
-    currentSessionQuery.data?.openedBySource ?? focusedTable?.currentSession?.openedBySource;
+    currentSessionData?.openedBySource ?? focusedTable?.currentSession?.openedBySource;
+  const activeSessionId =
+    currentSessionData?.tableSessionId ?? focusedTable?.currentSession?.tableSessionId ?? "";
+
+  const {
+    data: currentBill,
+    isLoading: isCurrentBillLoading,
+    error: currentBillError,
+  } = useQuery({
+    queryKey: ["billing", "current-bill", accessToken, activeSessionId],
+    enabled:
+      isClientReady &&
+      Boolean(accessToken) &&
+      Boolean(activeSessionId) &&
+      canReadFloor,
+    retry: false,
+    queryFn: () => billingApi.getCurrentBill(accessToken!, activeSessionId),
+  });
 
   const createTableForm = useForm<CreateTableFormValues>({
     defaultValues: {
       code: "",
       name: "",
       capacity: 4,
+    },
+  });
+  const closeSessionForm = useForm<CloseSessionFormValues>({
+    defaultValues: {
+      closeReason: "",
     },
   });
 
@@ -274,16 +329,51 @@ export function FloorConsole() {
       }),
     onSuccess: async (session) => {
       setFocusedTableId(session.tableId);
-      await queryClient.invalidateQueries({
-        queryKey: ["floor", "tables"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["floor", "current-session", accessToken, session.tableId],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["floor", "tables"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["floor", "current-session", accessToken, session.tableId],
+        }),
+      ]);
       toast.success(t("openSuccess"));
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("openError"));
+    },
+  });
+  const closeTableMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      values,
+    }: {
+      sessionId: string;
+      values: CloseSessionFormValues;
+    }) =>
+      floorApi.closeTableSession(accessToken!, sessionId, {
+        closeReason: values.closeReason.trim() || t("closeReasonDefault"),
+      }),
+    onSuccess: async (session) => {
+      closeSessionForm.reset({
+        closeReason: "",
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["floor", "tables"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["floor", "current-session"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["billing", "current-bill"],
+        }),
+      ]);
+      setFocusedTableId(session.tableId);
+      toast.success(t("closeSuccess"));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("closeError"));
     },
   });
 
@@ -294,8 +384,11 @@ export function FloorConsole() {
   if (!isClientReady) {
     return (
       <Card className="rounded-[1.75rem] border-border/70 bg-card/82 shadow-lg shadow-primary/8">
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          {t("preparing")}
+        <CardContent className="space-y-3 p-6">
+          <span className="sr-only">{t("preparing")}</span>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
         </CardContent>
       </Card>
     );
@@ -401,12 +494,12 @@ export function FloorConsole() {
         </CardContent>
       </Card>
 
-      {currentUserQuery.isError ? (
+      {isCurrentUserError ? (
         <InlineError
           title={t("refreshTitle")}
           description={
-            currentUserQuery.error instanceof Error
-              ? currentUserQuery.error.message
+            currentUserError instanceof Error
+              ? currentUserError.message
               : t("refreshDescription")
           }
         />
@@ -502,7 +595,14 @@ export function FloorConsole() {
                     className="mt-2 rounded-full"
                     disabled={!canCreateTables || createTableMutation.isPending}
                   >
-                    {createTableMutation.isPending ? t("createSubmitting") : t("createSubmit")}
+                    {createTableMutation.isPending ? (
+                      <>
+                        <Spinner />
+                        {t("createSubmitting")}
+                      </>
+                    ) : (
+                      t("createSubmit")
+                    )}
                   </Button>
                 </form>
               </CardContent>
@@ -541,7 +641,7 @@ export function FloorConsole() {
                     <SessionDetailRow
                       label={t("sessionId")}
                       value={
-                        currentSessionQuery.data?.tableSessionId ??
+                        currentSessionData?.tableSessionId ??
                         focusedTable.currentSession.tableSessionId
                       }
                     />
@@ -557,7 +657,7 @@ export function FloorConsole() {
                       label={t("sessionOpenedAt")}
                       value={formatDateTime(
                         locale,
-                        currentSessionQuery.data?.openedAt ?? focusedTable.currentSession.openedAt
+                        currentSessionData?.openedAt ?? focusedTable.currentSession.openedAt
                       )}
                     />
 
@@ -565,6 +665,7 @@ export function FloorConsole() {
                       type="button"
                       variant="outline"
                       className="rounded-full"
+                      disabled={isCurrentSessionFetching}
                       onClick={() => {
                         setFocusedTableId(focusedTable.tableId);
                         void queryClient.invalidateQueries({
@@ -572,14 +673,18 @@ export function FloorConsole() {
                         });
                       }}
                     >
-                      <RefreshCcw className="size-4" />
+                      {isCurrentSessionFetching ? (
+                        <Spinner />
+                      ) : (
+                        <RefreshCcw className="size-4" />
+                      )}
                       {t("sessionRefresh")}
                     </Button>
 
-                    {currentSessionQuery.isError ? (
+                    {isCurrentSessionError ? (
                       <p className="text-sm text-destructive">
-                        {currentSessionQuery.error instanceof Error
-                          ? currentSessionQuery.error.message
+                        {currentSessionError instanceof Error
+                          ? currentSessionError.message
                           : t("sessionError")}
                       </p>
                     ) : null}
@@ -591,6 +696,36 @@ export function FloorConsole() {
                 )}
               </CardContent>
             </Card>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <TableQrCard
+              locale={locale}
+              t={t}
+              table={focusedTable}
+            />
+
+            <BillAndCloseCard
+              bill={currentBill}
+              billError={currentBillError}
+              closeForm={closeSessionForm}
+              hasActiveSession={Boolean(activeSessionId)}
+              isClosing={closeTableMutation.isPending}
+              isLoadingBill={isCurrentBillLoading}
+              isSettled={isBillSettled(currentBill)}
+              locale={locale}
+              onSubmit={(values) => {
+                if (!activeSessionId) {
+                  return;
+                }
+
+                closeTableMutation.mutate({
+                  sessionId: activeSessionId,
+                  values,
+                });
+              }}
+              t={t}
+            />
           </section>
 
           <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
@@ -608,24 +743,26 @@ export function FloorConsole() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {tablesQuery.isLoading ? (
-                <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm text-muted-foreground">
-                  {t("tablesLoading")}
+              {isTablesLoading ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Skeleton className="h-44 w-full rounded-[1.6rem]" />
+                  <Skeleton className="h-44 w-full rounded-[1.6rem]" />
+                  <Skeleton className="h-44 w-full rounded-[1.6rem]" />
                 </div>
               ) : null}
 
-              {tablesQuery.isError ? (
+              {isTablesError ? (
                 <InlineError
                   title={t("tablesErrorTitle")}
                   description={
-                    tablesQuery.error instanceof Error
-                      ? tablesQuery.error.message
+                    tablesError instanceof Error
+                      ? tablesError.message
                       : t("tablesErrorDescription")
                   }
                 />
               ) : null}
 
-              {!tablesQuery.isLoading && !tables.length ? (
+              {!isTablesLoading && !tables.length ? (
                 <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm leading-7 text-muted-foreground">
                   {t("tablesEmpty")}
                 </div>
@@ -729,7 +866,11 @@ export function FloorConsole() {
                             disabled={!canOpenTable || isOpeningTable}
                             onClick={() => openTableMutation.mutate(table)}
                           >
-                            <DoorOpen className="size-4" />
+                            {isOpeningTable ? (
+                              <Spinner />
+                            ) : (
+                              <DoorOpen className="size-4" />
+                            )}
                             {isOpeningTable ? t("openSubmitting") : t("openAction")}
                           </Button>
                         )}
@@ -835,5 +976,266 @@ function InlineError({ title, description }: InlineErrorProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+interface TableQrCardProps {
+  locale: string;
+  t: ReturnType<typeof useTranslations<"FloorConsole">>;
+  table: FloorTable | null;
+}
+
+function TableQrCard({ locale, t, table }: TableQrCardProps) {
+  const qrUrl = useMemo(() => {
+    if (!table || typeof window === "undefined") {
+      return "";
+    }
+
+    return `${window.location.origin}/${locale}/qr?table=${encodeURIComponent(table.qrToken)}`;
+  }, [locale, table]);
+  const { data: qrDataUrl } = useQuery({
+    queryKey: ["floor", "qr-preview", qrUrl],
+    enabled: Boolean(qrUrl),
+    queryFn: () =>
+      QRCode.toDataURL(qrUrl, {
+        margin: 1,
+        width: 240,
+        color: {
+          dark: "#2b1f18",
+          light: "#f7f1e8",
+        },
+      }),
+  });
+
+  const copyQrUrl = async () => {
+    if (!qrUrl) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(qrUrl);
+  };
+
+  const copyQrToken = async () => {
+    if (!table?.qrToken) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(table.qrToken);
+  };
+
+  return (
+    <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
+      <CardHeader>
+        <div className="flex items-center gap-2 text-primary">
+          <QrCode className="size-4" />
+          <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+            {t("qrEyebrow")}
+          </p>
+        </div>
+        <CardTitle className="text-2xl">{t("qrTitle")}</CardTitle>
+        <CardDescription className="leading-7">
+          {t("qrDescription")}
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        {table ? (
+          <div className="grid gap-5 md:grid-cols-[220px_1fr] md:items-start">
+            <div className="rounded-[1.75rem] border border-primary/12 bg-primary/8 p-4">
+              {qrDataUrl ? (
+                <Image
+                  src={qrDataUrl}
+                  alt={t("qrAlt", { table: table.name })}
+                  width={240}
+                  height={240}
+                  className="mx-auto aspect-square w-full rounded-2xl bg-white object-contain p-3"
+                />
+              ) : (
+                <Skeleton className="aspect-square w-full rounded-2xl">
+                  <span className="sr-only">{t("qrGenerating")}</span>
+                </Skeleton>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{table.code}</Badge>
+                  <Badge variant="secondary">{table.name}</Badge>
+                </div>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                  {t("qrHelper")}
+                </p>
+              </div>
+
+              <SessionDetailRow label={t("qrTokenLabel")} value={table.qrToken} />
+              <SessionDetailRow label={t("qrUrlLabel")} value={qrUrl || t("qrGenerating")} />
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => {
+                    void copyQrToken().then(() => toast.success(t("qrTokenCopied")));
+                  }}
+                  disabled={!table.qrToken}
+                >
+                  <Copy className="size-4" />
+                  {t("copyToken")}
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-full"
+                  onClick={() => {
+                    void copyQrUrl().then(() => toast.success(t("qrUrlCopied")));
+                  }}
+                  disabled={!qrUrl}
+                >
+                  <Copy className="size-4" />
+                  {t("copyUrl")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm leading-7 text-muted-foreground">
+            {t("qrEmpty")}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface BillAndCloseCardProps {
+  bill: CurrentBill | undefined;
+  billError: unknown;
+  closeForm: ReturnType<typeof useForm<CloseSessionFormValues>>;
+  hasActiveSession: boolean;
+  isClosing: boolean;
+  isLoadingBill: boolean;
+  isSettled: boolean;
+  locale: string;
+  onSubmit: (values: CloseSessionFormValues) => void;
+  t: ReturnType<typeof useTranslations<"FloorConsole">>;
+}
+
+function BillAndCloseCard({
+  bill,
+  billError,
+  closeForm,
+  hasActiveSession,
+  isClosing,
+  isLoadingBill,
+  isSettled,
+  locale,
+  onSubmit,
+  t,
+}: BillAndCloseCardProps) {
+  return (
+    <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
+      <CardHeader>
+        <div className="flex items-center gap-2 text-primary">
+          <Wallet className="size-4" />
+          <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+            {t("billingEyebrow")}
+          </p>
+        </div>
+        <CardTitle className="text-2xl">{t("billingTitle")}</CardTitle>
+        <CardDescription className="leading-7">
+          {t("billingDescription")}
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {isLoadingBill ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+          </div>
+        ) : null}
+
+        {!hasActiveSession ? (
+          <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm text-muted-foreground">
+            {t("billingEmpty")}
+          </div>
+        ) : null}
+
+        {bill ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SessionDetailRow label={t("billStatus")} value={bill.status} />
+            <SessionDetailRow
+              label={t("billRemaining")}
+              value={formatMoney(bill.remainingAmount, "CLP")}
+            />
+            <SessionDetailRow
+              label={t("billTotal")}
+              value={formatMoney(bill.totalAmount, "CLP")}
+            />
+            <SessionDetailRow
+              label={t("billOpenedAt")}
+              value={formatDateTime(locale, bill.openedAt)}
+            />
+          </div>
+        ) : null}
+
+        {billError ? (
+          <InlineError
+            title={t("billingErrorTitle")}
+            description={
+              billError instanceof Error
+                ? billError.message
+                : t("billingErrorDescription")
+            }
+          />
+        ) : null}
+
+        {hasActiveSession ? (
+          <form
+            onSubmit={closeForm.handleSubmit(onSubmit)}
+            className="grid gap-4 rounded-[1.5rem] border border-border/70 bg-background/50 p-4"
+          >
+            <div className="flex items-center gap-2 text-primary">
+              <CheckCircle2 className="size-4" />
+              <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+                {t("closeEyebrow")}
+              </p>
+            </div>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="close-reason">{t("closeReasonLabel")}</FieldLabel>
+              <TextInput
+                id="close-reason"
+                placeholder={t("closeReasonPlaceholder")}
+                disabled={isClosing}
+                {...closeForm.register("closeReason")}
+              />
+              <FieldHint>
+                {isSettled ? t("closeHintAllowed") : t("closeHintBlocked")}
+              </FieldHint>
+            </FieldGroup>
+
+            <Button
+              type="submit"
+              size="lg"
+              className="rounded-full"
+              disabled={!bill || !isSettled || isClosing}
+            >
+              {isClosing ? (
+                <>
+                  <Spinner />
+                  {t("closeSubmitting")}
+                </>
+              ) : (
+                t("closeSubmit")
+              )}
+            </Button>
+          </form>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

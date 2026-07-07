@@ -1,5 +1,6 @@
 import { apiRequest } from "@/shared/api/http-client";
 import type {
+  CloseTableSessionRequest,
   CreateFloorTableRequest,
   FloorTable,
   OpenTableSessionRequest,
@@ -32,6 +33,17 @@ export const floorApi = {
   getCurrentSession(token: string, tableId: string) {
     return apiRequest<TableSessionDetail>(`/floor/tables/${tableId}/current-session`, {
       token,
+    });
+  },
+  closeTableSession(
+    token: string,
+    tableSessionId: string,
+    payload: CloseTableSessionRequest
+  ) {
+    return apiRequest<TableSessionDetail>(`/floor/table-sessions/${tableSessionId}/close`, {
+      method: "POST",
+      token,
+      body: payload,
     });
   },
 };

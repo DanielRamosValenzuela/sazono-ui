@@ -15,7 +15,7 @@ export class ApiError extends Error {
 type RequestOptions = {
   token?: string;
   body?: unknown;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
 };
 
 export async function apiRequest<T>(

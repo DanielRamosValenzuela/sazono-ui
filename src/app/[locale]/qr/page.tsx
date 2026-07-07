@@ -5,11 +5,18 @@ type LocalePageProps = {
   params: Promise<{
     locale: string;
   }>;
+  searchParams: Promise<{
+    table?: string;
+  }>;
 };
 
-export default async function LocaleQrPage({ params }: LocalePageProps) {
+export default async function LocaleQrPage({
+  params,
+  searchParams,
+}: LocalePageProps) {
   const { locale } = await params;
+  const { table } = await searchParams;
   setRequestLocale(locale);
 
-  return <QrEntryPage />;
+  return <QrEntryPage qrToken={table} />;
 }

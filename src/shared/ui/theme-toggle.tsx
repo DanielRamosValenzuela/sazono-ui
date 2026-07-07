@@ -2,8 +2,8 @@
 
 import { MoonStar, SunMedium } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/shared/lib/theme";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 
 export function ThemeToggle() {

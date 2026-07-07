@@ -116,13 +116,14 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 - [ ] Crear shell visual para experiencia QR
 - [ ] Crear shell visual para experiencia staff
 - [ ] Crear base minima para experiencia administrativa del restaurante
-- [ ] Crear shell visual para backoffice de carta
-- [ ] Implementar lista y edicion de categorias
-- [ ] Implementar formulario de producto
-- [ ] Implementar descripcion e imagen principal por producto
-- [ ] Implementar traducciones basicas de carta
+- [x] Crear shell visual para backoffice de carta (`/staff/menu` con `widgets/menu-studio`, gated a rol `ADMIN` de sucursal)
+- [x] Implementar lista y creacion de categorias (edicion/archivado pendiente de contrato backend)
+- [x] Implementar formulario de producto (nombre, descripcion, precio, tipo, estacion, disponibilidad)
+- [ ] Implementar imagen principal por producto (pendiente de multimedia en backend)
+- [ ] Implementar traducciones basicas de carta (pendiente de contrato backend)
 - [ ] Implementar preview simple de carta
-- [ ] Implementar publicacion de carta
+- [x] Implementar publicacion de carta (publica el draft y lo deja como carta activa)
+- [x] Implementar gestion de estaciones de preparacion por sucursal
 - [ ] Implementar pagina de menu QR
 - [ ] Implementar carrito QR
 - [ ] Implementar flujo de confirmacion y prepago

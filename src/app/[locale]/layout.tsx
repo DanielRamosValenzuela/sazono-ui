@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { AppProviders } from "@/app/providers/app-providers";
 import { routing } from "@/i18n/routing";
 import { appMetadata } from "@/shared/config/app-metadata";
+import { getThemeBootstrapScript } from "@/shared/lib/theme-config";
 import "../globals.css";
 
 const bodyFont = Poppins({
@@ -54,9 +55,20 @@ export default async function LocaleLayout({
   return (
     <html
       lang={locale}
+      data-theme="light"
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Patrón oficial anti-FOUC de Next para themes (docs: app/guides/preventing-flash-before-hydration).
+            Debe ser un script inline síncrono en <head> para aplicar el theme antes del primer paint;
+            useEffect o next/script provocarían flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: getThemeBootstrapScript(),
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <AppProviders>
           <NextIntlClientProvider>{children}</NextIntlClientProvider>

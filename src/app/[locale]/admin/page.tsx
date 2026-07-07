@@ -1,5 +1,5 @@
 import { setRequestLocale } from "next-intl/server";
-import AdminWorkspacePage from "@/views/admin-workspace";
+import { OverviewSwitch } from "@/widgets/admin-shell/ui/overview-switch";
 
 type LocalePageProps = {
   params: Promise<{
@@ -11,5 +11,5 @@ export default async function LocaleAdminPage({ params }: LocalePageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  return <AdminWorkspacePage />;
+  return <OverviewSwitch />;
 }

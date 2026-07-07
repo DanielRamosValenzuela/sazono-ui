@@ -41,6 +41,22 @@ export type CreateBranchRequest = {
   settings?: Partial<BranchSettings>;
 };
 
+export type BranchSummary = {
+  branchId: string;
+  restaurantId: string;
+  name: string;
+  address: string | null;
+  status: "ACTIVE" | "INACTIVE";
+  settings: BranchSettings | null;
+};
+
+export type UpdateBranchRequest = {
+  name?: string;
+  address?: string | null;
+  status?: "ACTIVE" | "INACTIVE";
+  settings?: Partial<BranchSettings>;
+};
+
 export type CreateBranchResponse = {
   branchId: string;
   restaurantId: string;
@@ -63,6 +79,16 @@ export type StaffUser = {
   branchRoles: {
     branchId: string;
     branchName: string;
+    role: BranchRole;
+  }[];
+};
+
+export type UpdateStaffUserRequest = {
+  firstName?: string;
+  lastName?: string;
+  status?: "ACTIVE" | "DISABLED";
+  branchRoles?: {
+    branchId: string;
     role: BranchRole;
   }[];
 };
