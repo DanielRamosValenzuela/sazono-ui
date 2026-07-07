@@ -21,44 +21,51 @@ src/
   app/
     [locale]/
       layout.tsx
+      error.tsx
       page.tsx
       admin/
+        layout.tsx        # monta AdminShell (sidebar), comun a /admin y /staff
+        page.tsx           # OverviewSwitch: resumen platform_admin o restaurante
+        restaurants/
+          page.tsx          # RestaurantsDirectory (platform_admin)
+          [restaurantId]/
+            page.tsx          # RestaurantDetail (platform_admin)
+        team/
+          page.tsx           # TeamPanel (ADMIN de restaurante)
+        branches/
+          page.tsx           # BranchesPanel (ADMIN de restaurante)
       qr/
       staff/
+        layout.tsx          # tambien monta AdminShell
+        page.tsx
+        menu/
     api/
-      backend/
+      backend/               # proxy server-side; soporta GET/POST/PATCH/DELETE
     providers/
   views/
     home/
-    admin-workspace/
-    qr-entry/
-    staff-dashboard/
+    qr-entry/                 # monta widgets/qr-experience
+    staff-dashboard/           # monta widgets/floor-console
+    menu-studio/                # monta widgets/menu-studio
   widgets/
-    menu-browser/
-    cart-summary/
-    station-ticket-board/
-    admin-console/
+    admin-shell/                # sidebar + login + RoleGate + OverviewSwitch, comun a admin y staff
+    platform-dashboard/          # resumen, gráficos y CRUD de restaurantes (platform_admin)
+    restaurant-dashboard/         # resumen, sucursales y equipo (ADMIN de restaurante)
+    floor-console/                 # sala y mesas (staff)
+    menu-studio/                    # constructor de carta (ADMIN de sucursal)
+    qr-experience/                   # carta, carrito, pago y pedidos del comensal por QR
   features/
-    start-table-session/
-    add-item-to-order/
-    submit-qr-order/
-    pay-bill/
-    split-bill/
-    close-table-session/
+    admin-session/                    # useAdminSession: sesion, roles, refresh compartidos
   entities/
-    menu/
-    order/
-    bill/
-    table-session/
-    station-ticket/
-    staff-user/
   shared/
-    api/
-    ui/
-    lib/
+    api/                                # admin-api, auth-api, floor-api, menus-api, billing-api, qr-api
+    ui/                                  # form-controls, charts, stat-card, confirm-button, page-shell...
+    lib/                                  # format.ts (formatMoney), theme, use-client-ready
     config/
     types/
 ```
+
+Nota: `views/admin-workspace` y `widgets/admin-console` existieron en una version anterior y fueron reemplazados por `widgets/admin-shell` + `widgets/platform-dashboard` + `widgets/restaurant-dashboard`, que cubren tanto el dashboard de plataforma como el de restaurante bajo un mismo shell con sidebar.
 
 ## Por que FSD si tiene sentido aqui
 

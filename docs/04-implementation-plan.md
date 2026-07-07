@@ -124,19 +124,20 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 - [ ] Implementar preview simple de carta
 - [x] Implementar publicacion de carta (publica el draft y lo deja como carta activa)
 - [x] Implementar gestion de estaciones de preparacion por sucursal
-- [ ] Implementar pagina de menu QR
-- [ ] Implementar carrito QR
-- [ ] Implementar flujo de confirmacion y prepago
-- [ ] Implementar reintento de pago fallido QR
-- [ ] Implementar vista de cuenta abierta desde QR
-- [ ] Implementar split bill simple
-- [ ] Implementar pantalla de mesa para mesero
-- [ ] Implementar buscador o selector rapido de productos
-- [ ] Implementar creacion de orden postpaga por mesero
-- [ ] Implementar vista de estado de mesa
-- [ ] Implementar accion de cierre manual de mesa pagada
-- [ ] Implementar pantalla de caja o supervisor para incidencias
-- [ ] Conectar reglas configurables por sucursal sin hardcodearlas en la UI
+- [x] Implementar pagina de menu QR
+- [x] Implementar carrito QR
+- [x] Implementar flujo de confirmacion y prepago (con propina)
+- [x] Implementar seguimiento de pedidos propios (`Mis pedidos`, refetch cada 10s)
+- [ ] Implementar reintento explicito de pago fallido QR (hoy el pedido queda pagable de nuevo, falta UI dedicada de reintento)
+- [x] Implementar vista de cuenta abierta desde QR (pago postpago via `bill/payments`)
+- [ ] Implementar split bill simple (backend listo, frontend QR pendiente)
+- [x] Implementar pantalla de mesa para mesero (`widgets/floor-console`)
+- [ ] Implementar buscador o selector rapido de productos para mesero
+- [x] Implementar creacion de orden postpaga por mesero
+- [x] Implementar vista de estado de mesa
+- [x] Implementar accion de cierre manual de mesa pagada
+- [ ] Implementar pantalla de caja o supervisor para incidencias (abandono/deuda) — hoy solo backend
+- [x] Conectar reglas configurables por sucursal sin hardcodearlas en la UI (`branch_settings` editable desde `/admin/branches`)
 
 ## 6. Definition of Done frontend MVP
 
@@ -148,3 +149,19 @@ El frontend MVP esta listo cuando:
 4. una cuenta abierta puede pagarse total o parcialmente
 5. una mesa pagada puede cerrarse manualmente
 6. caja o supervisor pueden intervenir casos pendientes
+
+## 7. Dashboards administrativos (fuera del alcance original del MVP)
+
+Ademas del MVP descrito arriba, se construyeron dashboards completos para `platform_admin` y para el `ADMIN` de restaurante, con UX orientada a personal no tecnico:
+
+- [x] Shell administrativo unico con sidebar (`widgets/admin-shell`), compartido por `/admin` y `/staff`
+- [x] Dashboard de plataforma: metricas totales, pagos por mes, top restaurantes
+- [x] CRUD de restaurantes para `platform_admin`: listar, ver detalle (sucursales + equipo con correo), editar, activar/desactivar
+- [x] Dashboard de restaurante: mesas ocupadas, ventas de hoy, ticket promedio, serie 7 dias, ordenes por estado, top productos
+- [x] CRUD de sucursales para el `ADMIN` de restaurante: editar datos y reglas (`branch_settings`), ver equipo por sucursal
+- [x] CRUD de staff para el `ADMIN` de restaurante: editar nombre, activar/desactivar, reasignar roles por sucursal
+- [x] Revision de UX: theme/fondo, selects con chevron correcto, `cursor-pointer`, loaders (`Spinner`/`Skeleton`), espaciado de botones, copy no tecnico en `es`/`en`
+- [ ] Filtros de rango de fechas en analytics (hoy son ventanas fijas: hoy / 7 dias / 30 dias)
+- [ ] Registro de restaurantes con planes o cobros a la plataforma (no existe modelo de monetizacion aun, ver doc backend 14)
+
+Detalle completo en doc 05.

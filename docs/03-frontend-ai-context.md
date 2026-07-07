@@ -56,9 +56,22 @@ El frontend necesita contratos claros para:
 - ejecutar split bill
 - cerrar mesa manualmente
 
+## Estado actual del repo
+
+- estructura FSD real en `src/` (`app`, `views`, `widgets`, `features`, `shared`)
+- `next-intl` con locales `es`/`en`; textos redactados en lenguaje no tecnico para personal de restaurante (ver doc 05, seccion i18n)
+- `widgets/admin-shell` unifica sesion, sidebar y guard de rol para `/admin` y `/staff` (antes cada ruta tenia su propio shell, lo que causaba perder el panel al navegar)
+- dashboard de `platform_admin` (`widgets/platform-dashboard`) y dashboard del restaurante (`widgets/restaurant-dashboard`) con metricas, graficos y CRUD sobre restaurantes/sucursales/staff
+- flujo completo de comensal QR (`widgets/qr-experience`): carta, carrito, pago con propina, seguimiento de pedidos
+- backoffice de carta (`widgets/menu-studio`) y sala/mesas (`widgets/floor-console`) ya implementados y enlazados desde el sidebar
+- sistema de diseño propio minimo: `components/ui/spinner.tsx`, `components/ui/skeleton.tsx`, `shared/ui/charts.tsx` (barras), `shared/ui/stat-card.tsx`, `shared/ui/confirm-button.tsx` (confirmacion en dos pasos para acciones delicadas)
+- `shared/lib/format.ts` centraliza `formatMoney`; mapea cada moneda a su locale nativo (CLP→es-CL, USD→en-US, etc.) porque el locale de interfaz (`es`/`en` sin region) no alcanza para que `Intl` elija el simbolo correcto
+- `app/[locale]/error.tsx` como red de seguridad ante errores no capturados
+
 ## Siguiente paso sugerido para este repo
 
-1. Crear `src/` con estructura FSD minima
-2. Crear rutas separadas para `qr` y `staff`
-3. Definir tipos frontend para `Menu`, `Order`, `Bill`, `TableSession`
-4. Implementar primer flujo UI: QR menu + cart + pay
+1. Editar y archivar categorias/items existentes de la carta cuando el backend lo soporte (hoy solo `create`)
+2. Split bill simple desde el flujo QR (el backend ya lo soporta, el frontend aun no)
+3. Multimedia de productos cuando el backend lo soporte
+4. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
+5. Filtros de rango de fechas en los dashboards de analytics (hoy son ventanas fijas)
