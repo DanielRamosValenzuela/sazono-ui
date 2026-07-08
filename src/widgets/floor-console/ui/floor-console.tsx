@@ -40,9 +40,14 @@ import { authApi } from "@/shared/api/auth-api";
 import { billingApi } from "@/shared/api/billing-api";
 import { floorApi } from "@/shared/api/floor-api";
 import { ApiError } from "@/shared/api/http-client";
+import {
+  getBranchAccessList,
+  hasBranchPermission,
+  type BranchAccess,
+} from "@/shared/lib/branch-access";
 import { formatMoney } from "@/shared/lib/format";
 import { useClientReady } from "@/shared/lib/use-client-ready";
-import type { BranchRole, AuthenticatedProfile } from "@/shared/types/auth";
+import type { BranchRole } from "@/shared/types/auth";
 import type { CurrentBill } from "@/shared/types/billing";
 import type {
   FloorTable,
@@ -56,12 +61,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
-
-interface BranchAccess {
-  branchId: string;
-  branchName: string;
-  roles: BranchRole[];
-}
+import { AddOrderSheet } from "./add-order-sheet";
 
 interface CreateTableFormValues {
   code: string;
@@ -76,35 +76,7 @@ interface CloseSessionFormValues {
 const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
 const FLOOR_CREATE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_MULTI_SOURCE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
-
-function getBranchAccessList(profile: AuthenticatedProfile): BranchAccess[] {
-  const branchMap = new Map<string, BranchAccess>();
-
-  for (const branchRole of profile.branchRoles) {
-    const current = branchMap.get(branchRole.branchId);
-
-    if (!current) {
-      branchMap.set(branchRole.branchId, {
-        branchId: branchRole.branchId,
-        branchName: branchRole.branchName,
-        roles: [branchRole.role],
-      });
-      continue;
-    }
-
-    if (!current.roles.includes(branchRole.role)) {
-      current.roles.push(branchRole.role);
-    }
-  }
-
-  return Array.from(branchMap.values()).sort((left, right) =>
-    left.branchName.localeCompare(right.branchName)
-  );
-}
-
-function hasBranchPermission(branchAccess: BranchAccess | null, roles: BranchRole[]) {
-  return branchAccess ? branchAccess.roles.some((role) => roles.includes(role)) : false;
-}
+const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
 
 function getOpenSources(branchAccess: BranchAccess | null): TableSessionSource[] {
   if (!branchAccess) {
@@ -184,6 +156,9 @@ export function FloorConsole() {
     enabled: isClientReady && Boolean(accessToken),
     retry: false,
     initialData: storedUser ?? undefined,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       try {
         const nextUser = await authApi.getCurrentUser(accessToken!);
@@ -208,6 +183,7 @@ export function FloorConsole() {
   const [rawSelectedBranchId, setSelectedBranchId] = useState<string>("");
   const [rawSelectedSource, setSelectedSource] = useState<TableSessionSource>("WAITER");
   const [rawFocusedTableId, setFocusedTableId] = useState<string>("");
+  const [addOrderOpen, setAddOrderOpen] = useState(false);
 
   const selectedBranchId = branchAccessList.some(
     (branch) => branch.branchId === rawSelectedBranchId
@@ -224,6 +200,7 @@ export function FloorConsole() {
 
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
+  const canAddOrder = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
 
   const {
     data: tablesData,
@@ -661,25 +638,38 @@ export function FloorConsole() {
                       )}
                     />
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={isCurrentSessionFetching}
-                      onClick={() => {
-                        setFocusedTableId(focusedTable.tableId);
-                        void queryClient.invalidateQueries({
-                          queryKey: ["floor", "current-session", accessToken, focusedTable.tableId],
-                        });
-                      }}
-                    >
-                      {isCurrentSessionFetching ? (
-                        <Spinner />
-                      ) : (
-                        <RefreshCcw className="size-4" />
-                      )}
-                      {t("sessionRefresh")}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={isCurrentSessionFetching}
+                        onClick={() => {
+                          setFocusedTableId(focusedTable.tableId);
+                          void queryClient.invalidateQueries({
+                            queryKey: ["floor", "current-session", accessToken, focusedTable.tableId],
+                          });
+                        }}
+                      >
+                        {isCurrentSessionFetching ? (
+                          <Spinner />
+                        ) : (
+                          <RefreshCcw className="size-4" />
+                        )}
+                        {t("sessionRefresh")}
+                      </Button>
+
+                      {canAddOrder && activeSessionId ? (
+                        <Button
+                          type="button"
+                          className="rounded-full"
+                          onClick={() => setAddOrderOpen(true)}
+                        >
+                          <Plus className="size-4" />
+                          {t("addOrderAction")}
+                        </Button>
+                      ) : null}
+                    </div>
 
                     {isCurrentSessionError ? (
                       <p className="text-sm text-destructive">
@@ -883,6 +873,15 @@ export function FloorConsole() {
           </Card>
         </>
       )}
+
+      {addOrderOpen && activeSessionId ? (
+        <AddOrderSheet
+          accessToken={accessToken!}
+          branchId={selectedBranchId}
+          tableSessionId={activeSessionId}
+          onClose={() => setAddOrderOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

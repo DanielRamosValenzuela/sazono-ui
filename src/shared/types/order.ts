@@ -90,6 +90,12 @@ export interface CreateQrOrderRequest {
   notes?: string;
 }
 
+export interface CreateWaiterOrderRequest {
+  tableSessionId: string;
+  items: CreateOrderItemRequest[];
+  notes?: string;
+}
+
 export interface PayQrOrderRequest {
   tipAmount?: string;
 }

@@ -11,8 +11,8 @@ import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuItemDetail } from "@/shared/types/menu";
 import type { OrderResponse } from "@/shared/types/order";
+import { getCartTotal, type CartLine } from "@/shared/lib/cart";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
-import { getCartTotal, type CartLine } from "../model/cart";
 import { BottomSheet } from "./bottom-sheet";
 
 type CartSheetProps = {

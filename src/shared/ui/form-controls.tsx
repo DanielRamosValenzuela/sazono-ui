@@ -48,6 +48,21 @@ export function TextInput({
   );
 }
 
+export function TextArea({
+  className,
+  ...props
+}: ComponentProps<"textarea">) {
+  return (
+    <textarea
+      className={cn(
+        "flex w-full resize-none rounded-xl border border-border bg-background/85 px-3 py-2.5 text-sm text-foreground shadow-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
 export function SelectInput({
   className,
   ...props

@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   BookOpenText,
   ChefHat,
+  Flame,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -122,6 +123,11 @@ export function AdminShell({ children }: PropsWithChildren) {
             href: "/staff/menu",
             labelKey: "navMenu",
             icon: <BookOpenText className="size-4" />,
+          },
+          {
+            href: "/staff/kitchen",
+            labelKey: "navKitchen",
+            icon: <Flame className="size-4" />,
           },
         ]
       : [];

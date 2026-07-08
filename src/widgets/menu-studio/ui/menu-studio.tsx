@@ -124,11 +124,11 @@ export function MenuStudio() {
   const stations = useMemo(() => stationsData ?? [], [stationsData]);
   const menus = useMemo(() => menusData ?? [], [menusData]);
 
-  const selectedMenuId = menus.some((menu) => menu.menuId === rawSelectedMenuId)
-    ? rawSelectedMenuId
-    : menus.find((menu) => menu.status === "DRAFT")?.menuId ??
-      menus[0]?.menuId ??
-      "";
+  const selectedMenuId =
+    rawSelectedMenuId ||
+    menus.find((menu) => menu.status === "DRAFT")?.menuId ||
+    menus[0]?.menuId ||
+    "";
 
   const { data: menuDetail, isLoading: isMenuDetailLoading } = useQuery({
     queryKey: ["menus", "detail", accessToken, selectedMenuId],

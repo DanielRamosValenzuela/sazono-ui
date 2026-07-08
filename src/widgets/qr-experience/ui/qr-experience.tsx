@@ -19,19 +19,19 @@ import {
   getCartTotal,
   setCartQuantity,
   type CartLine,
-} from "../model/cart";
+} from "@/shared/lib/cart";
+import { BillPaySheet } from "./bill-pay-sheet";
 import { CartSheet } from "./cart-sheet";
 import { MenuView } from "./menu-view";
-import { OrdersView } from "./orders-view";
 import { PaymentSheet } from "./payment-sheet";
+import { StatusBanner } from "./status-banner";
 
 const ORDERS_REFETCH_INTERVAL = 10_000;
+const BILL_REFETCH_INTERVAL = 10_000;
 
 type QrExperienceProps = {
   qrToken?: string;
 };
-
-type GuestTab = "menu" | "orders";
 
 function StatusScreen({
   icon,
@@ -92,10 +92,10 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
   const t = useTranslations("QrPage");
   const queryClient = useQueryClient();
 
-  const [tab, setTab] = useState<GuestTab>("menu");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [payingOrder, setPayingOrder] = useState<OrderResponse | null>(null);
+  const [billSheetOpen, setBillSheetOpen] = useState(false);
 
   const menuQuery = useQuery({
     queryKey: ["qr-menu", qrToken],
@@ -109,6 +109,13 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
     queryFn: () => qrApi.listOrders(qrToken as string),
     enabled: Boolean(qrToken) && menuQuery.isSuccess,
     refetchInterval: ORDERS_REFETCH_INTERVAL,
+  });
+
+  const billQuery = useQuery({
+    queryKey: ["qr-bill", qrToken],
+    queryFn: () => qrApi.getBill(qrToken as string),
+    enabled: Boolean(qrToken) && menuQuery.isSuccess,
+    refetchInterval: BILL_REFETCH_INTERVAL,
   });
 
   if (!qrToken) {
@@ -148,10 +155,7 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
   const menu = menuQuery.data;
   const cartCount = getCartCount(cart);
   const cartTotal = getCartTotal(cart);
-  const activeOrdersCount = (ordersQuery.data ?? []).filter(
-    (order) => order.status !== "DELIVERED" && order.status !== "CANCELLED"
-  ).length;
-  const showCartBar = tab === "menu" && cartCount > 0 && !cartOpen && !payingOrder;
+  const showCartBar = cartCount > 0 && !cartOpen && !payingOrder && !billSheetOpen;
 
   const handleSetQuantity = (item: MenuItemDetail, quantity: number) => {
     setCart((lines) => setCartQuantity(lines, item, quantity));
@@ -168,13 +172,18 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
     }
 
     toast.success(t("order_createdToast"));
-    setTab("orders");
   };
 
   const handlePaid = () => {
     setPayingOrder(null);
-    setTab("orders");
     queryClient.invalidateQueries({ queryKey: ["qr-orders", qrToken] });
+    queryClient.invalidateQueries({ queryKey: ["qr-bill", qrToken] });
+  };
+
+  const handleBillPaid = () => {
+    setBillSheetOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["qr-orders", qrToken] });
+    queryClient.invalidateQueries({ queryKey: ["qr-bill", qrToken] });
   };
 
   return (
@@ -201,56 +210,16 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
             {t("header_welcome")}
           </p>
 
-          <div
-            role="tablist"
-            aria-label={t("header_eyebrow")}
-            className="mt-5 grid grid-cols-2 gap-1 rounded-full border border-border/70 bg-muted/50 p-1"
-          >
-            {(
-              [
-                { id: "menu", label: t("tab_menu"), badge: 0 },
-                { id: "orders", label: t("tab_orders"), badge: activeOrdersCount },
-              ] as const
-            ).map((tabOption) => (
-              <button
-                key={tabOption.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === tabOption.id}
-                onClick={() => setTab(tabOption.id)}
-                className={cn(
-                  "flex cursor-pointer items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium transition-colors",
-                  tab === tabOption.id
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tabOption.label}
-                {tabOption.badge > 0 ? (
-                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
-                    {tabOption.badge}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
+          <StatusBanner
+            orders={ordersQuery.data}
+            bill={billQuery.data}
+            onPayOrder={(order) => setPayingOrder(order)}
+            onOpenBill={() => setBillSheetOpen(true)}
+          />
         </header>
 
         <main className="flex-1 pb-10 pt-2">
-          {tab === "menu" ? (
-            <MenuView
-              menu={menu}
-              cart={cart}
-              onSetQuantity={handleSetQuantity}
-            />
-          ) : (
-            <OrdersView
-              orders={ordersQuery.data}
-              isLoading={ordersQuery.isPending}
-              onPay={(order) => setPayingOrder(order)}
-              onGoToMenu={() => setTab("menu")}
-            />
-          )}
+          <MenuView menu={menu} cart={cart} onSetQuantity={handleSetQuantity} />
         </main>
       </div>
 
@@ -295,6 +264,16 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
           order={payingOrder}
           onClose={() => setPayingOrder(null)}
           onPaid={handlePaid}
+        />
+      ) : null}
+
+      {billSheetOpen && billQuery.data ? (
+        <BillPaySheet
+          qrToken={qrToken}
+          bill={billQuery.data}
+          orders={ordersQuery.data ?? []}
+          onClose={() => setBillSheetOpen(false)}
+          onPaid={handleBillPaid}
         />
       ) : null}
     </div>

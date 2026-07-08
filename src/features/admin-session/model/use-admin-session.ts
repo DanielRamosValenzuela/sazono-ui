@@ -20,6 +20,9 @@ export function useAdminSession() {
     enabled: isClientReady && Boolean(accessToken),
     retry: false,
     initialData: storedUser ?? undefined,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     queryFn: async () => {
       try {
         const nextUser = await authApi.getCurrentUser(accessToken!);

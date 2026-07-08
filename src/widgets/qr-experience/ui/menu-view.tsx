@@ -6,9 +6,9 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getCartQuantity, type CartLine } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuDetail, MenuItemDetail } from "@/shared/types/menu";
-import { getCartQuantity, type CartLine } from "../model/cart";
 
 type MenuViewProps = {
   menu: MenuDetail;

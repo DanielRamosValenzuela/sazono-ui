@@ -3,6 +3,7 @@ import type { MenuDetail } from "@/shared/types/menu";
 import type {
   CreateQrOrderRequest,
   OrderResponse,
+  PaymentBillSummary,
   PaymentResult,
   PayQrBillRequest,
   PayQrOrderRequest,
@@ -17,6 +18,11 @@ export const qrApi = {
   listOrders(qrToken: string) {
     return apiRequest<OrderResponse[]>(
       `/qr/tables/${encodeURIComponent(qrToken)}/orders`
+    );
+  },
+  getBill(qrToken: string) {
+    return apiRequest<PaymentBillSummary | null>(
+      `/qr/tables/${encodeURIComponent(qrToken)}/bill`
     );
   },
   createOrder(qrToken: string, payload: CreateQrOrderRequest) {
