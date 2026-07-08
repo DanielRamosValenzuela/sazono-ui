@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, HandCoins } from "lucide-react";
+import { AlertTriangle, ChefHat, HandCoins } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatMoney } from "@/shared/lib/format";
 import type { OrderResponse, OrderStatus, PaymentBillSummary } from "@/shared/types/order";
@@ -34,6 +34,26 @@ export function StatusBanner({
     PAYABLE_STATUSES.includes(order.status)
   );
   const remainingAmount = bill ? Number(bill.remainingAmount) : 0;
+
+  if (payableOrder?.status === "PAYMENT_FAILED") {
+    return (
+      <button
+        type="button"
+        onClick={() => onPayOrder(payableOrder)}
+        className="mt-5 flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-left transition-colors hover:bg-destructive/15"
+      >
+        <span className="flex items-center gap-2.5">
+          <AlertTriangle className="size-5 shrink-0 text-destructive" />
+          <span className="text-sm font-medium text-foreground">
+            {t("banner_paymentFailed_title")}
+          </span>
+        </span>
+        <span className="shrink-0 rounded-full bg-destructive px-3 py-1 text-xs font-semibold text-destructive-foreground">
+          {t("banner_paymentFailed_cta")}
+        </span>
+      </button>
+    );
+  }
 
   if (payableOrder) {
     return (

@@ -11,6 +11,7 @@ import type {
   UpdateStaffUserRequest,
 } from "@/shared/types/admin";
 import type {
+  BranchAnalyticsRange,
   BranchAnalyticsSummary,
   PlatformMetrics,
   RestaurantDetail,
@@ -55,9 +56,16 @@ export const adminApi = {
       token,
     });
   },
-  getBranchAnalytics(token: string, branchId: string) {
+  getBranchAnalytics(
+    token: string,
+    branchId: string,
+    range?: BranchAnalyticsRange
+  ) {
+    const query = range
+      ? `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+      : "";
     return apiRequest<BranchAnalyticsSummary>(
-      `/analytics/branches/${branchId}/summary`,
+      `/analytics/branches/${branchId}/summary${query}`,
       {
         token,
       }

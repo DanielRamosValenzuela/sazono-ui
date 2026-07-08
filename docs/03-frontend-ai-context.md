@@ -70,8 +70,13 @@ El frontend necesita contratos claros para:
 
 ## Siguiente paso sugerido para este repo
 
-1. Editar y archivar categorias/items existentes de la carta cuando el backend lo soporte (hoy solo `create`)
-2. Split bill simple desde el flujo QR (el backend ya lo soporta, el frontend aun no)
-3. Multimedia de productos cuando el backend lo soporte
-4. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
-5. Filtros de rango de fechas en los dashboards de analytics (hoy son ventanas fijas)
+1. Multimedia de productos cuando el backend lo soporte
+2. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
+
+Ya resuelto (ver doc 09 y sus referencias a docs 06-08):
+
+- editar y archivar categorias/items existentes de la carta
+- split bill simple desde el flujo QR
+- buscador de productos para mesero
+- reintento explicito de pago QR fallido
+- filtros de rango de fechas en los dashboards de analytics

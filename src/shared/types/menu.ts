@@ -115,3 +115,19 @@ export interface CreateMenuItemRequest {
 export interface CreatedMenuItem extends MenuItemDetail {
   menuCategoryId: string;
 }
+
+export interface UpdateMenuCategoryRequest {
+  name?: string;
+  sortOrder?: number;
+  status?: MenuCategoryStatus;
+}
+
+export interface UpdateMenuItemRequest {
+  name?: string;
+  description?: string;
+  price?: string;
+  sku?: string;
+  itemType?: MenuItemType;
+  preparationStationId?: string;
+  isAvailable?: boolean;
+}

@@ -9,6 +9,8 @@ import type {
   MenuDetail,
   MenuSummary,
   PreparationStation,
+  UpdateMenuCategoryRequest,
+  UpdateMenuItemRequest,
 } from "@/shared/types/menu";
 
 export const menusApi = {
@@ -79,6 +81,28 @@ export const menusApi = {
     return apiRequest<MenuDetail>(`/menus/${menuId}/publish`, {
       method: "POST",
       token,
+    });
+  },
+  updateMenuCategory(
+    token: string,
+    menuCategoryId: string,
+    payload: UpdateMenuCategoryRequest
+  ) {
+    return apiRequest<MenuCategory>(`/menus/categories/${menuCategoryId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
+    });
+  },
+  updateMenuItem(
+    token: string,
+    menuItemId: string,
+    payload: UpdateMenuItemRequest
+  ) {
+    return apiRequest<CreatedMenuItem>(`/menus/items/${menuItemId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
     });
   },
 };

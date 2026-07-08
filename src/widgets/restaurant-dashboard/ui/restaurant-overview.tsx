@@ -16,17 +16,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { adminApi } from "@/shared/api/admin-api";
 import { formatMoney } from "@/shared/lib/format";
 import { BarChart, BarList } from "@/shared/ui/charts";
-import { SelectInput } from "@/shared/ui/form-controls";
+import { SelectInput, TextInput } from "@/shared/ui/form-controls";
 import { StatCard } from "@/shared/ui/stat-card";
 import { Link } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { FirstBranchWelcome } from "./branches-panel";
+
+type RangePreset = "7d" | "30d" | "custom";
 
 function formatDayLabel(date: string, locale: string) {
   const [year, month, day] = date.split("-").map(Number);
   return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
     new Date(year, month - 1, day)
   );
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function RestaurantOverview() {
@@ -36,14 +45,40 @@ export function RestaurantOverview() {
   const session = useAdminSession();
   const branches = session.supervisorBranches;
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const branchId = selectedBranchId ?? branches[0]?.branchId ?? null;
 
+  const resolvedRange = useMemo(() => {
+    if (rangePreset === "30d") {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 29);
+      return { from: toDateKey(from), to: toDateKey(to) };
+    }
+
+    if (rangePreset === "custom" && customFrom && customTo) {
+      return { from: customFrom, to: customTo };
+    }
+
+    return undefined;
+  }, [rangePreset, customFrom, customTo]);
+
   const analyticsQuery = useQuery({
-    queryKey: ["admin", "branch-analytics", session.accessToken, branchId],
+    queryKey: [
+      "admin",
+      "branch-analytics",
+      session.accessToken,
+      branchId,
+      resolvedRange?.from,
+      resolvedRange?.to,
+    ],
     enabled:
       session.isClientReady && Boolean(session.accessToken) && Boolean(branchId),
-    queryFn: () => adminApi.getBranchAnalytics(session.accessToken!, branchId!),
+    queryFn: () =>
+      adminApi.getBranchAnalytics(session.accessToken!, branchId!, resolvedRange),
   });
 
   const summary = analyticsQuery.data;
@@ -111,24 +146,72 @@ export function RestaurantOverview() {
           </p>
         </div>
 
-        {branches.length > 1 ? (
-          <div className="w-full sm:w-64">
-            <label htmlFor="overview-branch" className="sr-only">
-              {t("branchSelector")}
+        <div className="flex flex-wrap items-end gap-3">
+          {branches.length > 1 ? (
+            <div className="w-full sm:w-56">
+              <label htmlFor="overview-branch" className="sr-only">
+                {t("branchSelector")}
+              </label>
+              <SelectInput
+                id="overview-branch"
+                value={branchId ?? ""}
+                onChange={(event) => setSelectedBranchId(event.target.value)}
+              >
+                {branches.map((branch) => (
+                  <option key={branch.branchId} value={branch.branchId}>
+                    {branch.branchName}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
+          ) : null}
+
+          <div className="w-full sm:w-48">
+            <label htmlFor="overview-range" className="sr-only">
+              {t("rangeLabel")}
             </label>
             <SelectInput
-              id="overview-branch"
-              value={branchId ?? ""}
-              onChange={(event) => setSelectedBranchId(event.target.value)}
+              id="overview-range"
+              value={rangePreset}
+              onChange={(event) =>
+                setRangePreset(event.target.value as RangePreset)
+              }
             >
-              {branches.map((branch) => (
-                <option key={branch.branchId} value={branch.branchId}>
-                  {branch.branchName}
-                </option>
-              ))}
+              <option value="7d">{t("range7d")}</option>
+              <option value="30d">{t("range30d")}</option>
+              <option value="custom">{t("rangeCustom")}</option>
             </SelectInput>
           </div>
-        ) : null}
+
+          {rangePreset === "custom" ? (
+            <>
+              <div>
+                <label htmlFor="overview-range-from" className="sr-only">
+                  {t("rangeFromLabel")}
+                </label>
+                <TextInput
+                  id="overview-range-from"
+                  type="date"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={(event) => setCustomFrom(event.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="overview-range-to" className="sr-only">
+                  {t("rangeToLabel")}
+                </label>
+                <TextInput
+                  id="overview-range-to"
+                  type="date"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={(event) => setCustomTo(event.target.value)}
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
       </header>
 
       {analyticsQuery.isError ? (
@@ -176,16 +259,16 @@ export function RestaurantOverview() {
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">{t("weekTitle")}</h2>
+          <h2 className="text-lg font-semibold">{t("seriesTitle")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("weekDescription")}
+            {t("seriesDescription")}
           </p>
           <div className="mt-6">
             {analyticsQuery.isLoading ? (
               <Skeleton className="h-56 w-full" />
             ) : (
               <BarChart
-                data={(summary?.last7Days ?? []).map((point) => ({
+                data={(summary?.dailySeries ?? []).map((point) => ({
                   label: formatDayLabel(point.date, locale),
                   hint: point.date,
                   value: Number(point.amount),
@@ -204,7 +287,7 @@ export function RestaurantOverview() {
 
         <div className="space-y-6">
           <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-semibold">{t("ordersTodayTitle")}</h2>
+            <h2 className="text-lg font-semibold">{t("ordersTitle")}</h2>
             {analyticsQuery.isLoading ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 <Skeleton className="h-7 w-28 rounded-full" />
@@ -213,7 +296,7 @@ export function RestaurantOverview() {
               </div>
             ) : (summary?.ordersByStatus.length ?? 0) === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                {t("noOrdersToday")}
+                {t("noOrders")}
               </p>
             ) : (
               <ul className="mt-4 flex flex-wrap gap-2">

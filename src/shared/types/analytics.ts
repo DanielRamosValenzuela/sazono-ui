@@ -106,7 +106,12 @@ export type BranchAnalyticsSummary = {
   todayRevenue: string;
   todayPaymentsCount: number;
   averageTicket: string;
-  last7Days: DailyPaymentsPoint[];
+  dailySeries: DailyPaymentsPoint[];
   ordersByStatus: OrdersByStatusPoint[];
   topItems: TopItemPoint[];
+};
+
+export type BranchAnalyticsRange = {
+  from: string;
+  to: string;
 };

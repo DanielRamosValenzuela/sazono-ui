@@ -1,4 +1,8 @@
 import { apiRequest } from "@/shared/api/http-client";
+import type {
+  BillSplitParticipantDetail,
+  PayBillSplitParticipantRequest,
+} from "@/shared/types/billing";
 import type { MenuDetail } from "@/shared/types/menu";
 import type {
   CreateQrOrderRequest,
@@ -46,6 +50,23 @@ export const qrApi = {
   payBill(qrToken: string, payload: PayQrBillRequest) {
     return apiRequest<PaymentResult>(
       `/qr/tables/${encodeURIComponent(qrToken)}/bill/payments`,
+      {
+        method: "POST",
+        body: payload,
+      }
+    );
+  },
+  getBillSplitParticipant(participantToken: string) {
+    return apiRequest<BillSplitParticipantDetail>(
+      `/qr/split-participants/${encodeURIComponent(participantToken)}`
+    );
+  },
+  payBillSplitParticipant(
+    participantToken: string,
+    payload: PayBillSplitParticipantRequest = {}
+  ) {
+    return apiRequest<PaymentResult>(
+      `/qr/split-participants/${encodeURIComponent(participantToken)}/pay`,
       {
         method: "POST",
         body: payload,

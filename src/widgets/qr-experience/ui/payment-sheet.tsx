@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { HandCoins } from "lucide-react";
+import { AlertTriangle, HandCoins } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ export function PaymentSheet({
   const [customTip, setCustomTip] = useState("");
   const [useCustomTip, setUseCustomTip] = useState(false);
 
+  const isRetry = order.status === "PAYMENT_FAILED";
   const orderTotal = Number(order.orderTotalAmount);
   const tipAmount = useCustomTip
     ? Math.max(0, Math.floor(Number(customTip) || 0))
@@ -60,18 +61,23 @@ export function PaymentSheet({
   return (
     <BottomSheet onClose={onClose} labelledBy="qr-pay-title">
       <div className="flex items-start gap-3">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <HandCoins className="size-5" />
+        <div
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full",
+            isRetry ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+          )}
+        >
+          {isRetry ? <AlertTriangle className="size-5" /> : <HandCoins className="size-5" />}
         </div>
         <div>
           <h2
             id="qr-pay-title"
             className="font-heading text-2xl font-bold text-foreground"
           >
-            {t("pay_title")}
+            {isRetry ? t("pay_retryTitle") : t("pay_title")}
           </h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            {t("pay_description")}
+            {isRetry ? t("pay_retryDescription") : t("pay_description")}
           </p>
         </div>
       </div>
@@ -157,7 +163,7 @@ export function PaymentSheet({
           onClick={() => payOrder.mutate()}
         >
           {payOrder.isPending ? <Spinner /> : null}
-          {t("pay_submit")}
+          {isRetry ? t("pay_retrySubmit") : t("pay_submit")}
         </Button>
         <Button
           type="button"

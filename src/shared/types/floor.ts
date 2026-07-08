@@ -1,6 +1,10 @@
 export type FloorTableStatus = "AVAILABLE" | "OCCUPIED" | "DISABLED";
 
-export type TableSessionStatus = "OPEN" | "PAYMENT_COMPLETED" | "CLOSED";
+export type TableSessionStatus =
+  | "OPEN"
+  | "PAYMENT_COMPLETED"
+  | "CLOSED"
+  | "ABANDONED";
 
 export type TableSessionSource = "WAITER" | "CASHIER";
 
@@ -35,6 +39,10 @@ export interface OpenTableSessionRequest {
 }
 
 export interface CloseTableSessionRequest {
+  closeReason: string;
+}
+
+export interface AbandonTableSessionRequest {
   closeReason: string;
 }
 

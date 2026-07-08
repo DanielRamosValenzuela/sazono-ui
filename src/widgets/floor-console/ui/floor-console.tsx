@@ -36,6 +36,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
+import { adminApi } from "@/shared/api/admin-api";
 import { authApi } from "@/shared/api/auth-api";
 import { billingApi } from "@/shared/api/billing-api";
 import { floorApi } from "@/shared/api/floor-api";
@@ -48,7 +49,7 @@ import {
 import { formatMoney } from "@/shared/lib/format";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 import type { BranchRole } from "@/shared/types/auth";
-import type { CurrentBill } from "@/shared/types/billing";
+import type { BranchOpenBill, CurrentBill } from "@/shared/types/billing";
 import type {
   FloorTable,
   TableSessionSource,
@@ -61,7 +62,9 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { AbandonSessionDialog } from "./abandon-session-dialog";
 import { AddOrderSheet } from "./add-order-sheet";
+import { SplitBillDialog } from "./split-bill-dialog";
 
 interface CreateTableFormValues {
   code: string;
@@ -77,6 +80,7 @@ const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIE
 const FLOOR_CREATE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_MULTI_SOURCE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
+const FLOOR_ABANDON_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 
 function getOpenSources(branchAccess: BranchAccess | null): TableSessionSource[] {
   if (!branchAccess) {
@@ -121,6 +125,8 @@ function getSessionStatusTone(status: TableSessionStatus) {
       return "bg-accent/35 text-accent-foreground";
     case "CLOSED":
       return "bg-secondary text-secondary-foreground";
+    case "ABANDONED":
+      return "bg-destructive/10 text-destructive";
     default:
       return "bg-secondary text-secondary-foreground";
   }
@@ -184,6 +190,8 @@ export function FloorConsole() {
   const [rawSelectedSource, setSelectedSource] = useState<TableSessionSource>("WAITER");
   const [rawFocusedTableId, setFocusedTableId] = useState<string>("");
   const [addOrderOpen, setAddOrderOpen] = useState(false);
+  const [abandonOpen, setAbandonOpen] = useState(false);
+  const [splitBillOpen, setSplitBillOpen] = useState(false);
 
   const selectedBranchId = branchAccessList.some(
     (branch) => branch.branchId === rawSelectedBranchId
@@ -201,6 +209,16 @@ export function FloorConsole() {
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
   const canAddOrder = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
+  const canSplitBill = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
+
+  const { data: branchesData } = useQuery({
+    queryKey: ["floor", "branch-settings", accessToken],
+    enabled: isClientReady && Boolean(accessToken) && canSplitBill,
+    queryFn: () => adminApi.listBranches(accessToken!),
+  });
+  const isSplitBillEnabled =
+    branchesData?.find((branch) => branch.branchId === selectedBranchId)?.settings
+      ?.splitBillEnabled ?? false;
 
   const {
     data: tablesData,
@@ -218,7 +236,33 @@ export function FloorConsole() {
     queryFn: () => floorApi.listTables(accessToken!, selectedBranchId),
   });
 
-  const tables = useMemo(() => tablesData ?? [], [tablesData]);
+  const allTables = useMemo(() => tablesData ?? [], [tablesData]);
+
+  const { data: openBillsData } = useQuery({
+    queryKey: ["billing", "open-bills", accessToken, selectedBranchId],
+    enabled: isClientReady && Boolean(accessToken) && Boolean(selectedBranchId) && canReadFloor,
+    refetchInterval: 15_000,
+    queryFn: () => billingApi.listBranchOpenBills(accessToken!, selectedBranchId),
+  });
+  const openBillsByTableId = useMemo(() => {
+    const map = new Map<string, BranchOpenBill>();
+    for (const bill of openBillsData ?? []) {
+      map.set(bill.tableId, bill);
+    }
+    return map;
+  }, [openBillsData]);
+
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
+  const tables = useMemo(() => {
+    if (!showOnlyPending) {
+      return allTables;
+    }
+    return allTables.filter((table) => {
+      const bill = openBillsByTableId.get(table.tableId);
+      return bill && Number(bill.remainingAmount) > 0;
+    });
+  }, [allTables, openBillsByTableId, showOnlyPending]);
+
   const focusedTableId = tables.some((table) => table.tableId === rawFocusedTableId)
     ? rawFocusedTableId
     : tables.find((table) => table.currentSession)?.tableId ?? tables[0]?.tableId ?? "";
@@ -698,12 +742,16 @@ export function FloorConsole() {
             <BillAndCloseCard
               bill={currentBill}
               billError={currentBillError}
+              canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
+              canSplitBill={canSplitBill && isSplitBillEnabled}
               closeForm={closeSessionForm}
               hasActiveSession={Boolean(activeSessionId)}
               isClosing={closeTableMutation.isPending}
               isLoadingBill={isCurrentBillLoading}
               isSettled={isBillSettled(currentBill)}
               locale={locale}
+              onAbandonClick={() => setAbandonOpen(true)}
+              onSplitBillClick={() => setSplitBillOpen(true)}
               onSubmit={(values) => {
                 if (!activeSessionId) {
                   return;
@@ -730,6 +778,15 @@ export function FloorConsole() {
               <CardDescription className="leading-7">
                 {t("tablesDescription")}
               </CardDescription>
+              <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={showOnlyPending}
+                  onChange={(event) => setShowOnlyPending(event.target.checked)}
+                  className="size-4 cursor-pointer rounded border-border accent-primary"
+                />
+                {t("tablesFilterPending")}
+              </label>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -810,6 +867,17 @@ export function FloorConsole() {
                                 ? t("sourceWaiter")
                                 : t("sourceCashier")}
                             </Badge>
+                            {(() => {
+                              const bill = openBillsByTableId.get(table.tableId);
+                              const remaining = bill ? Number(bill.remainingAmount) : 0;
+                              return remaining > 0 ? (
+                                <Badge className="border-0 bg-destructive/10 text-destructive">
+                                  {t("tablesBalancePending", {
+                                    amount: formatMoney(remaining, "CLP"),
+                                  })}
+                                </Badge>
+                              ) : null;
+                            })()}
                           </div>
                           <p className="mt-3 text-sm leading-7 text-muted-foreground">
                             {t("tableOpenedAt", {
@@ -880,6 +948,23 @@ export function FloorConsole() {
           branchId={selectedBranchId}
           tableSessionId={activeSessionId}
           onClose={() => setAddOrderOpen(false)}
+        />
+      ) : null}
+
+      {abandonOpen && activeSessionId ? (
+        <AbandonSessionDialog
+          accessToken={accessToken!}
+          tableSessionId={activeSessionId}
+          onClose={() => setAbandonOpen(false)}
+        />
+      ) : null}
+
+      {splitBillOpen && currentBill ? (
+        <SplitBillDialog
+          accessToken={accessToken!}
+          billId={currentBill.billId}
+          remainingAmount={currentBill.remainingAmount}
+          onClose={() => setSplitBillOpen(false)}
         />
       ) : null}
     </div>
@@ -1110,12 +1195,16 @@ function TableQrCard({ locale, t, table }: TableQrCardProps) {
 interface BillAndCloseCardProps {
   bill: CurrentBill | undefined;
   billError: unknown;
+  canAbandon: boolean;
+  canSplitBill: boolean;
   closeForm: ReturnType<typeof useForm<CloseSessionFormValues>>;
   hasActiveSession: boolean;
   isClosing: boolean;
   isLoadingBill: boolean;
   isSettled: boolean;
   locale: string;
+  onAbandonClick: () => void;
+  onSplitBillClick: () => void;
   onSubmit: (values: CloseSessionFormValues) => void;
   t: ReturnType<typeof useTranslations<"FloorConsole">>;
 }
@@ -1123,12 +1212,16 @@ interface BillAndCloseCardProps {
 function BillAndCloseCard({
   bill,
   billError,
+  canAbandon,
+  canSplitBill,
   closeForm,
   hasActiveSession,
   isClosing,
   isLoadingBill,
   isSettled,
   locale,
+  onAbandonClick,
+  onSplitBillClick,
   onSubmit,
   t,
 }: BillAndCloseCardProps) {
@@ -1192,6 +1285,18 @@ function BillAndCloseCard({
           />
         ) : null}
 
+        {bill && canSplitBill && Number(bill.remainingAmount) > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-full"
+            onClick={onSplitBillClick}
+          >
+            <Wallet className="size-4" />
+            {t("splitAction")}
+          </Button>
+        ) : null}
+
         {hasActiveSession ? (
           <form
             onSubmit={closeForm.handleSubmit(onSubmit)}
@@ -1232,6 +1337,18 @@ function BillAndCloseCard({
                 t("closeSubmit")
               )}
             </Button>
+
+            {canAbandon ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={onAbandonClick}
+              >
+                <AlertCircle className="size-4" />
+                {t("abandonAction")}
+              </Button>
+            ) : null}
           </form>
         ) : null}
       </CardContent>

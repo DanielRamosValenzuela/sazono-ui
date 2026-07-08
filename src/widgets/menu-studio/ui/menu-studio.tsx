@@ -19,6 +19,8 @@ import type {
   CreateMenuItemRequest,
   CreateMenuRequest,
   CreatePreparationStationRequest,
+  UpdateMenuCategoryRequest,
+  UpdateMenuItemRequest,
 } from "@/shared/types/menu";
 import { FieldGroup, FieldHint, FieldLabel, SelectInput } from "@/shared/ui/form-controls";
 import { MenuEditorPanel } from "./menu-editor-panel";
@@ -202,6 +204,40 @@ export function MenuStudio() {
     },
   });
 
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({
+      menuCategoryId,
+      payload,
+    }: {
+      menuCategoryId: string;
+      payload: UpdateMenuCategoryRequest;
+    }) => menusApi.updateMenuCategory(accessToken!, menuCategoryId, payload),
+    onSuccess: (category) => {
+      void invalidateMenus();
+      toast.success(t("categoryUpdateSuccess", { name: category.name }));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("categoryUpdateError"));
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({
+      menuItemId,
+      payload,
+    }: {
+      menuItemId: string;
+      payload: UpdateMenuItemRequest;
+    }) => menusApi.updateMenuItem(accessToken!, menuItemId, payload),
+    onSuccess: (item) => {
+      void invalidateMenus();
+      toast.success(t("itemUpdateSuccess", { name: item.name }));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("itemUpdateError"));
+    },
+  });
+
   const publishMenuMutation = useMutation({
     mutationFn: (menuId: string) => menusApi.publishMenu(accessToken!, menuId),
     onSuccess: (menu) => {
@@ -358,12 +394,20 @@ export function MenuStudio() {
           isLoading={isMenuDetailLoading && Boolean(selectedMenuId)}
           isAddingCategory={createCategoryMutation.isPending}
           isAddingItem={createItemMutation.isPending}
+          isUpdatingCategory={updateCategoryMutation.isPending}
+          isUpdatingItem={updateItemMutation.isPending}
           isPublishing={publishMenuMutation.isPending}
           onAddCategory={(menuId, payload) =>
             createCategoryMutation.mutate({ menuId, payload })
           }
           onAddItem={(menuCategoryId, payload) =>
             createItemMutation.mutate({ menuCategoryId, payload })
+          }
+          onUpdateCategory={(menuCategoryId, payload) =>
+            updateCategoryMutation.mutate({ menuCategoryId, payload })
+          }
+          onUpdateItem={(menuItemId, payload) =>
+            updateItemMutation.mutate({ menuItemId, payload })
           }
           onPublish={(menuId) => publishMenuMutation.mutate(menuId)}
         />

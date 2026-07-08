@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus, UtensilsCrossed } from "lucide-react";
+import { Minus, Plus, Search, UtensilsCrossed } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,7 @@ import {
 } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuItemDetail } from "@/shared/types/menu";
-import { FieldGroup, FieldLabel, TextArea } from "@/shared/ui/form-controls";
+import { FieldGroup, FieldLabel, TextArea, TextInput } from "@/shared/ui/form-controls";
 
 type AddOrderSheetProps = {
   accessToken: string;
@@ -48,6 +48,7 @@ export function AddOrderSheet({
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [notes, setNotes] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const menusQuery = useQuery({
     queryKey: ["orders", "publishable-menus", accessToken, branchId],
@@ -64,13 +65,26 @@ export function AddOrderSheet({
     enabled: Boolean(publishedMenuId),
   });
 
-  const categories = useMemo(
-    () =>
-      (menuDetailQuery.data?.categories ?? [])
-        .filter((category) => category.status === "ACTIVE" && category.items.length > 0)
-        .sort((left, right) => left.sortOrder - right.sortOrder),
-    [menuDetailQuery.data]
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const categories = useMemo(() => {
+    const activeCategories = (menuDetailQuery.data?.categories ?? [])
+      .filter((category) => category.status === "ACTIVE" && category.items.length > 0)
+      .sort((left, right) => left.sortOrder - right.sortOrder);
+
+    if (!normalizedSearch) {
+      return activeCategories;
+    }
+
+    return activeCategories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) =>
+          item.name.toLowerCase().includes(normalizedSearch)
+        ),
+      }))
+      .filter((category) => category.items.length > 0);
+  }, [menuDetailQuery.data, normalizedSearch]);
 
   const handleSetQuantity = (item: MenuItemDetail, quantity: number) => {
     setCart((lines) => setCartQuantity(lines, item, quantity));
@@ -111,6 +125,19 @@ export function AddOrderSheet({
           <DialogDescription>{t("addOrderDescription")}</DialogDescription>
         </DialogHeader>
 
+        {!isMenuLoading && !hasMenuError && publishedMenuId ? (
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <TextInput
+              type="search"
+              placeholder={t("addOrderSearchPlaceholder")}
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="pl-10"
+            />
+          </div>
+        ) : null}
+
         <div className="max-h-[45vh] overflow-y-auto rounded-2xl border border-border/60 bg-background/40 p-3">
           {isMenuLoading ? (
             <div className="space-y-3 p-2">
@@ -120,10 +147,15 @@ export function AddOrderSheet({
             </div>
           ) : hasMenuError ? (
             <p className="p-3 text-sm text-destructive">{t("addOrderMenuError")}</p>
-          ) : !publishedMenuId || categories.length === 0 ? (
+          ) : !publishedMenuId ? (
             <div className="flex flex-col items-center gap-2 p-8 text-center">
               <UtensilsCrossed className="size-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{t("addOrderMenuEmpty")}</p>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-8 text-center">
+              <Search className="size-6 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">{t("addOrderSearchEmpty")}</p>
             </div>
           ) : (
             <div className="space-y-5">
