@@ -77,10 +77,11 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
       currency: "CLP",
     },
   });
+  const { reset } = form;
 
   useEffect(() => {
     if (restaurant) {
-      form.reset({
+      reset({
         name: restaurant.name,
         legalName: restaurant.legalName ?? "",
         defaultLanguage: restaurant.defaultLanguage,
@@ -88,8 +89,7 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
         currency: restaurant.currency,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restaurant]);
+  }, [restaurant, reset]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["admin", "restaurants"] });

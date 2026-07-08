@@ -60,9 +60,6 @@ export default async function LocaleLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Patrón oficial anti-FOUC de Next para themes (docs: app/guides/preventing-flash-before-hydration).
-            Debe ser un script inline síncrono en <head> para aplicar el theme antes del primer paint;
-            useEffect o next/script provocarían flash. */}
         <script
           dangerouslySetInnerHTML={{
             __html: getThemeBootstrapScript(),

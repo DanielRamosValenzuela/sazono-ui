@@ -5,16 +5,11 @@ import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 type ConfirmButtonProps = {
-  /** Texto mostrado tras el primer clic, pidiendo confirmar. */
   confirmLabel: string;
   onConfirm: () => void;
   children: ReactNode;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children">;
 
-/**
- * Botón de dos pasos para acciones delicadas: el primer clic arma la
- * confirmación (se desarma solo a los 4 segundos), el segundo la ejecuta.
- */
 export function ConfirmButton({
   confirmLabel,
   onConfirm,

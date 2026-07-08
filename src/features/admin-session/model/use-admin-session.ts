@@ -6,10 +6,6 @@ import { ApiError } from "@/shared/api/http-client";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 import { useAdminSessionStore } from "./admin-session.store";
 
-/**
- * Sesión compartida del área admin: hidrata el perfil desde el backend,
- * limpia la sesión en 401 y expone helpers de rol.
- */
 export function useAdminSession() {
   const queryClient = useQueryClient();
   const isClientReady = useClientReady();

@@ -10,7 +10,6 @@ type RoleGateProps = PropsWithChildren<{
   allow: "platform" | "restaurantAdmin";
 }>;
 
-/** Muestra el contenido solo si la sesión tiene el perfil requerido. */
 export function RoleGate({ allow, children }: RoleGateProps) {
   const t = useTranslations("AdminShell");
   const session = useAdminSession();

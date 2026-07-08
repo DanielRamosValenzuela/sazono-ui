@@ -179,7 +179,6 @@ function useCreateBranchMutation() {
   });
 }
 
-/** Primer acceso de un admin sin sucursales: bienvenida + creación de la primera sucursal. */
 export function FirstBranchWelcome() {
   const t = useTranslations("AdminBranch");
   const createBranchMutation = useCreateBranchMutation();

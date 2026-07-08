@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 export type BarChartDatum = {
   label: string;
   value: number;
-  /** Texto completo para el tooltip (si el label visible está abreviado). */
   hint?: string;
 };
 
@@ -13,7 +12,6 @@ type BarChartProps = {
   data: BarChartDatum[];
   formatValue: (value: number) => string;
   className?: string;
-  /** Alto del área de barras en px. */
   height?: number;
   emptyLabel: string;
 };
@@ -58,7 +56,6 @@ export function BarChart({
   return (
     <div className={cn("w-full", className)}>
       <div className="relative" style={{ height }}>
-        {/* Rejilla horizontal recesiva con etiquetas de eje */}
         {ticks.map((tick) => (
           <div
             key={tick}

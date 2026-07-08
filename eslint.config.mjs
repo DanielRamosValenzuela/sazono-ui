@@ -5,12 +5,27 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  {
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+    rules: {
+      curly: ["error", "all"],
+      eqeqeq: ["error", "always"],
+      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-debugger": "error",
+      "no-warning-comments": [
+        "warn",
+        { terms: ["todo", "fixme", "xxx"], location: "anywhere" },
+      ],
+    },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
+    "graphify-out/**",
     "next-env.d.ts",
   ]),
 ]);
