@@ -70,13 +70,14 @@ El frontend necesita contratos claros para:
 
 ## Siguiente paso sugerido para este repo
 
-1. Multimedia de productos cuando el backend lo soporte
-2. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
+1. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
+2. Modelo de monetizacion de la plataforma (no existe aun, ver doc backend 14)
 
-Ya resuelto (ver doc 09 y sus referencias a docs 06-08):
+Ya resuelto (ver doc 09 y sus referencias a docs 06-08; ver doc 10 para lo mas reciente):
 
 - editar y archivar categorias/items existentes de la carta
 - split bill simple desde el flujo QR
 - buscador de productos para mesero
 - reintento explicito de pago QR fallido
 - filtros de rango de fechas en los dashboards de analytics
+- imagen principal por producto, traducciones basicas (es/en), ordenamiento con drag-and-drop y preview de carta (doc 10)

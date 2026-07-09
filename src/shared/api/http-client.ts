@@ -15,20 +15,22 @@ export class ApiError extends Error {
 type RequestOptions = {
   token?: string;
   body?: unknown;
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 };
 
 export async function apiRequest<T>(
   path: string,
   { token, body, method = "GET" }: RequestOptions = {}
 ): Promise<T> {
+  const isFormData = body instanceof FormData;
+
   const response = await fetch(`${publicEnv.apiBaseUrl}${path}`, {
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
     cache: "no-store",
   });
 

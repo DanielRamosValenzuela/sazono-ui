@@ -11,6 +11,7 @@
 7. [07 Split Bill y Abandono](D:\Programacion\Sazono\sazono-ui\docs\07-split-bill-y-abandono.md)
 8. [08 Vista Consolidada de Cuentas Abiertas](D:\Programacion\Sazono\sazono-ui\docs\08-vista-consolidada-cuentas-abiertas.md)
 9. [09 Huecos Incrementales](D:\Programacion\Sazono\sazono-ui\docs\09-huecos-incrementales.md)
+10. [10 Fase 5: Paquete de Carta](D:\Programacion\Sazono\sazono-ui\docs\10-fase-5-paquete-de-carta.md)
 
 ## Objetivo
 

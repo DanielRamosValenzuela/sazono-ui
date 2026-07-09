@@ -19,8 +19,12 @@ import type {
   CreateMenuItemRequest,
   CreateMenuRequest,
   CreatePreparationStationRequest,
+  ReorderMenuCategoriesRequest,
+  ReorderMenuItemsRequest,
   UpdateMenuCategoryRequest,
   UpdateMenuItemRequest,
+  UpsertCategoryTranslationRequest,
+  UpsertItemTranslationRequest,
 } from "@/shared/types/menu";
 import { FieldGroup, FieldHint, FieldLabel, SelectInput } from "@/shared/ui/form-controls";
 import { MenuEditorPanel } from "./menu-editor-panel";
@@ -238,6 +242,112 @@ export function MenuStudio() {
     },
   });
 
+  const reorderCategoriesMutation = useMutation({
+    mutationFn: ({
+      menuId,
+      payload,
+    }: {
+      menuId: string;
+      payload: ReorderMenuCategoriesRequest;
+    }) => menusApi.reorderMenuCategories(accessToken!, menuId, payload),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("categoryReorderError"));
+    },
+  });
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: ({
+      menuCategoryId,
+      payload,
+    }: {
+      menuCategoryId: string;
+      payload: ReorderMenuItemsRequest;
+    }) => menusApi.reorderMenuItems(accessToken!, menuCategoryId, payload),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("itemReorderError"));
+    },
+  });
+
+  const uploadItemImageMutation = useMutation({
+    mutationFn: ({
+      menuItemId,
+      file,
+    }: {
+      menuItemId: string;
+      file: File;
+    }) => menusApi.uploadMenuItemImage(accessToken!, menuItemId, file),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("itemImageUploadError"));
+    },
+  });
+
+  const removeItemImageMutation = useMutation({
+    mutationFn: (menuItemId: string) =>
+      menusApi.removeMenuItemImage(accessToken!, menuItemId),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("itemImageRemoveError"));
+    },
+  });
+
+  const upsertCategoryTranslationMutation = useMutation({
+    mutationFn: ({
+      menuCategoryId,
+      locale,
+      payload,
+    }: {
+      menuCategoryId: string;
+      locale: string;
+      payload: UpsertCategoryTranslationRequest;
+    }) =>
+      menusApi.upsertMenuCategoryTranslation(
+        accessToken!,
+        menuCategoryId,
+        locale,
+        payload
+      ),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("categoryTranslationError")
+      );
+    },
+  });
+
+  const upsertItemTranslationMutation = useMutation({
+    mutationFn: ({
+      menuItemId,
+      locale,
+      payload,
+    }: {
+      menuItemId: string;
+      locale: string;
+      payload: UpsertItemTranslationRequest;
+    }) =>
+      menusApi.upsertMenuItemTranslation(accessToken!, menuItemId, locale, payload),
+    onSuccess: () => {
+      void invalidateMenus();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("itemTranslationError")
+      );
+    },
+  });
+
   const publishMenuMutation = useMutation({
     mutationFn: (menuId: string) => menusApi.publishMenu(accessToken!, menuId),
     onSuccess: (menu) => {
@@ -396,6 +506,12 @@ export function MenuStudio() {
           isAddingItem={createItemMutation.isPending}
           isUpdatingCategory={updateCategoryMutation.isPending}
           isUpdatingItem={updateItemMutation.isPending}
+          isReorderingCategories={reorderCategoriesMutation.isPending}
+          isReorderingItems={reorderItemsMutation.isPending}
+          isUploadingItemImage={uploadItemImageMutation.isPending}
+          isRemovingItemImage={removeItemImageMutation.isPending}
+          isUpsertingCategoryTranslation={upsertCategoryTranslationMutation.isPending}
+          isUpsertingItemTranslation={upsertItemTranslationMutation.isPending}
           isPublishing={publishMenuMutation.isPending}
           onAddCategory={(menuId, payload) =>
             createCategoryMutation.mutate({ menuId, payload })
@@ -408,6 +524,34 @@ export function MenuStudio() {
           }
           onUpdateItem={(menuItemId, payload) =>
             updateItemMutation.mutate({ menuItemId, payload })
+          }
+          onReorderCategories={(menuId, orderedCategoryIds) =>
+            reorderCategoriesMutation.mutate({
+              menuId,
+              payload: { orderedCategoryIds },
+            })
+          }
+          onReorderItems={(menuCategoryId, orderedItemIds) =>
+            reorderItemsMutation.mutate({
+              menuCategoryId,
+              payload: { orderedItemIds },
+            })
+          }
+          onUploadItemImage={(menuItemId, file) =>
+            uploadItemImageMutation.mutate({ menuItemId, file })
+          }
+          onRemoveItemImage={(menuItemId) =>
+            removeItemImageMutation.mutate(menuItemId)
+          }
+          onUpsertCategoryTranslation={(menuCategoryId, locale, payload) =>
+            upsertCategoryTranslationMutation.mutate({
+              menuCategoryId,
+              locale,
+              payload,
+            })
+          }
+          onUpsertItemTranslation={(menuItemId, locale, payload) =>
+            upsertItemTranslationMutation.mutate({ menuItemId, locale, payload })
           }
           onPublish={(menuId) => publishMenuMutation.mutate(menuId)}
         />

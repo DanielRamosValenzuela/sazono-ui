@@ -8,9 +8,14 @@ import type {
   MenuCategory,
   MenuDetail,
   MenuSummary,
+  MenuTranslation,
   PreparationStation,
+  ReorderMenuCategoriesRequest,
+  ReorderMenuItemsRequest,
   UpdateMenuCategoryRequest,
   UpdateMenuItemRequest,
+  UpsertCategoryTranslationRequest,
+  UpsertItemTranslationRequest,
 } from "@/shared/types/menu";
 
 export const menusApi = {
@@ -104,5 +109,79 @@ export const menusApi = {
       token,
       body: payload,
     });
+  },
+  reorderMenuCategories(
+    token: string,
+    menuId: string,
+    payload: ReorderMenuCategoriesRequest
+  ) {
+    return apiRequest<{ reorderedCount: number }>(
+      `/menus/${menuId}/categories/reorder`,
+      {
+        method: "PATCH",
+        token,
+        body: payload,
+      }
+    );
+  },
+  reorderMenuItems(
+    token: string,
+    menuCategoryId: string,
+    payload: ReorderMenuItemsRequest
+  ) {
+    return apiRequest<{ reorderedCount: number }>(
+      `/menus/categories/${menuCategoryId}/items/reorder`,
+      {
+        method: "PATCH",
+        token,
+        body: payload,
+      }
+    );
+  },
+  uploadMenuItemImage(token: string, menuItemId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return apiRequest<CreatedMenuItem>(`/menus/items/${menuItemId}/media`, {
+      method: "POST",
+      token,
+      body: formData,
+    });
+  },
+  removeMenuItemImage(token: string, menuItemId: string) {
+    return apiRequest<CreatedMenuItem>(`/menus/items/${menuItemId}/media`, {
+      method: "DELETE",
+      token,
+    });
+  },
+  upsertMenuCategoryTranslation(
+    token: string,
+    menuCategoryId: string,
+    locale: string,
+    payload: UpsertCategoryTranslationRequest
+  ) {
+    return apiRequest<MenuTranslation>(
+      `/menus/categories/${menuCategoryId}/translations/${locale}`,
+      {
+        method: "PUT",
+        token,
+        body: payload,
+      }
+    );
+  },
+  upsertMenuItemTranslation(
+    token: string,
+    menuItemId: string,
+    locale: string,
+    payload: UpsertItemTranslationRequest
+  ) {
+    return apiRequest<MenuTranslation>(
+      `/menus/items/${menuItemId}/translations/${locale}`,
+      {
+        method: "PUT",
+        token,
+        body: payload,
+      }
+    );
   },
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { CookingPot, Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +13,21 @@ import type { MenuDetail, MenuItemDetail } from "@/shared/types/menu";
 
 type MenuViewProps = {
   menu: MenuDetail;
-  cart: CartLine[];
-  onSetQuantity: (item: MenuItemDetail, quantity: number) => void;
+  cart?: CartLine[];
+  onSetQuantity?: (item: MenuItemDetail, quantity: number) => void;
+  readOnly?: boolean;
 };
 
 function categoryAnchorId(menuCategoryId: string) {
   return `qr-category-${menuCategoryId}`;
 }
 
-export function MenuView({ menu, cart, onSetQuantity }: MenuViewProps) {
+export function MenuView({
+  menu,
+  cart = [],
+  onSetQuantity,
+  readOnly = false,
+}: MenuViewProps) {
   const t = useTranslations("QrPage");
 
   const categories = useMemo(
@@ -141,35 +148,49 @@ export function MenuView({ menu, cart, onSetQuantity }: MenuViewProps) {
                     key={item.menuItemId}
                     className={cn("py-4", !item.isAvailable && "opacity-55")}
                   >
-                    <div className="flex items-baseline gap-2.5">
-                      <h3 className="text-[0.95rem] font-medium text-foreground">
-                        {item.name}
-                      </h3>
-                      <span
-                        aria-hidden
-                        className="min-w-4 flex-1 self-end border-b border-dotted border-border"
-                      />
-                      <span className="font-heading text-base font-bold text-foreground">
-                        {formatMoney(item.price, "CLP")}
-                      </span>
-                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2.5">
+                          <h3 className="text-[0.95rem] font-medium text-foreground">
+                            {item.name}
+                          </h3>
+                          <span
+                            aria-hidden
+                            className="min-w-4 flex-1 self-end border-b border-dotted border-border"
+                          />
+                          <span className="font-heading text-base font-bold text-foreground">
+                            {formatMoney(item.price, "CLP")}
+                          </span>
+                        </div>
 
-                    {item.description ? (
-                      <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
-                        {item.description}
-                      </p>
-                    ) : null}
+                        {item.description ? (
+                          <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
+                            {item.description}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt=""
+                          width={64}
+                          height={64}
+                          className="size-16 shrink-0 rounded-xl object-cover"
+                        />
+                      ) : null}
+                    </div>
 
                     <div className="mt-2.5 flex justify-end">
                       {!item.isAvailable ? (
                         <Badge variant="outline">{t("menu_unavailable")}</Badge>
-                      ) : quantity === 0 ? (
+                      ) : readOnly ? null : quantity === 0 ? (
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-                          onClick={() => onSetQuantity(item, 1)}
+                          onClick={() => onSetQuantity?.(item, 1)}
                         >
                           <Plus data-icon="inline-start" />
                           {t("menu_add")}
@@ -182,7 +203,7 @@ export function MenuView({ menu, cart, onSetQuantity }: MenuViewProps) {
                             variant="ghost"
                             className="rounded-full"
                             aria-label={t("menu_removeOne", { name: item.name })}
-                            onClick={() => onSetQuantity(item, quantity - 1)}
+                            onClick={() => onSetQuantity?.(item, quantity - 1)}
                           >
                             <Minus />
                           </Button>
@@ -195,7 +216,7 @@ export function MenuView({ menu, cart, onSetQuantity }: MenuViewProps) {
                             variant="ghost"
                             className="rounded-full"
                             aria-label={t("menu_addOne", { name: item.name })}
-                            onClick={() => onSetQuantity(item, quantity + 1)}
+                            onClick={() => onSetQuantity?.(item, quantity + 1)}
                           >
                             <Plus />
                           </Button>

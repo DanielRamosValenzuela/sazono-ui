@@ -1,8 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import Image from "next/image";
 import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  Eye,
+  GripVertical,
+  Image as ImageIcon,
   LayoutList,
   PackagePlus,
   Pencil,
@@ -41,6 +61,8 @@ import type {
   PreparationStation,
   UpdateMenuCategoryRequest,
   UpdateMenuItemRequest,
+  UpsertCategoryTranslationRequest,
+  UpsertItemTranslationRequest,
 } from "@/shared/types/menu";
 import {
   CheckboxRow,
@@ -50,6 +72,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { MenuView } from "@/widgets/qr-experience/ui/menu-view";
 import { EmptyHint } from "./studio-primitives";
 
 const ITEM_TYPES: MenuItemType[] = [
@@ -83,6 +106,12 @@ type MenuEditorPanelProps = {
   isAddingItem: boolean;
   isUpdatingCategory: boolean;
   isUpdatingItem: boolean;
+  isReorderingCategories: boolean;
+  isReorderingItems: boolean;
+  isUploadingItemImage: boolean;
+  isRemovingItemImage: boolean;
+  isUpsertingCategoryTranslation: boolean;
+  isUpsertingItemTranslation: boolean;
   isPublishing: boolean;
   onAddCategory: (menuId: string, payload: CreateMenuCategoryRequest) => void;
   onAddItem: (menuCategoryId: string, payload: CreateMenuItemRequest) => void;
@@ -91,6 +120,20 @@ type MenuEditorPanelProps = {
     payload: UpdateMenuCategoryRequest
   ) => void;
   onUpdateItem: (menuItemId: string, payload: UpdateMenuItemRequest) => void;
+  onReorderCategories: (menuId: string, orderedCategoryIds: string[]) => void;
+  onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
+  onUploadItemImage: (menuItemId: string, file: File) => void;
+  onRemoveItemImage: (menuItemId: string) => void;
+  onUpsertCategoryTranslation: (
+    menuCategoryId: string,
+    locale: string,
+    payload: UpsertCategoryTranslationRequest
+  ) => void;
+  onUpsertItemTranslation: (
+    menuItemId: string,
+    locale: string,
+    payload: UpsertItemTranslationRequest
+  ) => void;
   onPublish: (menuId: string) => void;
 };
 
@@ -102,14 +145,31 @@ export function MenuEditorPanel({
   isAddingItem,
   isUpdatingCategory,
   isUpdatingItem,
+  isReorderingCategories,
+  isReorderingItems,
+  isUploadingItemImage,
+  isRemovingItemImage,
+  isUpsertingCategoryTranslation,
+  isUpsertingItemTranslation,
   isPublishing,
   onAddCategory,
   onAddItem,
   onUpdateCategory,
   onUpdateItem,
+  onReorderCategories,
+  onReorderItems,
+  onUploadItemImage,
+  onRemoveItemImage,
+  onUpsertCategoryTranslation,
+  onUpsertItemTranslation,
   onPublish,
 }: MenuEditorPanelProps) {
   const t = useTranslations("MenuStudio");
+  const [isPreviewOpen, setPreviewOpen] = useState(false);
+  const categorySensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+  const targetLocale = menu?.defaultLanguage === "en" ? "es" : "en";
 
   const categoryForm = useForm<CategoryFormValues>({
     defaultValues: { name: "" },
@@ -122,6 +182,31 @@ export function MenuEditorPanel({
       (category) => category.status === "ACTIVE" && category.items.length > 0
     )
   );
+
+  const handleCategoryDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!menu || !over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = menu.categories.findIndex(
+      (category) => category.menuCategoryId === active.id
+    );
+    const newIndex = menu.categories.findIndex(
+      (category) => category.menuCategoryId === over.id
+    );
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const reordered = arrayMove(menu.categories, oldIndex, newIndex);
+    onReorderCategories(
+      menu.menuId,
+      reordered.map((category) => category.menuCategoryId)
+    );
+  };
 
   if (isLoading) {
     return (
@@ -163,46 +248,80 @@ export function MenuEditorPanel({
             </CardDescription>
           </div>
 
-          {isDraft ? (
-            <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
-                size="lg"
+                variant="outline"
                 className="rounded-full"
-                disabled={!hasPublishableContent || isPublishing}
-                onClick={() => onPublish(menu.menuId)}
+                onClick={() => setPreviewOpen(true)}
               >
-                {isPublishing ? <Spinner /> : <Rocket className="size-4" />}
-                {isPublishing ? t("publishSubmitting") : t("publishSubmit")}
+                <Eye className="size-4" />
+                {t("previewOpen")}
               </Button>
-              {!hasPublishableContent ? (
-                <p className="max-w-52 text-right text-xs leading-5 text-muted-foreground">
-                  {t("publishBlockedHint")}
-                </p>
+              {isDraft ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  className="rounded-full"
+                  disabled={!hasPublishableContent || isPublishing}
+                  onClick={() => onPublish(menu.menuId)}
+                >
+                  {isPublishing ? <Spinner /> : <Rocket className="size-4" />}
+                  {isPublishing ? t("publishSubmitting") : t("publishSubmit")}
+                </Button>
               ) : null}
             </div>
-          ) : null}
+            {isDraft && !hasPublishableContent ? (
+              <p className="max-w-52 text-right text-xs leading-5 text-muted-foreground">
+                {t("publishBlockedHint")}
+              </p>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
         {menu.categories.length ? (
-          <div className="space-y-5">
-            {menu.categories.map((category) => (
-              <CategorySection
-                key={category.menuCategoryId}
-                category={category}
-                canEdit={isDraft}
-                stations={activeStations}
-                isAddingItem={isAddingItem}
-                isUpdatingCategory={isUpdatingCategory}
-                isUpdatingItem={isUpdatingItem}
-                onAddItem={onAddItem}
-                onUpdateCategory={onUpdateCategory}
-                onUpdateItem={onUpdateItem}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={categorySensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleCategoryDragEnd}
+          >
+            <SortableContext
+              items={menu.categories.map((category) => category.menuCategoryId)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-5">
+                {menu.categories.map((category) => (
+                  <CategorySection
+                    key={category.menuCategoryId}
+                    category={category}
+                    canEdit={isDraft}
+                    stations={activeStations}
+                    isAddingItem={isAddingItem}
+                    isUpdatingCategory={isUpdatingCategory}
+                    isUpdatingItem={isUpdatingItem}
+                    isReorderingItems={isReorderingItems}
+                    isDraggingDisabled={isReorderingCategories}
+                    isUploadingItemImage={isUploadingItemImage}
+                    isRemovingItemImage={isRemovingItemImage}
+                    isUpsertingCategoryTranslation={isUpsertingCategoryTranslation}
+                    isUpsertingItemTranslation={isUpsertingItemTranslation}
+                    targetLocale={targetLocale}
+                    onAddItem={onAddItem}
+                    onUpdateCategory={onUpdateCategory}
+                    onUpdateItem={onUpdateItem}
+                    onReorderItems={onReorderItems}
+                    onUploadItemImage={onUploadItemImage}
+                    onRemoveItemImage={onRemoveItemImage}
+                    onUpsertCategoryTranslation={onUpsertCategoryTranslation}
+                    onUpsertItemTranslation={onUpsertItemTranslation}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         ) : (
           <EmptyHint>{t("categoriesEmpty")}</EmptyHint>
         )}
@@ -241,6 +360,15 @@ export function MenuEditorPanel({
           </form>
         ) : null}
       </CardContent>
+
+      <Dialog open={isPreviewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-md gap-0 overflow-y-auto p-0 sm:max-h-[85vh]">
+          <DialogHeader className="border-b border-border/60 p-5 pb-4">
+            <DialogTitle>{t("previewTitle")}</DialogTitle>
+          </DialogHeader>
+          <MenuView menu={menu} readOnly />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -248,6 +376,7 @@ export function MenuEditorPanel({
 type CategoryEditFormValues = {
   name: string;
   status: MenuCategoryStatus;
+  translatedName: string;
 };
 
 type CategorySectionProps = {
@@ -257,12 +386,32 @@ type CategorySectionProps = {
   isAddingItem: boolean;
   isUpdatingCategory: boolean;
   isUpdatingItem: boolean;
+  isReorderingItems: boolean;
+  isDraggingDisabled: boolean;
+  isUploadingItemImage: boolean;
+  isRemovingItemImage: boolean;
+  isUpsertingCategoryTranslation: boolean;
+  isUpsertingItemTranslation: boolean;
+  targetLocale: string;
   onAddItem: (menuCategoryId: string, payload: CreateMenuItemRequest) => void;
   onUpdateCategory: (
     menuCategoryId: string,
     payload: UpdateMenuCategoryRequest
   ) => void;
   onUpdateItem: (menuItemId: string, payload: UpdateMenuItemRequest) => void;
+  onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
+  onUploadItemImage: (menuItemId: string, file: File) => void;
+  onRemoveItemImage: (menuItemId: string) => void;
+  onUpsertCategoryTranslation: (
+    menuCategoryId: string,
+    locale: string,
+    payload: UpsertCategoryTranslationRequest
+  ) => void;
+  onUpsertItemTranslation: (
+    menuItemId: string,
+    locale: string,
+    payload: UpsertItemTranslationRequest
+  ) => void;
 };
 
 function CategorySection({
@@ -272,14 +421,67 @@ function CategorySection({
   isAddingItem,
   isUpdatingCategory,
   isUpdatingItem,
+  isReorderingItems,
+  isDraggingDisabled,
+  isUploadingItemImage,
+  isRemovingItemImage,
+  isUpsertingCategoryTranslation,
+  isUpsertingItemTranslation,
+  targetLocale,
   onAddItem,
   onUpdateCategory,
   onUpdateItem,
+  onReorderItems,
+  onUploadItemImage,
+  onRemoveItemImage,
+  onUpsertCategoryTranslation,
+  onUpsertItemTranslation,
 }: CategorySectionProps) {
   const t = useTranslations("MenuStudio");
   const [isFormOpen, setFormOpen] = useState(false);
   const [isEditingCategory, setEditingCategory] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItemDetail | null>(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: category.menuCategoryId,
+    disabled: !canEdit || isDraggingDisabled,
+  });
+
+  const itemSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+
+  const handleItemDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = category.items.findIndex(
+      (item) => item.menuItemId === active.id
+    );
+    const newIndex = category.items.findIndex(
+      (item) => item.menuItemId === over.id
+    );
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const reordered = arrayMove(category.items, oldIndex, newIndex);
+    onReorderItems(
+      category.menuCategoryId,
+      reordered.map((item) => item.menuItemId)
+    );
+  };
 
   const itemForm = useForm<ItemFormValues>({
     defaultValues: {
@@ -292,12 +494,28 @@ function CategorySection({
     },
   });
 
+  const existingCategoryTranslation = category.translations.find(
+    (translation) => translation.locale === targetLocale
+  );
+
   const categoryEditForm = useForm<CategoryEditFormValues>({
-    defaultValues: { name: category.name, status: category.status },
+    defaultValues: {
+      name: category.name,
+      status: category.status,
+      translatedName: existingCategoryTranslation?.name ?? "",
+    },
   });
 
   return (
-    <section className="rounded-[1.6rem] border border-border/70 bg-background/55 p-5">
+    <section
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+      }}
+      className="rounded-[1.6rem] border border-border/70 bg-background/55 p-5"
+    >
       {isEditingCategory ? (
         <form
           onSubmit={categoryEditForm.handleSubmit((values) => {
@@ -305,9 +523,17 @@ function CategorySection({
               name: values.name.trim(),
               status: values.status,
             });
+
+            const translatedName = values.translatedName.trim();
+            if (translatedName) {
+              onUpsertCategoryTranslation(category.menuCategoryId, targetLocale, {
+                name: translatedName,
+              });
+            }
+
             setEditingCategory(false);
           })}
-          className="grid gap-3 rounded-[1.25rem] border border-primary/20 bg-primary/5 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
+          className="grid gap-3 rounded-[1.25rem] border border-primary/20 bg-primary/5 p-4"
         >
           <FieldGroup>
             <FieldLabel htmlFor={`category-edit-name-${category.menuCategoryId}`}>
@@ -320,43 +546,83 @@ function CategorySection({
             />
           </FieldGroup>
 
-          <FieldGroup>
-            <FieldLabel htmlFor={`category-edit-status-${category.menuCategoryId}`}>
-              {t("categoryEditStatusLabel")}
-            </FieldLabel>
-            <SelectInput
-              id={`category-edit-status-${category.menuCategoryId}`}
-              disabled={isUpdatingCategory}
-              {...categoryEditForm.register("status")}
-            >
-              {CATEGORY_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {t(`categoryStatus_${status}`)}
-                </option>
-              ))}
-            </SelectInput>
-          </FieldGroup>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FieldGroup>
+              <FieldLabel htmlFor={`category-edit-status-${category.menuCategoryId}`}>
+                {t("categoryEditStatusLabel")}
+              </FieldLabel>
+              <SelectInput
+                id={`category-edit-status-${category.menuCategoryId}`}
+                disabled={isUpdatingCategory}
+                {...categoryEditForm.register("status")}
+              >
+                {CATEGORY_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {t(`categoryStatus_${status}`)}
+                  </option>
+                ))}
+              </SelectInput>
+            </FieldGroup>
 
-          <Button type="submit" size="sm" className="rounded-full" disabled={isUpdatingCategory}>
-            {isUpdatingCategory ? <Spinner /> : null}
-            {t("categoryEditSave")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="rounded-full"
-            onClick={() => {
-              categoryEditForm.reset({ name: category.name, status: category.status });
-              setEditingCategory(false);
-            }}
-          >
-            {t("categoryEditCancel")}
-          </Button>
+            <FieldGroup>
+              <FieldLabel
+                htmlFor={`category-edit-translated-name-${category.menuCategoryId}`}
+              >
+                {t("translationSectionTitle", { locale: targetLocale })}
+              </FieldLabel>
+              <TextInput
+                id={`category-edit-translated-name-${category.menuCategoryId}`}
+                placeholder={t("translationNameLabel")}
+                disabled={isUpdatingCategory || isUpsertingCategoryTranslation}
+                {...categoryEditForm.register("translatedName")}
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              className="rounded-full"
+              disabled={isUpdatingCategory || isUpsertingCategoryTranslation}
+            >
+              {isUpdatingCategory || isUpsertingCategoryTranslation ? (
+                <Spinner />
+              ) : null}
+              {t("categoryEditSave")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => {
+                categoryEditForm.reset({
+                  name: category.name,
+                  status: category.status,
+                  translatedName: existingCategoryTranslation?.name ?? "",
+                });
+                setEditingCategory(false);
+              }}
+            >
+              {t("categoryEditCancel")}
+            </Button>
+          </div>
         </form>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            {canEdit ? (
+              <button
+                type="button"
+                className="cursor-grab touch-none rounded-full p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                aria-label={t("categoryDragHandle")}
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="size-4" />
+              </button>
+            ) : null}
             <h3 className="text-xl font-semibold">{category.name}</h3>
             {category.status !== "ACTIVE" ? (
               <Badge variant="secondary" className="gap-1">
@@ -384,57 +650,28 @@ function CategorySection({
       )}
 
       {category.items.length ? (
-        <ul className="mt-4 grid gap-3 lg:grid-cols-2">
-          {category.items.map((item) => (
-            <li
-              key={item.menuItemId}
-              className={cn(
-                "rounded-[1.25rem] border border-border/70 bg-card/72 p-4",
-                !item.isAvailable && "opacity-60"
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-medium">{item.name}</p>
-                    {canEdit ? (
-                      <Button
-                        type="button"
-                        size="icon-xs"
-                        variant="ghost"
-                        className="rounded-full"
-                        aria-label={t("itemEditAction")}
-                        onClick={() => setEditingItem(item)}
-                      >
-                        <Pencil />
-                      </Button>
-                    ) : null}
-                  </div>
-                  {item.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                      {item.description}
-                    </p>
-                  ) : null}
-                </div>
-                <p className="shrink-0 font-heading text-lg font-semibold text-primary">
-                  {formatMoney(item.price, "CLP")}
-                </p>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="secondary">{t(`itemType_${item.itemType}`)}</Badge>
-                <Badge variant="outline">
-                  {item.preparationStation.name}
-                </Badge>
-                {!item.isAvailable ? (
-                  <Badge className="border-0 bg-muted text-muted-foreground">
-                    {t("itemUnavailable")}
-                  </Badge>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DndContext
+          sensors={itemSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleItemDragEnd}
+        >
+          <SortableContext
+            items={category.items.map((item) => item.menuItemId)}
+            strategy={rectSortingStrategy}
+          >
+            <ul className="mt-4 grid gap-3 lg:grid-cols-2">
+              {category.items.map((item) => (
+                <SortableItemCard
+                  key={item.menuItemId}
+                  item={item}
+                  canEdit={canEdit}
+                  isDraggingDisabled={isReorderingItems}
+                  onEdit={() => setEditingItem(item)}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
       ) : (
         <div className="mt-4 rounded-[1.25rem] border border-dashed border-border bg-background/45 p-4 text-sm text-muted-foreground">
           {t("categoryNoItems")}
@@ -601,18 +838,133 @@ function CategorySection({
 
       {editingItem ? (
         <EditItemDialog
-          item={editingItem}
+          item={
+            category.items.find(
+              (item) => item.menuItemId === editingItem.menuItemId
+            ) ?? editingItem
+          }
           categoryName={category.name}
           stations={stations}
           isUpdating={isUpdatingItem}
+          isUploadingImage={isUploadingItemImage}
+          isRemovingImage={isRemovingItemImage}
+          isUpsertingTranslation={isUpsertingItemTranslation}
+          targetLocale={targetLocale}
           onClose={() => setEditingItem(null)}
           onSave={(payload) => {
             onUpdateItem(editingItem.menuItemId, payload);
             setEditingItem(null);
           }}
+          onUploadImage={(file) => onUploadItemImage(editingItem.menuItemId, file)}
+          onRemoveImage={() => onRemoveItemImage(editingItem.menuItemId)}
+          onUpsertTranslation={(locale, payload) =>
+            onUpsertItemTranslation(editingItem.menuItemId, locale, payload)
+          }
         />
       ) : null}
     </section>
+  );
+}
+
+type SortableItemCardProps = {
+  item: MenuItemDetail;
+  canEdit: boolean;
+  isDraggingDisabled: boolean;
+  onEdit: () => void;
+};
+
+function SortableItemCard({
+  item,
+  canEdit,
+  isDraggingDisabled,
+  onEdit,
+}: SortableItemCardProps) {
+  const t = useTranslations("MenuStudio");
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.menuItemId,
+    disabled: !canEdit || isDraggingDisabled,
+  });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+      }}
+      className={cn(
+        "rounded-[1.25rem] border border-border/70 bg-card/72 p-4",
+        !item.isAvailable && "opacity-60"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          {item.imageUrl ? (
+            <Image
+              src={item.imageUrl}
+              alt=""
+              width={44}
+              height={44}
+              className="size-11 shrink-0 rounded-xl object-cover"
+            />
+          ) : null}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1">
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="cursor-grab touch-none rounded-full p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                  aria-label={t("itemDragHandle")}
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="size-3.5" />
+                </button>
+              ) : null}
+              <p className="font-medium">{item.name}</p>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="rounded-full"
+                  aria-label={t("itemEditAction")}
+                  onClick={onEdit}
+                >
+                  <Pencil />
+                </Button>
+              ) : null}
+            </div>
+            {item.description ? (
+              <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                {item.description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <p className="shrink-0 font-heading text-lg font-semibold text-primary">
+          {formatMoney(item.price, "CLP")}
+        </p>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge variant="secondary">{t(`itemType_${item.itemType}`)}</Badge>
+        <Badge variant="outline">{item.preparationStation.name}</Badge>
+        {!item.isAvailable ? (
+          <Badge className="border-0 bg-muted text-muted-foreground">
+            {t("itemUnavailable")}
+          </Badge>
+        ) : null}
+      </div>
+    </li>
   );
 }
 
@@ -624,6 +976,8 @@ type EditItemFormValues = {
   itemType: MenuItemType;
   preparationStationId: string;
   isAvailable: boolean;
+  translatedName: string;
+  translatedDescription: string;
 };
 
 type EditItemDialogProps = {
@@ -631,8 +985,18 @@ type EditItemDialogProps = {
   categoryName: string;
   stations: PreparationStation[];
   isUpdating: boolean;
+  isUploadingImage: boolean;
+  isRemovingImage: boolean;
+  isUpsertingTranslation: boolean;
+  targetLocale: string;
   onClose: () => void;
   onSave: (payload: UpdateMenuItemRequest) => void;
+  onUploadImage: (file: File) => void;
+  onRemoveImage: () => void;
+  onUpsertTranslation: (
+    locale: string,
+    payload: UpsertItemTranslationRequest
+  ) => void;
 };
 
 function EditItemDialog({
@@ -640,10 +1004,21 @@ function EditItemDialog({
   categoryName,
   stations,
   isUpdating,
+  isUploadingImage,
+  isRemovingImage,
+  isUpsertingTranslation,
+  targetLocale,
   onClose,
   onSave,
+  onUploadImage,
+  onRemoveImage,
+  onUpsertTranslation,
 }: EditItemDialogProps) {
   const t = useTranslations("MenuStudio");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const existingTranslation = item.translations.find(
+    (translation) => translation.locale === targetLocale
+  );
 
   const form = useForm<EditItemFormValues>({
     defaultValues: {
@@ -652,6 +1027,8 @@ function EditItemDialog({
       price: item.price,
       sku: item.sku ?? "",
       itemType: item.itemType,
+      translatedName: existingTranslation?.name ?? "",
+      translatedDescription: existingTranslation?.description ?? "",
       preparationStationId: item.preparationStation.preparationStationId,
       isAvailable: item.isAvailable,
     },
@@ -666,6 +1043,65 @@ function EditItemDialog({
           </DialogTitle>
         </DialogHeader>
 
+        <div className="flex items-center gap-4">
+          <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted">
+            {item.imageUrl ? (
+              <Image
+                src={item.imageUrl}
+                alt=""
+                width={80}
+                height={80}
+                className="size-full object-cover"
+              />
+            ) : (
+              <ImageIcon className="size-6 text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex flex-1 flex-col gap-2">
+            <p className="text-sm font-medium">{t("itemImageLabel")}</p>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  onUploadImage(file);
+                }
+                event.target.value = "";
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full"
+                disabled={isUploadingImage}
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {isUploadingImage ? <Spinner /> : null}
+                {item.imageUrl ? t("itemImageReplace") : t("itemImageUpload")}
+              </Button>
+              {item.imageUrl ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled={isRemovingImage}
+                  onClick={onRemoveImage}
+                >
+                  {isRemovingImage ? <Spinner /> : null}
+                  {t("itemImageRemove")}
+                </Button>
+              ) : null}
+            </div>
+            <FieldHint>{t("itemImageHint")}</FieldHint>
+          </div>
+        </div>
+
         <form
           onSubmit={form.handleSubmit((values) => {
             onSave({
@@ -677,6 +1113,14 @@ function EditItemDialog({
               preparationStationId: values.preparationStationId,
               isAvailable: values.isAvailable,
             });
+
+            const translatedName = values.translatedName.trim();
+            if (translatedName) {
+              onUpsertTranslation(targetLocale, {
+                name: translatedName,
+                description: values.translatedDescription.trim() || undefined,
+              });
+            }
           })}
           className="grid gap-4"
         >
@@ -759,6 +1203,36 @@ function EditItemDialog({
             />
             {t("itemAvailableLabel")}
           </CheckboxRow>
+
+          <div className="grid gap-4 rounded-[1.25rem] border border-border/70 bg-background/50 p-4 md:grid-cols-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground md:col-span-2">
+              {t("translationSectionTitle", { locale: targetLocale })}
+            </p>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="edit-item-translated-name">
+                {t("translationNameLabel")}
+              </FieldLabel>
+              <TextInput
+                id="edit-item-translated-name"
+                disabled={isUpdating || isUpsertingTranslation}
+                {...form.register("translatedName")}
+              />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="edit-item-translated-description">
+                {t("translationDescriptionLabel")}
+              </FieldLabel>
+              <TextInput
+                id="edit-item-translated-description"
+                disabled={isUpdating || isUpsertingTranslation}
+                {...form.register("translatedDescription")}
+              />
+            </FieldGroup>
+
+            <FieldHint className="md:col-span-2">{t("translationHint")}</FieldHint>
+          </div>
 
           <div className="flex flex-wrap gap-3">
             <Button

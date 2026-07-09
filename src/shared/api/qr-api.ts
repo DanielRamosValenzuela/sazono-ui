@@ -14,9 +14,10 @@ import type {
 } from "@/shared/types/order";
 
 export const qrApi = {
-  getMenu(qrToken: string) {
+  getMenu(qrToken: string, locale?: string) {
+    const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
     return apiRequest<MenuDetail>(
-      `/qr/tables/${encodeURIComponent(qrToken)}/menu`
+      `/qr/tables/${encodeURIComponent(qrToken)}/menu${query}`
     );
   },
   listOrders(qrToken: string) {

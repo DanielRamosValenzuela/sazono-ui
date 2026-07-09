@@ -110,19 +110,20 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 
 ## 5. Tareas frontend
 
-- [ ] Consolidar estructura `src/app`, `src/views`, `src/features`, `src/entities`, `src/shared`
-- [ ] Consolidar i18n base (`es` y `en`) y matcher de rutas localizadas
-- [ ] Definir tipos frontend para `Menu`, `Order`, `Bill`, `TableSession`, `StationTicket`
-- [ ] Crear shell visual para experiencia QR
-- [ ] Crear shell visual para experiencia staff
-- [ ] Crear base minima para experiencia administrativa del restaurante
+- [x] Consolidar estructura `src/app`, `src/views`, `src/features`, `src/entities`, `src/shared`
+- [x] Consolidar i18n base (`es` y `en`) y matcher de rutas localizadas
+- [x] Definir tipos frontend para `Menu`, `Order`, `Bill`, `TableSession`, `StationTicket` (`shared/types/*.ts`)
+- [x] Crear shell visual para experiencia QR (`widgets/qr-experience`, ruta `/[locale]/qr`)
+- [x] Crear shell visual para experiencia staff (`widgets/floor-console` y afines, ruta `/[locale]/staff`)
+- [x] Crear base minima para experiencia administrativa del restaurante (`widgets/admin-shell`, ruta `/[locale]/admin`)
 - [x] Crear shell visual para backoffice de carta (`/staff/menu` con `widgets/menu-studio`, gated a rol `ADMIN` de sucursal)
 - [x] Implementar lista y creacion de categorias
 - [x] Implementar edicion y archivado de categorias e items existentes (`PATCH /menus/categories/:id`, `PATCH /menus/items/:id`, solo sobre carta `DRAFT`; ver doc 09)
 - [x] Implementar formulario de producto (nombre, descripcion, precio, tipo, estacion, disponibilidad)
-- [ ] Implementar imagen principal por producto (pendiente de multimedia en backend)
-- [ ] Implementar traducciones basicas de carta (pendiente de contrato backend)
-- [ ] Implementar preview simple de carta
+- [x] Implementar imagen principal por producto (`POST`/`DELETE /menus/items/:id/media`, bucket publico `menu-media` en Supabase Storage; ver doc 10)
+- [x] Implementar traducciones basicas de carta (`PUT /menus/categories|items/:id/translations/:locale`, la carta QR respeta `?locale=`; ver doc 10)
+- [x] Implementar preview simple de carta (reutiliza `MenuView` en modo solo-lectura; ver doc 10)
+- [x] Implementar ordenamiento de categorias e items con drag-and-drop (`@dnd-kit`, `PATCH .../reorder` en lote; ver doc 10)
 - [x] Implementar publicacion de carta (publica el draft y lo deja como carta activa)
 - [x] Implementar gestion de estaciones de preparacion por sucursal
 - [x] Implementar pagina de menu QR
@@ -188,5 +189,11 @@ en doc 08.
 Cierre de los 4 huecos que quedaron abiertos tras doc 08: buscador para
 mesero, reintento de pago QR fallido, edicion/archivado de carta y filtros
 de rango en analytics. Detalle completo en doc 09.
+
+## 12. Fase 5: paquete de carta
+
+Preview de carta, ordenamiento con drag-and-drop, imagen principal por
+producto y traducciones basicas (es/en) — los 4 pendientes que quedaban
+listados en doc backend 03. Detalle completo en doc 10.
 
 Detalle completo en doc 05.

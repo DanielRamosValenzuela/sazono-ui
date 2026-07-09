@@ -23,9 +23,9 @@ async function forwardRequest(request: NextRequest, context: RouteContext) {
     },
     ...(request.method === "GET" || request.method === "HEAD"
       ? {}
-      : { body: await request.text() }),
+      : { body: request.body, duplex: "half" }),
     cache: "no-store",
-  });
+  } as RequestInit & { duplex: "half" });
 
   return new Response(response.body, {
     status: response.status,
@@ -44,6 +44,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  return forwardRequest(request, context);
+}
+
+export async function PUT(request: NextRequest, context: RouteContext) {
   return forwardRequest(request, context);
 }
 

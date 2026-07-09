@@ -46,6 +46,12 @@ export interface MenuSummary {
   itemCount: number;
 }
 
+export interface MenuTranslation {
+  locale: string;
+  name: string;
+  description: string | null;
+}
+
 export interface MenuItemDetail {
   menuItemId: string;
   name: string;
@@ -54,6 +60,9 @@ export interface MenuItemDetail {
   sku: string | null;
   itemType: MenuItemType;
   isAvailable: boolean;
+  sortOrder: number;
+  imageUrl: string | null;
+  translations: MenuTranslation[];
   preparationStation: PreparationStationSummary;
 }
 
@@ -62,6 +71,7 @@ export interface MenuCategoryDetail {
   name: string;
   sortOrder: number;
   status: MenuCategoryStatus;
+  translations: MenuTranslation[];
   items: MenuItemDetail[];
 }
 
@@ -130,4 +140,22 @@ export interface UpdateMenuItemRequest {
   itemType?: MenuItemType;
   preparationStationId?: string;
   isAvailable?: boolean;
+  sortOrder?: number;
+}
+
+export interface ReorderMenuCategoriesRequest {
+  orderedCategoryIds: string[];
+}
+
+export interface ReorderMenuItemsRequest {
+  orderedItemIds: string[];
+}
+
+export interface UpsertCategoryTranslationRequest {
+  name: string;
+}
+
+export interface UpsertItemTranslationRequest {
+  name: string;
+  description?: string;
 }

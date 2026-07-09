@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QrCode, SearchX } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,6 +90,7 @@ function MenuSkeleton() {
 
 export function QrExperience({ qrToken }: QrExperienceProps) {
   const t = useTranslations("QrPage");
+  const locale = useLocale();
   const queryClient = useQueryClient();
 
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -98,8 +99,8 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
   const [billSheetOpen, setBillSheetOpen] = useState(false);
 
   const menuQuery = useQuery({
-    queryKey: ["qr-menu", qrToken],
-    queryFn: () => qrApi.getMenu(qrToken as string),
+    queryKey: ["qr-menu", qrToken, locale],
+    queryFn: () => qrApi.getMenu(qrToken as string, locale),
     enabled: Boolean(qrToken),
     retry: 1,
   });
