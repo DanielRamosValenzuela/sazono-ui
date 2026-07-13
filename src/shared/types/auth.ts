@@ -36,5 +36,15 @@ export type LoginRequest = {
   email: string;
   password: string;
   profileType?: LoginProfileType;
-  restaurantId?: string;
+  restaurantSlug?: string;
+};
+
+export type RestaurantBySlug = {
+  name: string;
+  isActive: boolean;
+};
+
+export type RestaurantSearchResult = {
+  name: string;
+  slug: string;
 };

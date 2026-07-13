@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Libre_Baskerville, Poppins } from "next/font/google";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 import { AppProviders } from "@/app/providers/app-providers";
 import { routing } from "@/i18n/routing";
-import { appMetadata } from "@/shared/config/app-metadata";
+import { appMetadata, appViewport } from "@/shared/config/app-metadata";
 import { getThemeBootstrapScript } from "@/shared/lib/theme-config";
+import { ServiceWorkerRegistration } from "@/shared/ui/service-worker-registration";
 import "../globals.css";
 
 const bodyFont = Poppins({
@@ -28,6 +30,7 @@ const monoFont = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = appMetadata;
+export const viewport: Viewport = appViewport;
 
 type LocaleLayoutProps = Readonly<{
   children: React.ReactNode;
@@ -60,17 +63,14 @@ export default async function LocaleLayout({
       className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: getThemeBootstrapScript(),
-          }}
-        />
-      </head>
       <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegistration />
         <AppProviders>
           <NextIntlClientProvider>{children}</NextIntlClientProvider>
         </AppProviders>
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {getThemeBootstrapScript()}
+        </Script>
       </body>
     </html>
   );

@@ -158,7 +158,7 @@ El frontend MVP esta listo cuando:
 
 Ademas del MVP descrito arriba, se construyeron dashboards completos para `platform_admin` y para el `ADMIN` de restaurante, con UX orientada a personal no tecnico:
 
-- [x] Shell administrativo unico con sidebar (`widgets/admin-shell`), compartido por `/admin` y `/staff`
+- [x] Shell administrativo unico con sidebar (`widgets/admin-shell`), compartido por `/admin` y `/staff`, con login separado por `area` (platform vs restaurante por slug; ver doc 11)
 - [x] Dashboard de plataforma: metricas totales, pagos por mes, top restaurantes
 - [x] CRUD de restaurantes para `platform_admin`: listar, ver detalle (sucursales + equipo con correo), editar, activar/desactivar
 - [x] Dashboard de restaurante: mesas ocupadas, ventas de hoy, ticket promedio, serie 7 dias, ordenes por estado, top productos
@@ -195,5 +195,19 @@ de rango en analytics. Detalle completo en doc 09.
 Preview de carta, ordenamiento con drag-and-drop, imagen principal por
 producto y traducciones basicas (es/en) — los 4 pendientes que quedaban
 listados en doc backend 03. Detalle completo en doc 10.
+
+## 13. Fase 6: control de acceso por sucursal y login por restaurante
+
+Login separado por tipo de cuenta y por restaurante (via slug), sidebar de
+`/staff/*` filtrado por rol real, split-bill separado de agregar-orden en
+los permisos del mesero, y PWA instalable para mesero/cocina (manifest,
+iconos, service worker conservador, safe-area). Detalle completo en doc 11.
+
+## 14. Fase 7: landing marketera y captura de leads
+
+Landing publica reescrita para ser marketera (sin exponer rutas internas):
+formulario real de contacto/demo (`ContactSection`, guarda en backend),
+pantalla "ya soy cliente" con buscador de restaurante (`/ingresar`), y vista
+de leads capturados en `/admin/leads`. Detalle completo en doc 12.
 
 Detalle completo en doc 05.

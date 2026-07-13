@@ -53,6 +53,25 @@ export function useAdminSession() {
         )
       : [];
 
+  const hasAnyRole = (roles: string[]) =>
+    user?.profileType === "staff"
+      ? user.branchRoles.some((branchRole) => roles.includes(branchRole.role))
+      : false;
+
+  const canAccessFloor = hasAnyRole([
+    "ADMIN",
+    "SUPERVISOR",
+    "WAITER",
+    "CASHIER",
+  ]);
+  const canAccessMenuStudio = hasAnyRole(["ADMIN"]);
+  const canAccessKitchen = hasAnyRole([
+    "ADMIN",
+    "SUPERVISOR",
+    "KITCHEN",
+    "BAR",
+  ]);
+
   const refreshUser = async () => {
     if (!accessToken) {
       return null;
@@ -83,6 +102,9 @@ export function useAdminSession() {
       user?.profileType === "staff" && user.branchRoles.length === 0,
     adminBranches,
     supervisorBranches,
+    canAccessFloor,
+    canAccessMenuStudio,
+    canAccessKitchen,
     setSession,
     refreshUser,
     logout,

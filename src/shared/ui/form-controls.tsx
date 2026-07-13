@@ -1,5 +1,8 @@
-import type { ComponentProps } from "react";
-import { ChevronDown } from "lucide-react";
+"use client";
+
+import { useState, type ComponentProps } from "react";
+import { ChevronDown, Eye, EyeOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export function FieldGroup({
@@ -45,6 +48,37 @@ export function TextInput({
       )}
       {...props}
     />
+  );
+}
+
+export function PasswordInput({
+  className,
+  ...props
+}: Omit<ComponentProps<"input">, "type">) {
+  const [visible, setVisible] = useState(false);
+  const t = useTranslations("Shared");
+
+  return (
+    <div className="relative w-full">
+      <input
+        type={visible ? "text" : "password"}
+        className={cn(
+          "flex h-11 w-full rounded-xl border border-border bg-background/85 px-3 pr-11 text-sm text-foreground shadow-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60",
+          className
+        )}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((prev) => !prev)}
+        aria-label={visible ? t("hidePassword") : t("showPassword")}
+        aria-pressed={visible}
+        tabIndex={-1}
+        className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-muted-foreground transition-colors hover:text-foreground active:scale-90"
+      >
+        {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </div>
   );
 }
 

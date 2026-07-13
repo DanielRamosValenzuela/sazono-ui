@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Power } from "lucide-react";
+import { ArrowLeft, Copy, MapPin, Power } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -39,6 +39,8 @@ const TIMEZONE_OPTIONS = [
 type EditFormValues = {
   name: string;
   legalName: string;
+  slug: string;
+  branchQuota: number;
   defaultLanguage: string;
   timezone: string;
   currency: string;
@@ -72,6 +74,8 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
     defaultValues: {
       name: "",
       legalName: "",
+      slug: "",
+      branchQuota: 1,
       defaultLanguage: "es",
       timezone: "America/Santiago",
       currency: "CLP",
@@ -84,12 +88,28 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
       reset({
         name: restaurant.name,
         legalName: restaurant.legalName ?? "",
+        slug: restaurant.slug,
+        branchQuota: restaurant.branchQuota,
         defaultLanguage: restaurant.defaultLanguage,
         timezone: restaurant.timezone,
         currency: restaurant.currency,
       });
     }
   }, [restaurant, reset]);
+
+  const loginUrl =
+    typeof window !== "undefined" && restaurant
+      ? `${window.location.origin}/${locale}/r/${restaurant.slug}/login`
+      : "";
+
+  const copyLoginUrl = async () => {
+    if (!loginUrl) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(loginUrl);
+    toast.success(t("loginUrlCopied"));
+  };
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["admin", "restaurants"] });
@@ -184,6 +204,8 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
             updateMutation.mutate({
               name: values.name,
               legalName: values.legalName || null,
+              slug: values.slug,
+              branchQuota: Number(values.branchQuota),
               defaultLanguage: values.defaultLanguage,
               timezone: values.timezone,
               currency: values.currency,
@@ -207,6 +229,24 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
                 {tBootstrap("legalName")}
               </FieldLabel>
               <TextInput id="detail-legal-name" {...form.register("legalName")} />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-slug">{t("slug")}</FieldLabel>
+              <TextInput id="detail-slug" required {...form.register("slug")} />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-branch-quota">
+                {t("branchQuota")}
+              </FieldLabel>
+              <TextInput
+                id="detail-branch-quota"
+                type="number"
+                min={1}
+                required
+                {...form.register("branchQuota", { valueAsNumber: true })}
+              />
             </FieldGroup>
 
             <FieldGroup>
@@ -267,6 +307,25 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
         </form>
 
         <div className="space-y-6">
+          <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
+            <h2 className="text-lg font-semibold">{t("loginUrlTitle")}</h2>
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+              {t("loginUrlDescription")}
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
+              <p className="min-w-0 flex-1 truncate text-sm">{loginUrl}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label={t("copyLoginUrl")}
+                onClick={copyLoginUrl}
+              >
+                <Copy className="size-4" />
+              </Button>
+            </div>
+          </section>
+
           <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">

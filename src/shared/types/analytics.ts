@@ -4,6 +4,8 @@ export type RestaurantSummary = {
   restaurantId: string;
   name: string;
   legalName: string | null;
+  slug: string;
+  branchQuota: number;
   status: RestaurantStatus;
   currency: string;
   timezone: string;
@@ -37,6 +39,8 @@ export type RestaurantDetail = {
   restaurantId: string;
   name: string;
   legalName: string | null;
+  slug: string;
+  branchQuota: number;
   status: RestaurantStatus;
   currency: string;
   timezone: string;
@@ -49,6 +53,8 @@ export type RestaurantDetail = {
 export type UpdateRestaurantRequest = {
   name?: string;
   legalName?: string | null;
+  slug?: string;
+  branchQuota?: number;
   defaultLanguage?: string;
   timezone?: string;
   currency?: string;

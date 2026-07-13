@@ -7,6 +7,7 @@ export type RestaurantBootstrapRequest = {
     defaultLanguage: string;
     timezone: string;
     currency: string;
+    branchQuota?: number;
   };
   admin: {
     email: string;
@@ -19,6 +20,8 @@ export type RestaurantBootstrapRequest = {
 export type RestaurantBootstrapResponse = {
   restaurantId: string;
   restaurantName: string;
+  restaurantSlug: string;
+  branchQuota: number;
   firstAdmin: {
     authUserId: string;
     staffUserId: string;

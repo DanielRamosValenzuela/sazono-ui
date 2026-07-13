@@ -16,5 +16,5 @@ export default async function AdminLayout({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell area="platform">{children}</AdminShell>;
 }

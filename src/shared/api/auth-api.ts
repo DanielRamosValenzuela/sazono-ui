@@ -3,6 +3,8 @@ import type {
   AuthenticatedProfile,
   AuthResponse,
   LoginRequest,
+  RestaurantBySlug,
+  RestaurantSearchResult,
 } from "@/shared/types/auth";
 
 export const authApi = {
@@ -16,5 +18,15 @@ export const authApi = {
     return apiRequest<AuthenticatedProfile>("/auth/me", {
       token,
     });
+  },
+  getRestaurantBySlug(slug: string) {
+    return apiRequest<RestaurantBySlug>(
+      `/restaurants/by-slug/${encodeURIComponent(slug)}`
+    );
+  },
+  searchRestaurants(query: string) {
+    return apiRequest<RestaurantSearchResult[]>(
+      `/restaurants/search?q=${encodeURIComponent(query)}`
+    );
   },
 };

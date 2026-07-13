@@ -8,6 +8,7 @@ import {
   FieldGroup,
   FieldHint,
   FieldLabel,
+  PasswordInput,
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
@@ -34,6 +35,7 @@ type RegisterRestaurantFormProps = {
 type RegisterFormValues = {
   restaurantName: string;
   legalName: string;
+  branchQuota: number;
   defaultLanguage: string;
   timezone: string;
   currency: string;
@@ -52,6 +54,7 @@ export function RegisterRestaurantForm({
     defaultValues: {
       restaurantName: "",
       legalName: "",
+      branchQuota: 1,
       defaultLanguage: "es",
       timezone: "America/Santiago",
       currency: "CLP",
@@ -69,6 +72,7 @@ export function RegisterRestaurantForm({
           restaurant: {
             name: values.restaurantName,
             legalName: values.legalName || undefined,
+            branchQuota: Number(values.branchQuota),
             defaultLanguage: values.defaultLanguage,
             timezone: values.timezone,
             currency: values.currency,
@@ -107,6 +111,20 @@ export function RegisterRestaurantForm({
               {t("legalName")}
             </FieldLabel>
             <TextInput id="restaurant-legal-name" {...form.register("legalName")} />
+          </FieldGroup>
+
+          <FieldGroup>
+            <FieldLabel htmlFor="restaurant-branch-quota">
+              {t("branchQuota")}
+            </FieldLabel>
+            <TextInput
+              id="restaurant-branch-quota"
+              type="number"
+              min={1}
+              required
+              {...form.register("branchQuota", { valueAsNumber: true })}
+            />
+            <FieldHint>{t("branchQuotaHint")}</FieldHint>
           </FieldGroup>
 
           <FieldGroup>
@@ -180,9 +198,8 @@ export function RegisterRestaurantForm({
 
           <FieldGroup className="md:col-span-2">
             <FieldLabel htmlFor="admin-password">{t("adminPassword")}</FieldLabel>
-            <TextInput
+            <PasswordInput
               id="admin-password"
-              type="password"
               required
               minLength={8}
               {...form.register("adminPassword")}

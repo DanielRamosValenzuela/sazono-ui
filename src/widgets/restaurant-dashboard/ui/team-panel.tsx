@@ -21,6 +21,7 @@ import {
   FieldGroup,
   FieldHint,
   FieldLabel,
+  PasswordInput,
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
@@ -179,9 +180,8 @@ export function TeamPanel() {
 
             <FieldGroup className="md:col-span-2">
               <FieldLabel htmlFor="staff-password">{t("password")}</FieldLabel>
-              <TextInput
+              <PasswordInput
                 id="staff-password"
-                type="password"
                 {...form.register("password")}
               />
               <FieldHint>{t("passwordHint")}</FieldHint>

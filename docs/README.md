@@ -12,6 +12,8 @@
 8. [08 Vista Consolidada de Cuentas Abiertas](D:\Programacion\Sazono\sazono-ui\docs\08-vista-consolidada-cuentas-abiertas.md)
 9. [09 Huecos Incrementales](D:\Programacion\Sazono\sazono-ui\docs\09-huecos-incrementales.md)
 10. [10 Fase 5: Paquete de Carta](D:\Programacion\Sazono\sazono-ui\docs\10-fase-5-paquete-de-carta.md)
+11. [11 Fase 6: Control de Acceso por Sucursal y Login por Restaurante](D:\Programacion\Sazono\sazono-ui\docs\11-fase-6-acceso-por-sucursal-y-login.md)
+12. [12 Fase 7: Landing Marketera y Captura de Leads](D:\Programacion\Sazono\sazono-ui\docs\12-fase-7-landing-marketera-y-leads.md)
 
 ## Objetivo
 

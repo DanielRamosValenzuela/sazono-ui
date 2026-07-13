@@ -9,38 +9,37 @@ import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import {
   FieldGroup,
-  FieldHint,
   FieldLabel,
-  SelectInput,
+  PasswordInput,
   TextInput,
 } from "@/shared/ui/form-controls";
 import type { LoginRequest } from "@/shared/types/auth";
 
-type LoginScreenProps = {
+type RestaurantLoginScreenProps = {
+  restaurantName: string;
+  restaurantSlug: string;
   isPending: boolean;
   onSubmit: (values: LoginRequest) => void;
 };
 
-type LoginFormValues = {
+type RestaurantLoginFormValues = {
   email: string;
   password: string;
-  profileType: "platform_admin" | "staff";
-  restaurantId: string;
 };
 
-export function LoginScreen({ isPending, onSubmit }: LoginScreenProps) {
-  const t = useTranslations("AdminLogin");
-  const form = useForm<LoginFormValues>({
-    defaultValues: {
-      email: "",
-      password: "",
-      profileType: "staff",
-      restaurantId: "",
-    },
+export function RestaurantLoginScreen({
+  restaurantName,
+  restaurantSlug,
+  isPending,
+  onSubmit,
+}: RestaurantLoginScreenProps) {
+  const t = useTranslations("RestaurantLoginScreen");
+  const form = useForm<RestaurantLoginFormValues>({
+    defaultValues: { email: "", password: "" },
   });
 
   return (
-    <main className="flex min-h-screen flex-col">
+    <main className="flex min-h-screen flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-end gap-2 px-6 pt-6">
         <LocaleSwitcher />
         <ThemeToggle />
@@ -53,7 +52,7 @@ export function LoginScreen({ isPending, onSubmit }: LoginScreenProps) {
               <ChefHat className="size-7" />
             </div>
             <h1 className="mt-5 font-heading text-3xl font-bold tracking-tight">
-              {t("title")}
+              {restaurantName}
             </h1>
             <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
               {t("subtitle")}
@@ -65,31 +64,18 @@ export function LoginScreen({ isPending, onSubmit }: LoginScreenProps) {
               onSubmit({
                 email: values.email,
                 password: values.password,
-                profileType: values.profileType,
-                ...(values.restaurantId
-                  ? { restaurantId: values.restaurantId }
-                  : {}),
+                profileType: "staff",
+                restaurantSlug,
               })
             )}
             className="mt-8 space-y-4 rounded-3xl border border-border/70 bg-card p-6 shadow-lg shadow-primary/8 sm:p-8"
           >
             <FieldGroup>
-              <FieldLabel htmlFor="login-profile-type">
-                {t("profileType")}
+              <FieldLabel htmlFor="restaurant-login-email">
+                {t("email")}
               </FieldLabel>
-              <SelectInput
-                id="login-profile-type"
-                {...form.register("profileType")}
-              >
-                <option value="staff">{t("profileStaff")}</option>
-                <option value="platform_admin">{t("profilePlatform")}</option>
-              </SelectInput>
-            </FieldGroup>
-
-            <FieldGroup>
-              <FieldLabel htmlFor="login-email">{t("email")}</FieldLabel>
               <TextInput
-                id="login-email"
+                id="restaurant-login-email"
                 type="email"
                 autoComplete="email"
                 placeholder={t("emailPlaceholder")}
@@ -99,33 +85,17 @@ export function LoginScreen({ isPending, onSubmit }: LoginScreenProps) {
             </FieldGroup>
 
             <FieldGroup>
-              <FieldLabel htmlFor="login-password">{t("password")}</FieldLabel>
-              <TextInput
-                id="login-password"
-                type="password"
+              <FieldLabel htmlFor="restaurant-login-password">
+                {t("password")}
+              </FieldLabel>
+              <PasswordInput
+                id="restaurant-login-password"
                 autoComplete="current-password"
                 placeholder="••••••••"
                 required
                 {...form.register("password")}
               />
             </FieldGroup>
-
-            <details className="group rounded-xl border border-border/70 px-3 py-2">
-              <summary className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors select-none hover:text-foreground">
-                {t("advanced")}
-              </summary>
-              <FieldGroup className="mt-3 pb-1">
-                <FieldLabel htmlFor="login-restaurant-id">
-                  {t("restaurantId")}
-                </FieldLabel>
-                <TextInput
-                  id="login-restaurant-id"
-                  type="text"
-                  {...form.register("restaurantId")}
-                />
-                <FieldHint>{t("restaurantHint")}</FieldHint>
-              </FieldGroup>
-            </details>
 
             <Button
               type="submit"

@@ -80,6 +80,7 @@ const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIE
 const FLOOR_CREATE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_MULTI_SOURCE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
+const FLOOR_SPLIT_BILL_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_ABANDON_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 
 function getOpenSources(branchAccess: BranchAccess | null): TableSessionSource[] {
@@ -209,7 +210,10 @@ export function FloorConsole() {
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
   const canAddOrder = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
-  const canSplitBill = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
+  const canSplitBill = hasBranchPermission(
+    selectedBranch,
+    FLOOR_SPLIT_BILL_ROLES,
+  );
 
   const { data: branchesData } = useQuery({
     queryKey: ["floor", "branch-settings", accessToken],

@@ -8,7 +8,6 @@ import {
   ReceiptText,
   ScanLine,
   Soup,
-  Store,
   Wine,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -26,6 +25,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
+import { ContactSection } from "./contact-section";
 
 export function HomePage() {
   const t = useTranslations("HomePage");
@@ -97,9 +97,12 @@ export function HomePage() {
       <BackgroundGlow />
       <Header t={t} />
       <HeroSection t={t} stats={stats} />
-      <PillarsSection pillars={pillars} />
-      <JourneySection t={t} journey={journey} />
-      <SurfacesSection t={t} operatingSurfaces={operatingSurfaces} />
+      <div id="producto">
+        <PillarsSection pillars={pillars} />
+        <JourneySection t={t} journey={journey} />
+        <SurfacesSection t={t} operatingSurfaces={operatingSurfaces} />
+      </div>
+      <ContactSection />
       <FoundationSection t={t} installedBase={installedBase} />
     </main>
   );
@@ -132,32 +135,32 @@ function Header({ t }: { t: ReturnType<typeof useTranslations<"HomePage">> }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href="#producto"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "lg" }),
+              "hidden md:inline-flex"
+            )}
+          >
+            {t("navProduct")}
+          </a>
+          <Link
+            href="/ingresar"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "lg" }),
+              "hidden md:inline-flex"
+            )}
+          >
+            {t("navClient")}
+          </Link>
           <LocaleSwitcher />
           <ThemeToggle />
-          <Link
-            href="/admin"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "lg" }),
-              "hidden md:inline-flex"
-            )}
-          >
-            {t("navAdmin")}
-          </Link>
-          <Link
-            href="/staff"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "lg" }),
-              "hidden md:inline-flex"
-            )}
-          >
-            {t("navStaff")}
-          </Link>
-          <Link
-            href="/qr"
+          <a
+            href="#contacto"
             className={cn(buttonVariants({ size: "lg" }), "rounded-full px-4")}
           >
-            {t("navQr")}
-          </Link>
+            {t("navCta")}
+          </a>
         </div>
       </nav>
     </header>
@@ -193,24 +196,24 @@ function HeroSection({
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/admin"
+            href="/ingresar"
             className={cn(
               buttonVariants({ variant: "outline", size: "lg" }),
               "h-12 rounded-full border-primary/20 bg-card/70 px-6"
             )}
           >
-            {t("ctaAdmin")}
+            {t("ctaClient")}
           </Link>
-          <Link
-            href="/qr"
+          <a
+            href="#contacto"
             className={cn(
               buttonVariants({ size: "lg" }),
               "h-12 rounded-full px-6 text-sm shadow-lg shadow-primary/15"
             )}
           >
-            {t("ctaQr")}
+            {t("ctaDemo")}
             <ArrowRight className="size-4" />
-          </Link>
+          </a>
         </div>
 
         <dl className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -535,33 +538,23 @@ function FoundationSection({
             </ul>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/admin"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-11 rounded-full border-primary-foreground/25 bg-transparent px-5 text-primary-foreground hover:bg-primary-foreground/8 hover:text-primary-foreground"
-                )}
-              >
-                {t("ctaAdmin")}
-              </Link>
-              <Link
-                href="/qr"
+              <a
+                href="#contacto"
                 className={cn(
                   buttonVariants({ variant: "secondary", size: "lg" }),
                   "h-11 rounded-full border-0 bg-primary-foreground/95 px-5 text-primary hover:bg-primary-foreground"
                 )}
               >
-                {t("foundation_openQr")}
-              </Link>
+                {t("foundation_cta_demo")}
+              </a>
               <Link
-                href="/staff"
+                href="/ingresar"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
                   "h-11 rounded-full border-primary-foreground/25 bg-transparent px-5 text-primary-foreground hover:bg-primary-foreground/8 hover:text-primary-foreground"
                 )}
               >
-                <Store className="size-4" />
-                {t("foundation_staff")}
+                {t("foundation_cta_client")}
               </Link>
             </div>
           </div>

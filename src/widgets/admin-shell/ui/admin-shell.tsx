@@ -6,6 +6,7 @@ import {
   BookOpenText,
   ChefHat,
   Flame,
+  Inbox,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -23,7 +24,7 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import type { LoginRequest } from "@/shared/types/auth";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
-import { LoginScreen } from "./login-screen";
+import { PlatformLoginScreen } from "./platform-login-screen";
 
 type NavItem = {
   href: string;
@@ -32,9 +33,14 @@ type NavItem = {
   exact?: boolean;
 };
 
-export function AdminShell({ children }: PropsWithChildren) {
+type AdminShellProps = PropsWithChildren<{
+  area: "platform" | "staff";
+}>;
+
+export function AdminShell({ children, area }: AdminShellProps) {
   const t = useTranslations("AdminShell");
   const tRoles = useTranslations("Shared.roles");
+  const tStaffLoginRequired = useTranslations("StaffLoginRequired");
   const session = useAdminSession();
 
   const loginMutation = useMutation({
@@ -63,11 +69,25 @@ export function AdminShell({ children }: PropsWithChildren) {
   }
 
   if (!session.accessToken || !session.user) {
+    if (area === "platform") {
+      return (
+        <PlatformLoginScreen
+          isPending={loginMutation.isPending}
+          onSubmit={(values) => loginMutation.mutate(values)}
+        />
+      );
+    }
+
     return (
-      <LoginScreen
-        isPending={loginMutation.isPending}
-        onSubmit={(values) => loginMutation.mutate(values)}
-      />
+      <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <ChefHat className="size-10 text-muted-foreground" />
+        <h1 className="mt-4 font-heading text-2xl font-bold">
+          {tStaffLoginRequired("title")}
+        </h1>
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+          {tStaffLoginRequired("description")}
+        </p>
+      </main>
     );
   }
 
@@ -85,6 +105,11 @@ export function AdminShell({ children }: PropsWithChildren) {
           href: "/admin/restaurants",
           labelKey: "navRestaurants",
           icon: <Store className="size-4" />,
+        },
+        {
+          href: "/admin/leads",
+          labelKey: "navLeads",
+          icon: <Inbox className="size-4" />,
         },
       ]
     : [
@@ -113,22 +138,34 @@ export function AdminShell({ children }: PropsWithChildren) {
   const operationsNav: NavItem[] =
     user.profileType === "staff"
       ? [
-          {
-            href: "/staff",
-            labelKey: "navTables",
-            icon: <UtensilsCrossed className="size-4" />,
-            exact: true,
-          },
-          {
-            href: "/staff/menu",
-            labelKey: "navMenu",
-            icon: <BookOpenText className="size-4" />,
-          },
-          {
-            href: "/staff/kitchen",
-            labelKey: "navKitchen",
-            icon: <Flame className="size-4" />,
-          },
+          ...(session.canAccessFloor
+            ? [
+                {
+                  href: "/staff",
+                  labelKey: "navTables",
+                  icon: <UtensilsCrossed className="size-4" />,
+                  exact: true,
+                },
+              ]
+            : []),
+          ...(session.canAccessMenuStudio
+            ? [
+                {
+                  href: "/staff/menu",
+                  labelKey: "navMenu",
+                  icon: <BookOpenText className="size-4" />,
+                },
+              ]
+            : []),
+          ...(session.canAccessKitchen
+            ? [
+                {
+                  href: "/staff/kitchen",
+                  labelKey: "navKitchen",
+                  icon: <Flame className="size-4" />,
+                },
+              ]
+            : []),
         ]
       : [];
 
@@ -145,7 +182,7 @@ export function AdminShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+      <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] lg:flex">
         <div className="flex items-center gap-3 px-6 pt-7 pb-6">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <ChefHat className="size-5" />
@@ -196,7 +233,7 @@ export function AdminShell({ children }: PropsWithChildren) {
       </aside>
 
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3 lg:hidden">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -227,7 +264,7 @@ export function AdminShell({ children }: PropsWithChildren) {
           </nav>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-10">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-10">
           {session.userError ? (
             <div className="mb-6 rounded-2xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
               {t("refreshError")}

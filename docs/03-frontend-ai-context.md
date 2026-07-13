@@ -60,7 +60,10 @@ El frontend necesita contratos claros para:
 
 - estructura FSD real en `src/` (`app`, `views`, `widgets`, `features`, `shared`)
 - `next-intl` con locales `es`/`en`; textos redactados en lenguaje no tecnico para personal de restaurante (ver doc 05, seccion i18n)
-- `widgets/admin-shell` unifica sesion, sidebar y guard de rol para `/admin` y `/staff` (antes cada ruta tenia su propio shell, lo que causaba perder el panel al navegar)
+- `widgets/admin-shell` unifica sesion, sidebar y guard de rol para `/admin` y `/staff` (antes cada ruta tenia su propio shell, lo que causaba perder el panel al navegar). Recibe un prop `area: "platform" | "staff"` que determina que pantalla mostrar cuando no hay sesion (ver doc 11)
+- login separado por tipo de cuenta y por restaurante (ver doc 11): `/admin` sin sesion muestra login solo-platform_admin, `/staff` sin sesion no muestra formulario (pide el enlace del restaurante), `/r/[slug]/login` es el login exclusivo de cada restaurante
+- el sidebar de `/staff/*` filtra los links "Menu"/"Kitchen" segun el rol real del staff (`useAdminSession().canAccessMenuStudio/canAccessKitchen/canAccessFloor`), no los muestra a cualquier staff por igual (ver doc 11)
+- para trabajo de diseño/UI, hay skills instaladas en `~/.claude/skills/`: `frontend-design`, `ui-ux-frontend-design`, `ui-ux-pro-max`, y el pack de Emil Kowalski (`emil-design-eng`, `apple-design`, `animation-vocabulary`, `improve-animations`, `review-animations`) — invocarlas antes de trabajo visual nuevo en vez de improvisar convenciones
 - dashboard de `platform_admin` (`widgets/platform-dashboard`) y dashboard del restaurante (`widgets/restaurant-dashboard`) con metricas, graficos y CRUD sobre restaurantes/sucursales/staff
 - flujo completo de comensal QR (`widgets/qr-experience`): carta, carrito, pago con propina, seguimiento de pedidos
 - backoffice de carta (`widgets/menu-studio`) y sala/mesas (`widgets/floor-console`) ya implementados y enlazados desde el sidebar
@@ -81,3 +84,12 @@ Ya resuelto (ver doc 09 y sus referencias a docs 06-08; ver doc 10 para lo mas r
 - reintento explicito de pago QR fallido
 - filtros de rango de fechas en los dashboards de analytics
 - imagen principal por producto, traducciones basicas (es/en), ordenamiento con drag-and-drop y preview de carta (doc 10)
+
+Ya resuelto (ver doc 11):
+
+- login separado por platform_admin / por restaurante (slug), sidebar filtrado por rol real, split-bill separado de agregar-orden en permisos de mesero
+- PWA instalable para mesero/cocina (manifest, iconos generados, service worker conservador solo para el shell estatico, safe-area en `admin-shell` y pantallas de login)
+
+Ya resuelto (ver doc 12):
+
+- landing publica marketera (sin exponer `/admin`/`/staff`/`/qr`), formulario real de contacto/demo, pantalla "ya soy cliente" con buscador de restaurante, vista de leads en `/admin/leads`
