@@ -132,6 +132,20 @@ Mi recomendacion inicial:
 - no meter state global demasiado pronto
 - usar stores solo para piezas realmente compartidas, por ejemplo carrito QR o mesa activa de mesero
 
+## Sesion administrativa actual
+
+El proyecto ya tiene un punto unico para la sesion administrativa en `features/admin-session`.
+
+Reglas actuales:
+
+- `useAdminSession` es la fuente de verdad para `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `user` y logout; los tres tokens/metadata persisten en localStorage via `partialize` del store
+- el access token dura 8h; `use-admin-session.ts` agenda un refresh proactivo (`POST /auth/refresh`, ver doc backend 05) 60s antes de que expire (`SESSION_REFRESH_MARGIN_MS`), sin esperar a que la UI pegue un 401
+- si una sesion persistida vieja no trae `accessTokenExpiresAt` (metadata faltante) pero si trae `refreshToken`, se intenta refrescar de entrada; si tampoco hay `refreshToken`, no se fuerza logout ahi mismo, se deja que la query de `auth/me` decida
+- el catch de 401 de la query de `auth/me` tambien intenta un refresh antes de cerrar sesion, en vez de desloguear directo
+- solo cuando el refresh realmente falla (sin refresh token, o el POST devuelve error) se cierra la sesion y se avisa con un toast (`AdminShell.sessionExpired`) — ya no hay logout silencioso
+- `auth/me` se usa para bootstrap del perfil, rehidratacion y revalidacion puntual al volver al foco
+- widgets como `floor-console` y `menu-studio` no deben duplicar queries propias de sesion; ojo que hoy hacen sus propias llamadas HTTP via `http-client.ts`/`apiRequest` sin pasar por este mecanismo, asi que un 401 directo ahi no dispara refresh ni toast (pendiente si se vuelve a observar)
+
 ## Reglas para IA trabajando en frontend
 
 1. No meter logica de negocio compleja directamente en archivos dentro de `app/`.

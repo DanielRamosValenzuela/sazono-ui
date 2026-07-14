@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, ChefHat, MapPinOff, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { authApi } from "@/shared/api/auth-api";
@@ -27,6 +28,9 @@ export function FindRestaurant() {
     mutationFn: (query: string) => authApi.searchRestaurants(query),
     onSuccess: () => {
       setHasSearched(true);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("searchError"));
     },
   });
 

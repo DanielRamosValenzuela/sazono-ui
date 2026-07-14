@@ -19,6 +19,12 @@ export const authApi = {
       token,
     });
   },
+  refresh(refreshToken: string) {
+    return apiRequest<AuthResponse>("/auth/refresh", {
+      method: "POST",
+      body: { refreshToken },
+    });
+  },
   getRestaurantBySlug(slug: string) {
     return apiRequest<RestaurantBySlug>(
       `/restaurants/by-slug/${encodeURIComponent(slug)}`

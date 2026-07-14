@@ -98,6 +98,8 @@ type ItemFormValues = {
 
 const CATEGORY_STATUSES: MenuCategoryStatus[] = ["ACTIVE", "HIDDEN", "ARCHIVED"];
 
+type MutationCallbacks = { onSuccess?: () => void };
+
 type MenuEditorPanelProps = {
   menu: MenuDetail | null;
   stations: PreparationStation[];
@@ -114,12 +116,21 @@ type MenuEditorPanelProps = {
   isUpsertingItemTranslation: boolean;
   isPublishing: boolean;
   onAddCategory: (menuId: string, payload: CreateMenuCategoryRequest) => void;
-  onAddItem: (menuCategoryId: string, payload: CreateMenuItemRequest) => void;
+  onAddItem: (
+    menuCategoryId: string,
+    payload: CreateMenuItemRequest,
+    options?: MutationCallbacks
+  ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
-    payload: UpdateMenuCategoryRequest
+    payload: UpdateMenuCategoryRequest,
+    options?: MutationCallbacks
   ) => void;
-  onUpdateItem: (menuItemId: string, payload: UpdateMenuItemRequest) => void;
+  onUpdateItem: (
+    menuItemId: string,
+    payload: UpdateMenuItemRequest,
+    options?: MutationCallbacks
+  ) => void;
   onReorderCategories: (menuId: string, orderedCategoryIds: string[]) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
   onUploadItemImage: (menuItemId: string, file: File) => void;
@@ -127,7 +138,8 @@ type MenuEditorPanelProps = {
   onUpsertCategoryTranslation: (
     menuCategoryId: string,
     locale: string,
-    payload: UpsertCategoryTranslationRequest
+    payload: UpsertCategoryTranslationRequest,
+    options?: MutationCallbacks
   ) => void;
   onUpsertItemTranslation: (
     menuItemId: string,
@@ -393,19 +405,29 @@ type CategorySectionProps = {
   isUpsertingCategoryTranslation: boolean;
   isUpsertingItemTranslation: boolean;
   targetLocale: string;
-  onAddItem: (menuCategoryId: string, payload: CreateMenuItemRequest) => void;
+  onAddItem: (
+    menuCategoryId: string,
+    payload: CreateMenuItemRequest,
+    options?: MutationCallbacks
+  ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
-    payload: UpdateMenuCategoryRequest
+    payload: UpdateMenuCategoryRequest,
+    options?: MutationCallbacks
   ) => void;
-  onUpdateItem: (menuItemId: string, payload: UpdateMenuItemRequest) => void;
+  onUpdateItem: (
+    menuItemId: string,
+    payload: UpdateMenuItemRequest,
+    options?: MutationCallbacks
+  ) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
   onUploadItemImage: (menuItemId: string, file: File) => void;
   onRemoveItemImage: (menuItemId: string) => void;
   onUpsertCategoryTranslation: (
     menuCategoryId: string,
     locale: string,
-    payload: UpsertCategoryTranslationRequest
+    payload: UpsertCategoryTranslationRequest,
+    options?: MutationCallbacks
   ) => void;
   onUpsertItemTranslation: (
     menuItemId: string,
@@ -519,19 +541,42 @@ function CategorySection({
       {isEditingCategory ? (
         <form
           onSubmit={categoryEditForm.handleSubmit((values) => {
-            onUpdateCategory(category.menuCategoryId, {
-              name: values.name.trim(),
-              status: values.status,
-            });
-
             const translatedName = values.translatedName.trim();
-            if (translatedName) {
-              onUpsertCategoryTranslation(category.menuCategoryId, targetLocale, {
-                name: translatedName,
-              });
-            }
+            let categoryDone = false;
+            let translationDone = !translatedName;
+            const closeIfDone = () => {
+              if (categoryDone && translationDone) {
+                setEditingCategory(false);
+              }
+            };
 
-            setEditingCategory(false);
+            onUpdateCategory(
+              category.menuCategoryId,
+              {
+                name: values.name.trim(),
+                status: values.status,
+              },
+              {
+                onSuccess: () => {
+                  categoryDone = true;
+                  closeIfDone();
+                },
+              }
+            );
+
+            if (translatedName) {
+              onUpsertCategoryTranslation(
+                category.menuCategoryId,
+                targetLocale,
+                { name: translatedName },
+                {
+                  onSuccess: () => {
+                    translationDone = true;
+                    closeIfDone();
+                  },
+                }
+              );
+            }
           })}
           className="grid gap-3 rounded-[1.25rem] border border-primary/20 bg-primary/5 p-4"
         >
@@ -683,23 +728,31 @@ function CategorySection({
           {isFormOpen ? (
             <form
               onSubmit={itemForm.handleSubmit((values) => {
-                onAddItem(category.menuCategoryId, {
-                  name: values.name.trim(),
-                  description: values.description.trim() || undefined,
-                  price: values.price.trim(),
-                  itemType: values.itemType,
-                  preparationStationId: values.preparationStationId,
-                  isAvailable: values.isAvailable,
-                });
-                itemForm.reset({
-                  name: "",
-                  description: "",
-                  price: "",
-                  itemType: values.itemType,
-                  preparationStationId: values.preparationStationId,
-                  isAvailable: true,
-                });
-                setFormOpen(false);
+                const { itemType, preparationStationId } = values;
+                onAddItem(
+                  category.menuCategoryId,
+                  {
+                    name: values.name.trim(),
+                    description: values.description.trim() || undefined,
+                    price: values.price.trim(),
+                    itemType,
+                    preparationStationId,
+                    isAvailable: values.isAvailable,
+                  },
+                  {
+                    onSuccess: () => {
+                      itemForm.reset({
+                        name: "",
+                        description: "",
+                        price: "",
+                        itemType,
+                        preparationStationId,
+                        isAvailable: true,
+                      });
+                      setFormOpen(false);
+                    },
+                  }
+                );
               })}
               className="grid gap-4 rounded-[1.4rem] border border-primary/15 bg-primary/5 p-4"
             >
@@ -852,8 +905,9 @@ function CategorySection({
           targetLocale={targetLocale}
           onClose={() => setEditingItem(null)}
           onSave={(payload) => {
-            onUpdateItem(editingItem.menuItemId, payload);
-            setEditingItem(null);
+            onUpdateItem(editingItem.menuItemId, payload, {
+              onSuccess: () => setEditingItem(null),
+            });
           }}
           onUploadImage={(file) => onUploadItemImage(editingItem.menuItemId, file)}
           onRemoveImage={() => onRemoveItemImage(editingItem.menuItemId)}

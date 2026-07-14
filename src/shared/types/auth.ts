@@ -27,8 +27,10 @@ export type AuthenticatedProfile = {
 
 export type AuthResponse = {
   accessToken: string;
+  refreshToken: string;
   tokenType: "Bearer";
   expiresIn: string;
+  expiresAt?: string | null;
   user: AuthenticatedProfile;
 };
 

@@ -51,10 +51,11 @@ directamente. Ambas piezas consumen contratos de backend que ya existian
   widgets rompe el patron FSD del proyecto).
 - Se agrego `TextArea` a `shared/ui/form-controls.tsx` (no existia, solo
   `TextInput`/`SelectInput`).
-- `floor-console.tsx` tenia su propia copia del bug de sesion resuelto antes
-  en `use-admin-session.ts` (token invalido no se detectaba sin navegar,
-  porque la query de `me` no revalidaba); se aplico el mismo fix
-  (`staleTime: 0`, `refetchOnWindowFocus`, `refetchInterval: 60_000`).
+- la sesion administrativa quedo centralizada en `use-admin-session.ts`; se
+  elimino el fetch duplicado de `auth/me` dentro de `floor-console` y
+  `menu-studio`
+- la expiracion del token ahora se controla con `expiresAt` del login y
+  revalidaciones puntuales, en vez de polling cada 60s a `auth/me`
 
 ## Bug de backend encontrado y corregido en el camino
 

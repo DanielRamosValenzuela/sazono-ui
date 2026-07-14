@@ -15,17 +15,26 @@ async function forwardRequest(request: NextRequest, context: RouteContext) {
   const contentType = request.headers.get("content-type");
   const authorization = request.headers.get("authorization");
 
-  const response = await fetch(targetUrl, {
-    method: request.method,
-    headers: {
-      ...(contentType ? { "Content-Type": contentType } : {}),
-      ...(authorization ? { Authorization: authorization } : {}),
-    },
-    ...(request.method === "GET" || request.method === "HEAD"
-      ? {}
-      : { body: request.body, duplex: "half" }),
-    cache: "no-store",
-  } as RequestInit & { duplex: "half" });
+  let response: Response;
+
+  try {
+    response = await fetch(targetUrl, {
+      method: request.method,
+      headers: {
+        ...(contentType ? { "Content-Type": contentType } : {}),
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+      ...(request.method === "GET" || request.method === "HEAD"
+        ? {}
+        : { body: request.body, duplex: "half" }),
+      cache: "no-store",
+    } as RequestInit & { duplex: "half" });
+  } catch {
+    return Response.json(
+      { message: "No se pudo conectar con el servidor." },
+      { status: 502 }
+    );
+  }
 
   return new Response(response.body, {
     status: response.status,

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { ApiError } from "@/shared/api/http-client";
 import { ThemeProvider } from "@/shared/lib/theme";
 
 type AppProvidersProps = {
@@ -17,6 +18,10 @@ export function AppProviders({ children }: AppProvidersProps) {
           queries: {
             staleTime: 30_000,
             refetchOnWindowFocus: false,
+            retry: (failureCount, error) =>
+              error instanceof ApiError && error.status === 0
+                ? failureCount < 1
+                : failureCount < 3,
           },
         },
       })

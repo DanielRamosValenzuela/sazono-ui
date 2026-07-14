@@ -8,11 +8,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
-import { authApi } from "@/shared/api/auth-api";
-import { ApiError } from "@/shared/api/http-client";
+import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { menusApi } from "@/shared/api/menus-api";
-import { useClientReady } from "@/shared/lib/use-client-ready";
 import type { AuthenticatedProfile } from "@/shared/types/auth";
 import type {
   CreateMenuCategoryRequest,
@@ -59,33 +56,9 @@ function getAdminBranches(profile: AuthenticatedProfile): AdminBranch[] {
 export function MenuStudio() {
   const t = useTranslations("MenuStudio");
   const queryClient = useQueryClient();
-  const isClientReady = useClientReady();
-  const accessToken = useAdminSessionStore((state) => state.accessToken);
-  const storedUser = useAdminSessionStore((state) => state.user);
-  const syncUser = useAdminSessionStore((state) => state.syncUser);
-  const clearSession = useAdminSessionStore((state) => state.clearSession);
-
-  const { data: currentUserData } = useQuery({
-    queryKey: ["staff", "me", accessToken],
-    enabled: isClientReady && Boolean(accessToken),
-    retry: false,
-    initialData: storedUser ?? undefined,
-    queryFn: async () => {
-      try {
-        const nextUser = await authApi.getCurrentUser(accessToken!);
-        syncUser(nextUser);
-        return nextUser;
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          clearSession();
-        }
-
-        throw error;
-      }
-    },
-  });
-
-  const currentUser = currentUserData ?? storedUser;
+  const session = useAdminSession();
+  const accessToken = session.accessToken;
+  const currentUser = session.user;
   const adminBranches = useMemo(
     () => (currentUser ? getAdminBranches(currentUser) : []),
     [currentUser]
@@ -101,7 +74,7 @@ export function MenuStudio() {
   const [rawSelectedMenuId, setSelectedMenuId] = useState("");
 
   const canQuery =
-    isClientReady && Boolean(accessToken) && Boolean(selectedBranchId);
+    session.isClientReady && Boolean(accessToken) && Boolean(selectedBranchId);
 
   const {
     data: stationsData,
@@ -359,7 +332,7 @@ export function MenuStudio() {
     },
   });
 
-  if (!isClientReady) {
+  if (!session.isClientReady) {
     return (
       <Card className="rounded-[1.75rem] border-border/70 bg-card/82 shadow-lg shadow-primary/8">
         <CardContent className="space-y-3 p-6">
@@ -516,14 +489,14 @@ export function MenuStudio() {
           onAddCategory={(menuId, payload) =>
             createCategoryMutation.mutate({ menuId, payload })
           }
-          onAddItem={(menuCategoryId, payload) =>
-            createItemMutation.mutate({ menuCategoryId, payload })
+          onAddItem={(menuCategoryId, payload, options) =>
+            createItemMutation.mutate({ menuCategoryId, payload }, options)
           }
-          onUpdateCategory={(menuCategoryId, payload) =>
-            updateCategoryMutation.mutate({ menuCategoryId, payload })
+          onUpdateCategory={(menuCategoryId, payload, options) =>
+            updateCategoryMutation.mutate({ menuCategoryId, payload }, options)
           }
-          onUpdateItem={(menuItemId, payload) =>
-            updateItemMutation.mutate({ menuItemId, payload })
+          onUpdateItem={(menuItemId, payload, options) =>
+            updateItemMutation.mutate({ menuItemId, payload }, options)
           }
           onReorderCategories={(menuId, orderedCategoryIds) =>
             reorderCategoriesMutation.mutate({
@@ -543,12 +516,15 @@ export function MenuStudio() {
           onRemoveItemImage={(menuItemId) =>
             removeItemImageMutation.mutate(menuItemId)
           }
-          onUpsertCategoryTranslation={(menuCategoryId, locale, payload) =>
-            upsertCategoryTranslationMutation.mutate({
-              menuCategoryId,
-              locale,
-              payload,
-            })
+          onUpsertCategoryTranslation={(menuCategoryId, locale, payload, options) =>
+            upsertCategoryTranslationMutation.mutate(
+              {
+                menuCategoryId,
+                locale,
+                payload,
+              },
+              options
+            )
           }
           onUpsertItemTranslation={(menuItemId, locale, payload) =>
             upsertItemTranslationMutation.mutate({ menuItemId, locale, payload })

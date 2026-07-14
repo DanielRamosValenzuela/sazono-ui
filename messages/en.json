@@ -149,7 +149,8 @@
     "emptyDescription": "Check the spelling, or contact us and we'll help you sign in.",
     "emptyContactCta": "Contact Sazono",
     "goToLogin": "Go to sign in",
-    "minCharsHint": "Type at least 2 letters"
+    "minCharsHint": "Type at least 2 letters",
+    "searchError": "We couldn't search for your restaurant. Please try again."
   },
   "AdminLeads": {
     "pageTitle": "Leads",
@@ -759,6 +760,7 @@
     "loginSuccess": "Welcome back!",
     "loginError": "We couldn't log you in. Check your email and password and try again.",
     "refreshError": "We couldn't refresh your information. Check your connection and try again.",
+    "sessionExpired": "Your session expired. Please log in again.",
     "accessDeniedTitle": "You don't have access to this section",
     "accessDeniedDescription": "Your account doesn't have permission to view this page. If you think this is a mistake, talk to your restaurant's administrator.",
     "backToOverview": "Back to overview"

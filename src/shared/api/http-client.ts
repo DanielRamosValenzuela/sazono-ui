@@ -24,15 +24,25 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const isFormData = body instanceof FormData;
 
-  const response = await fetch(`${publicEnv.apiBaseUrl}${path}`, {
-    method,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${publicEnv.apiBaseUrl}${path}`, {
+      method,
+      headers: {
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw new ApiError(
+      "No se pudo conectar con el servidor. Intenta de nuevo.",
+      0,
+      error
+    );
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json")

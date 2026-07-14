@@ -1,28 +1,105 @@
 "use client";
 
+import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { authApi } from "@/shared/api/auth-api";
 import { ApiError } from "@/shared/api/http-client";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 import { useAdminSessionStore } from "./admin-session.store";
 
+const SESSION_STALE_TIME_MS = 5 * 60_000;
+const SESSION_REFRESH_MARGIN_MS = 60_000;
+
 export function useAdminSession() {
+  const t = useTranslations("AdminShell");
   const queryClient = useQueryClient();
   const isClientReady = useClientReady();
   const accessToken = useAdminSessionStore((state) => state.accessToken);
+  const accessTokenExpiresAt = useAdminSessionStore(
+    (state) => state.accessTokenExpiresAt
+  );
+  const refreshToken = useAdminSessionStore((state) => state.refreshToken);
   const storedUser = useAdminSessionStore((state) => state.user);
   const setSession = useAdminSessionStore((state) => state.setSession);
   const syncUser = useAdminSessionStore((state) => state.syncUser);
   const clearSession = useAdminSessionStore((state) => state.clearSession);
+  const accessTokenExpiresAtMs = accessTokenExpiresAt
+    ? Date.parse(accessTokenExpiresAt)
+    : Number.NaN;
+  const hasSessionExpiration = Number.isFinite(accessTokenExpiresAtMs);
+
+  const clearActiveSession = useCallback(() => {
+    clearSession();
+    queryClient.clear();
+  }, [clearSession, queryClient]);
+
+  const handleSessionExpired = useCallback(() => {
+    clearActiveSession();
+    toast.error(t("sessionExpired"));
+  }, [clearActiveSession, t]);
+
+  const refreshSession = useCallback(async () => {
+    if (!refreshToken) {
+      handleSessionExpired();
+      return false;
+    }
+
+    try {
+      const response = await authApi.refresh(refreshToken);
+      setSession(response);
+      return true;
+    } catch {
+      handleSessionExpired();
+      return false;
+    }
+  }, [handleSessionExpired, refreshToken, setSession]);
+
+  useEffect(() => {
+    if (!isClientReady || !accessToken) {
+      return;
+    }
+
+    if (!hasSessionExpiration) {
+      if (refreshToken) {
+        void refreshSession();
+      }
+      return;
+    }
+
+    const msUntilRefresh =
+      accessTokenExpiresAtMs - Date.now() - SESSION_REFRESH_MARGIN_MS;
+
+    if (msUntilRefresh <= 0) {
+      void refreshSession();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshSession();
+    }, msUntilRefresh);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    accessToken,
+    accessTokenExpiresAtMs,
+    hasSessionExpiration,
+    isClientReady,
+    refreshSession,
+    refreshToken,
+  ]);
 
   const currentUserQuery = useQuery({
-    queryKey: ["admin", "me", accessToken],
+    queryKey: ["session", "me", accessToken],
     enabled: isClientReady && Boolean(accessToken),
     retry: false,
     initialData: storedUser ?? undefined,
-    staleTime: 0,
+    initialDataUpdatedAt: 0,
+    staleTime: SESSION_STALE_TIME_MS,
     refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
     queryFn: async () => {
       try {
         const nextUser = await authApi.getCurrentUser(accessToken!);
@@ -30,7 +107,7 @@ export function useAdminSession() {
         return nextUser;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
-          clearSession();
+          await refreshSession();
         }
 
         throw error;
@@ -73,13 +150,14 @@ export function useAdminSession() {
   ]);
 
   const refreshUser = async () => {
-    if (!accessToken) {
+    if (!accessToken || !hasSessionExpiration) {
       return null;
     }
 
     const nextUser = await queryClient.fetchQuery({
-      queryKey: ["admin", "me", accessToken],
+      queryKey: ["session", "me", accessToken],
       queryFn: () => authApi.getCurrentUser(accessToken),
+      staleTime: 0,
     });
 
     syncUser(nextUser);
@@ -87,13 +165,13 @@ export function useAdminSession() {
   };
 
   const logout = () => {
-    clearSession();
-    queryClient.removeQueries({ queryKey: ["admin"] });
+    clearActiveSession();
   };
 
   return {
     isClientReady,
     accessToken,
+    accessTokenExpiresAt: accessToken ? accessTokenExpiresAt : null,
     user,
     userError: currentUserQuery.isError ? currentUserQuery.error : null,
     isPlatformAdmin,

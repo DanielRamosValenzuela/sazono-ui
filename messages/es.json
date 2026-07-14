@@ -149,7 +149,8 @@
     "emptyDescription": "Revisa que el nombre esté bien escrito, o contáctanos y te ayudamos a entrar.",
     "emptyContactCta": "Contactar a Sazono",
     "goToLogin": "Ir a iniciar sesión",
-    "minCharsHint": "Escribe al menos 2 letras"
+    "minCharsHint": "Escribe al menos 2 letras",
+    "searchError": "No pudimos buscar tu restaurante. Intenta de nuevo."
   },
   "AdminLeads": {
     "pageTitle": "Leads",
@@ -759,6 +760,7 @@
     "loginSuccess": "¡Hola de nuevo!",
     "loginError": "No pudimos iniciar sesión. Revisa el correo y la contraseña e inténtalo de nuevo.",
     "refreshError": "No pudimos actualizar tu información. Revisa tu conexión e inténtalo de nuevo.",
+    "sessionExpired": "Tu sesión expiró. Inicia sesión de nuevo.",
     "accessDeniedTitle": "No tienes acceso a esta sección",
     "accessDeniedDescription": "Tu cuenta no tiene permisos para ver esta página. Si crees que es un error, habla con la persona que administra tu restaurante.",
     "backToOverview": "Volver al resumen"

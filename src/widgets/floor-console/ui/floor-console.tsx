@@ -35,19 +35,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
+import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { adminApi } from "@/shared/api/admin-api";
-import { authApi } from "@/shared/api/auth-api";
 import { billingApi } from "@/shared/api/billing-api";
 import { floorApi } from "@/shared/api/floor-api";
-import { ApiError } from "@/shared/api/http-client";
 import {
   getBranchAccessList,
   hasBranchPermission,
   type BranchAccess,
 } from "@/shared/lib/branch-access";
 import { formatMoney } from "@/shared/lib/format";
-import { useClientReady } from "@/shared/lib/use-client-ready";
 import type { BranchRole } from "@/shared/types/auth";
 import type { BranchOpenBill, CurrentBill } from "@/shared/types/billing";
 import type {
@@ -148,40 +145,9 @@ export function FloorConsole() {
   const t = useTranslations("FloorConsole");
   const locale = useLocale();
   const queryClient = useQueryClient();
-  const isClientReady = useClientReady();
-  const accessToken = useAdminSessionStore((state) => state.accessToken);
-  const storedUser = useAdminSessionStore((state) => state.user);
-  const syncUser = useAdminSessionStore((state) => state.syncUser);
-  const clearSession = useAdminSessionStore((state) => state.clearSession);
-
-  const {
-    data: currentUserData,
-    isError: isCurrentUserError,
-    error: currentUserError,
-  } = useQuery({
-    queryKey: ["staff", "me", accessToken],
-    enabled: isClientReady && Boolean(accessToken),
-    retry: false,
-    initialData: storedUser ?? undefined,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
-    queryFn: async () => {
-      try {
-        const nextUser = await authApi.getCurrentUser(accessToken!);
-        syncUser(nextUser);
-        return nextUser;
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          clearSession();
-        }
-
-        throw error;
-      }
-    },
-  });
-
-  const currentUser = currentUserData ?? storedUser;
+  const session = useAdminSession();
+  const accessToken = session.accessToken;
+  const currentUser = session.user;
   const branchAccessList = useMemo(
     () => (currentUser ? getBranchAccessList(currentUser) : []),
     [currentUser]
@@ -217,7 +183,7 @@ export function FloorConsole() {
 
   const { data: branchesData } = useQuery({
     queryKey: ["floor", "branch-settings", accessToken],
-    enabled: isClientReady && Boolean(accessToken) && canSplitBill,
+    enabled: session.isClientReady && Boolean(accessToken) && canSplitBill,
     queryFn: () => adminApi.listBranches(accessToken!),
   });
   const isSplitBillEnabled =
@@ -232,7 +198,7 @@ export function FloorConsole() {
   } = useQuery({
     queryKey: ["floor", "tables", accessToken, selectedBranchId],
     enabled:
-      isClientReady &&
+      session.isClientReady &&
       Boolean(accessToken) &&
       Boolean(selectedBranchId) &&
       canReadFloor,
@@ -244,7 +210,11 @@ export function FloorConsole() {
 
   const { data: openBillsData } = useQuery({
     queryKey: ["billing", "open-bills", accessToken, selectedBranchId],
-    enabled: isClientReady && Boolean(accessToken) && Boolean(selectedBranchId) && canReadFloor,
+    enabled:
+      session.isClientReady &&
+      Boolean(accessToken) &&
+      Boolean(selectedBranchId) &&
+      canReadFloor,
     refetchInterval: 15_000,
     queryFn: () => billingApi.listBranchOpenBills(accessToken!, selectedBranchId),
   });
@@ -280,7 +250,7 @@ export function FloorConsole() {
   } = useQuery({
     queryKey: ["floor", "current-session", accessToken, focusedTableId],
     enabled:
-      isClientReady &&
+      session.isClientReady &&
       Boolean(accessToken) &&
       Boolean(focusedTableId) &&
       Boolean(focusedTable?.currentSession) &&
@@ -300,7 +270,7 @@ export function FloorConsole() {
   } = useQuery({
     queryKey: ["billing", "current-bill", accessToken, activeSessionId],
     enabled:
-      isClientReady &&
+      session.isClientReady &&
       Boolean(accessToken) &&
       Boolean(activeSessionId) &&
       canReadFloor,
@@ -406,7 +376,7 @@ export function FloorConsole() {
   const availableTables = tables.filter((table) => table.status === "AVAILABLE").length;
   const occupiedTables = tables.filter((table) => table.status === "OCCUPIED").length;
 
-  if (!isClientReady) {
+  if (!session.isClientReady) {
     return (
       <Card className="rounded-[1.75rem] border-border/70 bg-card/82 shadow-lg shadow-primary/8">
         <CardContent className="space-y-3 p-6">
@@ -519,12 +489,12 @@ export function FloorConsole() {
         </CardContent>
       </Card>
 
-      {isCurrentUserError ? (
+      {session.userError ? (
         <InlineError
           title={t("refreshTitle")}
           description={
-            currentUserError instanceof Error
-              ? currentUserError.message
+            session.userError instanceof Error
+              ? session.userError.message
               : t("refreshDescription")
           }
         />
