@@ -74,6 +74,7 @@ import {
 } from "@/shared/ui/form-controls";
 import { MenuView } from "@/widgets/qr-experience/ui/menu-view";
 import { EmptyHint } from "./studio-primitives";
+import { ModifierGroupsEditor } from "./modifier-groups-editor";
 
 const ITEM_TYPES: MenuItemType[] = [
   "FOOD",
@@ -101,6 +102,8 @@ const CATEGORY_STATUSES: MenuCategoryStatus[] = ["ACTIVE", "HIDDEN", "ARCHIVED"]
 type MutationCallbacks = { onSuccess?: () => void };
 
 type MenuEditorPanelProps = {
+  branchId: string;
+  accessToken: string;
   menu: MenuDetail | null;
   stations: PreparationStation[];
   isLoading: boolean;
@@ -150,6 +153,8 @@ type MenuEditorPanelProps = {
 };
 
 export function MenuEditorPanel({
+  branchId,
+  accessToken,
   menu,
   stations,
   isLoading,
@@ -308,6 +313,8 @@ export function MenuEditorPanel({
                 {menu.categories.map((category) => (
                   <CategorySection
                     key={category.menuCategoryId}
+                    branchId={branchId}
+                    accessToken={accessToken}
                     category={category}
                     canEdit={isDraft}
                     stations={activeStations}
@@ -392,6 +399,8 @@ type CategoryEditFormValues = {
 };
 
 type CategorySectionProps = {
+  branchId: string;
+  accessToken: string;
   category: MenuCategoryDetail;
   canEdit: boolean;
   stations: PreparationStation[];
@@ -437,6 +446,8 @@ type CategorySectionProps = {
 };
 
 function CategorySection({
+  branchId,
+  accessToken,
   category,
   canEdit,
   stations,
@@ -891,6 +902,8 @@ function CategorySection({
 
       {editingItem ? (
         <EditItemDialog
+          branchId={branchId}
+          accessToken={accessToken}
           item={
             category.items.find(
               (item) => item.menuItemId === editingItem.menuItemId
@@ -1035,6 +1048,8 @@ type EditItemFormValues = {
 };
 
 type EditItemDialogProps = {
+  branchId: string;
+  accessToken: string;
   item: MenuItemDetail;
   categoryName: string;
   stations: PreparationStation[];
@@ -1054,6 +1069,8 @@ type EditItemDialogProps = {
 };
 
 function EditItemDialog({
+  branchId,
+  accessToken,
   item,
   categoryName,
   stations,
@@ -1287,6 +1304,12 @@ function EditItemDialog({
 
             <FieldHint className="md:col-span-2">{t("translationHint")}</FieldHint>
           </div>
+
+          <ModifierGroupsEditor
+            branchId={branchId}
+            accessToken={accessToken}
+            item={item}
+          />
 
           <div className="flex flex-wrap gap-3">
             <Button

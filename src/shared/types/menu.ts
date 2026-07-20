@@ -52,6 +52,28 @@ export interface MenuTranslation {
   description: string | null;
 }
 
+export type ModifierSelectionType = "ONE" | "MANY";
+
+export interface ModifierOption {
+  modifierOptionId: string;
+  name: string;
+  priceDelta: string;
+  isAvailable: boolean;
+  sortOrder: number;
+}
+
+export interface ModifierGroup {
+  modifierGroupId: string;
+  branchId: string;
+  name: string;
+  selectionType: ModifierSelectionType;
+  minSelect: number;
+  maxSelect: number | null;
+  isRequired: boolean;
+  sortOrder: number;
+  options: ModifierOption[];
+}
+
 export interface MenuItemDetail {
   menuItemId: string;
   name: string;
@@ -64,6 +86,7 @@ export interface MenuItemDetail {
   imageUrl: string | null;
   translations: MenuTranslation[];
   preparationStation: PreparationStationSummary;
+  modifierGroups: ModifierGroup[];
 }
 
 export interface MenuCategoryDetail {
@@ -158,4 +181,41 @@ export interface UpsertCategoryTranslationRequest {
 export interface UpsertItemTranslationRequest {
   name: string;
   description?: string;
+}
+
+export interface CreateModifierGroupRequest {
+  branchId: string;
+  name: string;
+  selectionType: ModifierSelectionType;
+  minSelect?: number;
+  maxSelect?: number;
+  isRequired?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateModifierGroupRequest {
+  name?: string;
+  selectionType?: ModifierSelectionType;
+  minSelect?: number;
+  maxSelect?: number;
+  isRequired?: boolean;
+  sortOrder?: number;
+}
+
+export interface CreateModifierOptionRequest {
+  name: string;
+  priceDelta?: string;
+  isAvailable?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateModifierOptionRequest {
+  name?: string;
+  priceDelta?: string;
+  isAvailable?: boolean;
+  sortOrder?: number;
+}
+
+export interface SetMenuItemModifierGroupsRequest {
+  modifierGroupIds: string[];
 }

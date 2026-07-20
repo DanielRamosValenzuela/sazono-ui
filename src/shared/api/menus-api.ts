@@ -4,16 +4,23 @@ import type {
   CreateMenuCategoryRequest,
   CreateMenuItemRequest,
   CreateMenuRequest,
+  CreateModifierGroupRequest,
+  CreateModifierOptionRequest,
   CreatePreparationStationRequest,
   MenuCategory,
   MenuDetail,
   MenuSummary,
   MenuTranslation,
+  ModifierGroup,
+  ModifierOption,
   PreparationStation,
   ReorderMenuCategoriesRequest,
   ReorderMenuItemsRequest,
+  SetMenuItemModifierGroupsRequest,
   UpdateMenuCategoryRequest,
   UpdateMenuItemRequest,
+  UpdateModifierGroupRequest,
+  UpdateModifierOptionRequest,
   UpsertCategoryTranslationRequest,
   UpsertItemTranslationRequest,
 } from "@/shared/types/menu";
@@ -177,6 +184,71 @@ export const menusApi = {
   ) {
     return apiRequest<MenuTranslation>(
       `/menus/items/${menuItemId}/translations/${locale}`,
+      {
+        method: "PUT",
+        token,
+        body: payload,
+      }
+    );
+  },
+  listModifierGroups(token: string, branchId: string) {
+    return apiRequest<ModifierGroup[]>(
+      `/menus/modifier-groups?branchId=${encodeURIComponent(branchId)}`,
+      {
+        token,
+      }
+    );
+  },
+  createModifierGroup(token: string, payload: CreateModifierGroupRequest) {
+    return apiRequest<ModifierGroup>("/menus/modifier-groups", {
+      method: "POST",
+      token,
+      body: payload,
+    });
+  },
+  updateModifierGroup(
+    token: string,
+    modifierGroupId: string,
+    payload: UpdateModifierGroupRequest
+  ) {
+    return apiRequest<ModifierGroup>(`/menus/modifier-groups/${modifierGroupId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
+    });
+  },
+  createModifierOption(
+    token: string,
+    modifierGroupId: string,
+    payload: CreateModifierOptionRequest
+  ) {
+    return apiRequest<ModifierOption>(
+      `/menus/modifier-groups/${modifierGroupId}/options`,
+      {
+        method: "POST",
+        token,
+        body: payload,
+      }
+    );
+  },
+  updateModifierOption(
+    token: string,
+    modifierOptionId: string,
+    payload: UpdateModifierOptionRequest
+  ) {
+    return apiRequest<ModifierOption>(`/menus/modifier-options/${modifierOptionId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
+    });
+  },
+  setMenuItemModifierGroups(
+    token: string,
+    menuItemId: string,
+    payload: SetMenuItemModifierGroupsRequest
+  ) {
+    return apiRequest<ModifierGroup[]>(
+      `/menus/items/${menuItemId}/modifier-groups`,
       {
         method: "PUT",
         token,

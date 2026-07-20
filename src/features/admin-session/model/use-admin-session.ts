@@ -140,6 +140,7 @@ export function useAdminSession() {
     "SUPERVISOR",
     "WAITER",
     "CASHIER",
+    "KITCHEN",
   ]);
   const canAccessMenuStudio = hasAnyRole(["ADMIN"]);
   const canAccessKitchen = hasAnyRole([

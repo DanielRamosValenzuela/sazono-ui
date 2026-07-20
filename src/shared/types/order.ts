@@ -29,7 +29,6 @@ export type PaymentPolicy = "PREPAID" | "POSTPAID";
 
 export type StationTicketStatus =
   | "PENDING"
-  | "ACCEPTED"
   | "IN_PROGRESS"
   | "READY"
   | "CANCELLED";
@@ -42,6 +41,12 @@ export type PaymentStatus =
   | "REFUNDED"
   | "CANCELLED";
 
+export interface OrderItemModifierResponse {
+  modifierOptionId: string | null;
+  name: string;
+  priceDelta: string;
+}
+
 export interface OrderItemResponse {
   orderItemId: string;
   menuItemId: string | null;
@@ -52,6 +57,7 @@ export interface OrderItemResponse {
   status: OrderItemStatus;
   notes: string | null;
   preparationStation: PreparationStationSummary;
+  modifiers: OrderItemModifierResponse[];
 }
 
 export interface OrderStationTicketSummary {
@@ -83,6 +89,15 @@ export interface CreateOrderItemRequest {
   menuItemId: string;
   quantity: number;
   notes?: string;
+  modifierOptionIds?: string[];
+}
+
+export interface BranchReadySummaryItem {
+  tableSessionId: string;
+  tableId: string;
+  tableCode: string;
+  openedByStaffUserId: string | null;
+  readyUndeliveredCount: number;
 }
 
 export interface CreateQrOrderRequest {

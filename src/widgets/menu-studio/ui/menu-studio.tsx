@@ -472,6 +472,8 @@ export function MenuStudio() {
         </div>
 
         <MenuEditorPanel
+          branchId={selectedBranchId}
+          accessToken={accessToken!}
           menu={menuDetail ?? null}
           stations={stations}
           isLoading={isMenuDetailLoading && Boolean(selectedMenuId)}

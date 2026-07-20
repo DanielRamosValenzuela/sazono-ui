@@ -1,14 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import {
   AlertCircle,
   Ban,
-  ChefHat,
   CheckCircle2,
   Clock3,
   Flame,
+  GripVertical,
   Soup,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -17,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { kitchenApi } from "@/shared/api/kitchen-api";
 import { menusApi } from "@/shared/api/menus-api";
@@ -29,6 +41,13 @@ import type { BranchRole } from "@/shared/types/auth";
 import type { StationTicket, StationTicketStatus } from "@/shared/types/kitchen";
 import { SelectInput } from "@/shared/ui/form-controls";
 
+const STATION_TICKET_STATUSES: StationTicketStatus[] = [
+  "PENDING",
+  "IN_PROGRESS",
+  "READY",
+  "CANCELLED",
+];
+
 const KITCHEN_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "KITCHEN", "BAR"];
 const KITCHEN_CANCEL_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const TICKETS_REFETCH_INTERVAL = 8_000;
@@ -38,8 +57,7 @@ const BOARD_COLUMNS: {
   icon: typeof Clock3;
   nextStatus: StationTicketStatus | null;
 }[] = [
-  { status: "PENDING", icon: Clock3, nextStatus: "ACCEPTED" },
-  { status: "ACCEPTED", icon: ChefHat, nextStatus: "IN_PROGRESS" },
+  { status: "PENDING", icon: Clock3, nextStatus: "IN_PROGRESS" },
   { status: "IN_PROGRESS", icon: Soup, nextStatus: "READY" },
   { status: "READY", icon: CheckCircle2, nextStatus: null },
 ];
@@ -57,7 +75,6 @@ function formatTime(locale: string, value: string | null) {
 
 export function KitchenBoard() {
   const t = useTranslations("KitchenBoard");
-  const tStatus = useTranslations("Shared.stationTicketStatus");
   const locale = useLocale();
   const queryClient = useQueryClient();
   const session = useAdminSession();
@@ -130,6 +147,37 @@ export function KitchenBoard() {
     return grouped;
   }, [tickets]);
 
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) {
+      return;
+    }
+
+    const targetStatus = over.id as StationTicketStatus;
+
+    if (!STATION_TICKET_STATUSES.includes(targetStatus)) {
+      return;
+    }
+
+    const ticket = tickets.find(
+      (candidate) => candidate.stationTicketId === active.id
+    );
+
+    if (!ticket || ticket.status === targetStatus) {
+      return;
+    }
+
+    updateStatusMutation.mutate({
+      stationTicketId: ticket.stationTicketId,
+      status: targetStatus,
+    });
+  };
+
   if (!session.isClientReady) {
     return <Skeleton className="h-96 w-full rounded-3xl" />;
   }
@@ -186,27 +234,17 @@ export function KitchenBoard() {
           <p>{t("readForbiddenDescription")}</p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-4">
-          {BOARD_COLUMNS.map((column) => {
-            const columnTickets = ticketsByStatus.get(column.status) ?? [];
-            const Icon = column.icon;
+        <DndContext
+          sensors={dragSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
+            {BOARD_COLUMNS.map((column) => {
+              const columnTickets = ticketsByStatus.get(column.status) ?? [];
 
-            return (
-              <div
-                key={column.status}
-                className="rounded-[1.7rem] border border-border/70 bg-card/70 p-4"
-              >
-                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-                  <Icon className="size-4 text-primary" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-                    {tStatus(column.status)}
-                  </h2>
-                  <span className="ml-auto inline-flex size-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
-                    {columnTickets.length}
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-3">
+              return (
+                <KitchenColumn key={column.status} column={column} count={columnTickets.length}>
                   {ticketsQuery.isPending ? (
                     <>
                       <Skeleton className="h-28 w-full rounded-2xl" />
@@ -227,9 +265,10 @@ export function KitchenBoard() {
                     const sentTime = formatTime(locale, ticket.sentAt);
 
                     return (
-                      <article
+                      <DraggableTicketCard
                         key={ticket.stationTicketId}
-                        className="rounded-2xl border border-border/70 bg-background/70 p-3.5 shadow-sm"
+                        ticket={ticket}
+                        disabled={isUpdating}
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
                           <Badge variant="outline">{ticket.tableCode}</Badge>
@@ -307,15 +346,88 @@ export function KitchenBoard() {
                             </Button>
                           ) : null}
                         </div>
-                      </article>
+                      </DraggableTicketCard>
                     );
                   })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                </KitchenColumn>
+              );
+            })}
+          </div>
+        </DndContext>
       )}
     </div>
+  );
+}
+
+type KitchenColumnProps = {
+  column: (typeof BOARD_COLUMNS)[number];
+  count: number;
+  children: ReactNode;
+};
+
+function KitchenColumn({ column, count, children }: KitchenColumnProps) {
+  const tStatus = useTranslations("Shared.stationTicketStatus");
+  const { setNodeRef, isOver } = useDroppable({ id: column.status });
+  const Icon = column.icon;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-[1.7rem] border p-4 transition-colors",
+        isOver
+          ? "border-primary/50 bg-primary/5"
+          : "border-border/70 bg-card/70"
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+        <Icon className="size-4 text-primary" />
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+          {tStatus(column.status)}
+        </h2>
+        <span className="ml-auto inline-flex size-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
+          {count}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+type DraggableTicketCardProps = {
+  ticket: StationTicket;
+  disabled: boolean;
+  children: ReactNode;
+};
+
+function DraggableTicketCard({ ticket, disabled, children }: DraggableTicketCardProps) {
+  const t = useTranslations("KitchenBoard");
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: ticket.stationTicketId,
+    disabled,
+  });
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.6 : 1,
+      }}
+      className="relative rounded-2xl border border-border/70 bg-background/70 p-3.5 pl-8 shadow-sm"
+    >
+      <button
+        type="button"
+        className="absolute top-3.5 left-1.5 cursor-grab touch-none rounded-full p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label={t("ticketDragHandle")}
+        disabled={disabled}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="size-3.5" />
+      </button>
+      {children}
+    </article>
   );
 }

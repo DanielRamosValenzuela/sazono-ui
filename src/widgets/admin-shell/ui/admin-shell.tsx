@@ -24,6 +24,7 @@ import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import type { LoginRequest } from "@/shared/types/auth";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
+import { usePushRegistration } from "@/features/push-notifications/model/use-push-registration";
 import { PlatformLoginScreen } from "./platform-login-screen";
 
 type NavItem = {
@@ -42,6 +43,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
   const tRoles = useTranslations("Shared.roles");
   const tStaffLoginRequired = useTranslations("StaffLoginRequired");
   const session = useAdminSession();
+  usePushRegistration();
 
   const loginMutation = useMutation({
     mutationFn: (values: LoginRequest) => authApi.login(values),
@@ -112,28 +114,26 @@ export function AdminShell({ children, area }: AdminShellProps) {
           icon: <Inbox className="size-4" />,
         },
       ]
-    : [
-        {
-          href: "/admin",
-          labelKey: "navOverview",
-          icon: <LayoutDashboard className="size-4" />,
-          exact: true,
-        },
-        ...(session.isRestaurantAdmin
-          ? [
-              {
-                href: "/admin/team",
-                labelKey: "navTeam",
-                icon: <Users className="size-4" />,
-              },
-              {
-                href: "/admin/branches",
-                labelKey: "navBranches",
-                icon: <MapPin className="size-4" />,
-              },
-            ]
-          : []),
-      ];
+    : session.isRestaurantAdmin
+      ? [
+          {
+            href: "/admin",
+            labelKey: "navOverview",
+            icon: <LayoutDashboard className="size-4" />,
+            exact: true,
+          },
+          {
+            href: "/admin/team",
+            labelKey: "navTeam",
+            icon: <Users className="size-4" />,
+          },
+          {
+            href: "/admin/branches",
+            labelKey: "navBranches",
+            icon: <MapPin className="size-4" />,
+          },
+        ]
+      : [];
 
   const operationsNav: NavItem[] =
     user.profileType === "staff"
@@ -169,6 +169,8 @@ export function AdminShell({ children, area }: AdminShellProps) {
         ]
       : [];
 
+  const collapseToHeader = adminNav.length === 0 && operationsNav.length <= 1;
+
   const handleLogout = () => {
     session.logout();
     toast.success(t("logoutSuccess"));
@@ -181,74 +183,95 @@ export function AdminShell({ children, area }: AdminShellProps) {
       : t("noRoleYet");
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] lg:flex">
-        <div className="flex items-center gap-3 px-6 pt-7 pb-6">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <ChefHat className="size-5" />
-          </div>
-          <div>
-            <p className="font-heading text-lg leading-none font-bold">Sazono</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {session.isPlatformAdmin ? t("platformSubtitle") : t("restaurantSubtitle")}
-            </p>
-          </div>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
-          <NavSection title={t("sectionAdmin")} items={adminNav} t={t} />
-          {operationsNav.length > 0 ? (
-            <NavSection
-              title={t("sectionOperations")}
-              items={operationsNav}
-              t={t}
-            />
-          ) : null}
-        </nav>
-
-        <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3 rounded-2xl px-2 py-2">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
+    <div
+      className={
+        collapseToHeader
+          ? "min-h-screen"
+          : "min-h-screen lg:grid lg:grid-cols-[264px_minmax(0,1fr)]"
+      }
+    >
+      {!collapseToHeader ? (
+        <aside className="sticky top-0 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] lg:flex">
+          <div className="flex items-center gap-3 px-6 pt-7 pb-6">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <ChefHat className="size-5" />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {user.firstName} {user.lastName}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {primaryRole}
+            <div>
+              <p className="font-heading text-lg leading-none font-bold">Sazono</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {session.isPlatformAdmin ? t("platformSubtitle") : t("restaurantSubtitle")}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("logout")}
-              onClick={handleLogout}
-            >
-              <LogOut className="size-4" />
-            </Button>
           </div>
-        </div>
-      </aside>
+
+          <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
+            {adminNav.length > 0 ? (
+              <NavSection title={t("sectionAdmin")} items={adminNav} t={t} />
+            ) : null}
+            {operationsNav.length > 0 ? (
+              <NavSection
+                title={t("sectionOperations")}
+                items={operationsNav}
+                t={t}
+              />
+            ) : null}
+          </nav>
+
+          <div className="border-t border-sidebar-border p-4">
+            <div className="flex items-center gap-3 rounded-2xl px-2 py-2">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
+                {user.firstName.charAt(0)}
+                {user.lastName.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {primaryRole}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("logout")}
+                onClick={handleLogout}
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </aside>
+      ) : null}
 
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3 lg:hidden">
+            <div
+              className={
+                collapseToHeader ? "flex items-center gap-3" : "flex items-center gap-3 lg:hidden"
+              }
+            >
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ChefHat className="size-4" />
               </div>
-              <p className="font-heading text-base font-bold">Sazono</p>
+              <div>
+                <p className="font-heading text-base font-bold">Sazono</p>
+                {collapseToHeader ? (
+                  <p className="text-xs text-muted-foreground">
+                    {session.isPlatformAdmin ? t("platformSubtitle") : t("restaurantSubtitle")}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            <div className="hidden lg:block" />
+            {!collapseToHeader ? <div className="hidden lg:block" /> : null}
             <div className="flex items-center gap-2">
               <LocaleSwitcher />
               <ThemeToggle />
               <Button
                 variant="outline"
                 size="sm"
-                className="lg:hidden"
+                className={collapseToHeader ? undefined : "lg:hidden"}
                 onClick={handleLogout}
               >
                 <LogOut className="size-4" />
@@ -257,11 +280,13 @@ export function AdminShell({ children, area }: AdminShellProps) {
             </div>
           </div>
 
-          <nav className="flex gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
-            {[...adminNav, ...operationsNav].map((item) => (
-              <MobileNavLink key={item.href} item={item} t={t} />
-            ))}
-          </nav>
+          {!collapseToHeader ? (
+            <nav className="flex gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
+              {[...adminNav, ...operationsNav].map((item) => (
+                <MobileNavLink key={item.href} item={item} t={t} />
+              ))}
+            </nav>
+          ) : null}
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-10">

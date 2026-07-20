@@ -36,6 +36,7 @@ export type BranchSettings = {
   qrPaymentMode: string;
   splitBillEnabled: boolean;
   partialDeliveryEnabled: boolean;
+  autoDeliverAfterMinutes: number | null;
 };
 
 export type CreateBranchRequest = {

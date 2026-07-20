@@ -13,7 +13,7 @@ import type { OrderResponse, PaymentBillSummary } from "@/shared/types/order";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
-import { BottomSheet } from "./bottom-sheet";
+import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 const TIP_PERCENTAGES = [0, 5, 10] as const;
 

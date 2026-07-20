@@ -474,6 +474,12 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
   const [partialDeliveryEnabled, setPartialDeliveryEnabled] = useState(
     branch.settings?.partialDeliveryEnabled ?? true
   );
+  const [autoDeliverEnabled, setAutoDeliverEnabled] = useState(
+    (branch.settings?.autoDeliverAfterMinutes ?? null) !== null
+  );
+  const [autoDeliverMinutes, setAutoDeliverMinutes] = useState(
+    branch.settings?.autoDeliverAfterMinutes ?? 5
+  );
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border/70 bg-background/60 p-4">
@@ -564,6 +570,36 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
         </CheckboxRow>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CheckboxRow>
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={autoDeliverEnabled}
+            onChange={(event) => setAutoDeliverEnabled(event.target.checked)}
+          />
+          <span>{t("autoDeliverEnabled")}</span>
+        </CheckboxRow>
+        {autoDeliverEnabled ? (
+          <FieldGroup>
+            <FieldLabel htmlFor={`branch-edit-auto-deliver-${branch.branchId}`}>
+              {t("autoDeliverMinutes")}
+            </FieldLabel>
+            <TextInput
+              id={`branch-edit-auto-deliver-${branch.branchId}`}
+              type="number"
+              min={1}
+              value={autoDeliverMinutes}
+              onChange={(event) =>
+                setAutoDeliverMinutes(Number(event.target.value) || 1)
+              }
+            />
+          </FieldGroup>
+        ) : (
+          <FieldHint className="self-center">{t("autoDeliverHint")}</FieldHint>
+        )}
+      </div>
+
       <Button
         type="button"
         className="w-full rounded-full sm:w-auto"
@@ -578,6 +614,7 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
               qrPaymentMode,
               splitBillEnabled,
               partialDeliveryEnabled,
+              autoDeliverAfterMinutes: autoDeliverEnabled ? autoDeliverMinutes : null,
             },
           })
         }

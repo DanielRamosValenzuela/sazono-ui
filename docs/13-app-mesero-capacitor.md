@@ -130,9 +130,13 @@ de build.
 ## Plan de fases sugerido
 
 1. Crear `sazono-staff-app/` (proyecto Capacitor) apuntando a `/staff` de
-   staging.
+   staging. **Hecho.**
 2. Agregar `@capacitor/push-notifications` end-to-end (registro de
    dispositivo, backend dispara push en eventos de `kitchen`/`orders`).
+   **Parcial:** registro de dispositivo y recepción funcionando en Android;
+   falta banner en primer plano (`@capacitor/local-notifications`) y todo
+   el lado de backend (guardar tokens, disparar en eventos reales) — ver
+   sección Progreso arriba.
 3. Agregar `@capacitor/network` + splash/status bar con marca; generar
    assets con `@capacitor/assets`.
 4. Diseñar e implementar login por PIN + sesión de terminal (backend +
@@ -172,12 +176,44 @@ de build.
 - `sazono-staff-app/` ahora tiene su propio `docs/` + `AGENTS.md` +
   `CLAUDE.md` (mismo patrón que este repo) — el detalle de estado y próximos
   pasos vive ahí, no se duplica acá.
-- **Prueba en emulador Android: en pausa.** SDK + AVD listos
-  (`sazono_staff_test`), pero el emulador necesita Windows Hypervisor
-  Platform y la máquina de desarrollo todavía no se reinició después de
-  habilitarlo. Retomar según `sazono-staff-app/README.md`.
-- Pendiente aún: `@capacitor/push-notifications` (requiere definir el
-  proyecto de Firebase primero).
+- **Prueba en emulador Android: funciona** (2026-07-20). El bloqueo de WHPX
+  se resolvió con un reinicio de la máquina. Dos AVDs disponibles, preferir
+  `sazono_staff_playstore` (WebView actualizable). Detalle en
+  `sazono-staff-app/README.md`.
+- **Gotcha de testing importante, encontrado recién:** contra el dev server
+  (`npm run dev`, Turbopack) la app carga pero se congela para siempre en
+  el skeleton inicial de `AdminShell` (`!session.isClientReady`) dentro del
+  WebView del emulador — sin ningún error. Se diagnosticó a fondo
+  (Chrome DevTools Protocol conectado directo al WebView, sin depender de
+  la extensión de Chrome de Claude): no es un problema de red, no es la
+  versión del WebView (se probó con Chrome 113 y 133, mismo resultado), y
+  la misma URL contra el mismo dev server hidrata perfecto en Chrome de
+  escritorio normal — aislando el bug al WebView/Capacitor
+  específicamente. **Con `npm run build && npm run start` en vez de
+  `npm run dev`, hidrata perfecto también dentro del WebView.** No se
+  identificó la causa exacta dentro de Turbopack (candidato: algo del
+  cliente de HMR/module runtime). No bloquea nada real porque
+  TestFlight/Play Store/producción siempre sirven build de producción —
+  pero es clave para cualquiera que pruebe cambios de este repo en el
+  emulador: usar build de producción, no el dev server.
+- **`@capacitor/push-notifications` instalado y probado de punta a punta en
+  Android** (2026-07-20): proyecto Firebase creado, app Android registrada,
+  `google-services.json` colocado en `sazono-staff-app/android/app/`
+  (gitignored). El código de registro/listeners vive en este repo
+  (`sazono-ui`), no en `sazono-staff-app` — tiene sentido porque es el
+  WebView el que ejecuta JS: nuevo feature slice
+  `src/features/push-notifications/model/use-push-registration.ts`
+  (`"use client"`, guardado por `Capacitor.isNativePlatform()`, pide
+  permiso y llama `PushNotifications.register()`), enganchado en
+  `widgets/admin-shell/ui/admin-shell.tsx` vía `usePushRegistration()`.
+  Token FCM real obtenido y notificación de prueba (mandada a mano desde
+  Firebase Console) recibida y confirmada por evento nativo
+  `pushNotificationReceived`. Pendiente: con la app en primer plano la
+  notificación no muestra banner visible todavía (solo se loguea a
+  consola) — falta `@capacitor/local-notifications` para mostrarla
+  manualmente en ese caso; y el backend no tiene ninguna infraestructura
+  para *enviar* pushes reales todavía (ver plan de fases, paso 2, abajo, y
+  `sazono-staff-app/README.md` para el detalle completo).
 
 ## Riesgos / consecuencias
 

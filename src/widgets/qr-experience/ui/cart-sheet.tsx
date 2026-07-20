@@ -13,7 +13,7 @@ import type { MenuItemDetail } from "@/shared/types/menu";
 import type { OrderResponse } from "@/shared/types/order";
 import { getCartTotal, type CartLine } from "@/shared/lib/cart";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
-import { BottomSheet } from "./bottom-sheet";
+import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 type CartSheetProps = {
   qrToken: string;

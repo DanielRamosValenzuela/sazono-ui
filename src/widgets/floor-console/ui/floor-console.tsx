@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Armchair,
+  Bell,
+  CheckCheck,
   CheckCircle2,
   Copy,
   CircleDot,
@@ -39,6 +41,7 @@ import { useAdminSession } from "@/features/admin-session/model/use-admin-sessio
 import { adminApi } from "@/shared/api/admin-api";
 import { billingApi } from "@/shared/api/billing-api";
 import { floorApi } from "@/shared/api/floor-api";
+import { ordersApi } from "@/shared/api/orders-api";
 import {
   getBranchAccessList,
   hasBranchPermission,
@@ -52,6 +55,7 @@ import type {
   TableSessionSource,
   TableSessionStatus,
 } from "@/shared/types/floor";
+import type { BranchReadySummaryItem, OrderResponse } from "@/shared/types/order";
 import {
   FieldGroup,
   FieldHint,
@@ -59,6 +63,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { BottomSheet } from "@/shared/ui/bottom-sheet";
 import { AbandonSessionDialog } from "./abandon-session-dialog";
 import { AddOrderSheet } from "./add-order-sheet";
 import { SplitBillDialog } from "./split-bill-dialog";
@@ -73,12 +78,21 @@ interface CloseSessionFormValues {
   closeReason: string;
 }
 
-const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
+type TableFilter = "all" | "available" | "occupied" | "pending" | "stale";
+
+const STALE_SESSION_MINUTES = 30;
+const READY_SUMMARY_REFETCH_INTERVAL = 12_000;
+const LIVE_TIMER_TICK_INTERVAL = 30_000;
+
+const TABLE_FILTERS: TableFilter[] = ["all", "available", "occupied", "pending", "stale"];
+
+const FLOOR_READ_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER", "KITCHEN"];
 const FLOOR_CREATE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_MULTI_SOURCE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
-const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
+const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER", "KITCHEN"];
 const FLOOR_SPLIT_BILL_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_ABANDON_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
+const FLOOR_DELIVER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER", "WAITER", "KITCHEN"];
 
 function getOpenSources(branchAccess: BranchAccess | null): TableSessionSource[] {
   if (!branchAccess) {
@@ -137,6 +151,22 @@ function formatDateTime(locale: string, value: string) {
   }).format(new Date(value));
 }
 
+function formatElapsedMinutes(openedAt: string, now: number) {
+  const minutes = Math.max(0, Math.floor((now - new Date(openedAt).getTime()) / 60_000));
+
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours}h ${remainder}m`;
+}
+
+function isSessionStale(openedAt: string, now: number) {
+  return now - new Date(openedAt).getTime() >= STALE_SESSION_MINUTES * 60_000;
+}
+
 function isBillSettled(bill: CurrentBill | undefined) {
   return bill ? Number(bill.remainingAmount) <= 0 : false;
 }
@@ -156,9 +186,16 @@ export function FloorConsole() {
   const [rawSelectedBranchId, setSelectedBranchId] = useState<string>("");
   const [rawSelectedSource, setSelectedSource] = useState<TableSessionSource>("WAITER");
   const [rawFocusedTableId, setFocusedTableId] = useState<string>("");
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [addOrderOpen, setAddOrderOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), LIVE_TIMER_TICK_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
 
   const selectedBranchId = branchAccessList.some(
     (branch) => branch.branchId === rawSelectedBranchId
@@ -176,6 +213,7 @@ export function FloorConsole() {
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
   const canAddOrder = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
+  const canDeliver = hasBranchPermission(selectedBranch, FLOOR_DELIVER_ROLES);
   const canSplitBill = hasBranchPermission(
     selectedBranch,
     FLOOR_SPLIT_BILL_ROLES,
@@ -226,21 +264,79 @@ export function FloorConsole() {
     return map;
   }, [openBillsData]);
 
-  const [showOnlyPending, setShowOnlyPending] = useState(false);
-  const tables = useMemo(() => {
-    if (!showOnlyPending) {
-      return allTables;
-    }
-    return allTables.filter((table) => {
-      const bill = openBillsByTableId.get(table.tableId);
-      return bill && Number(bill.remainingAmount) > 0;
-    });
-  }, [allTables, openBillsByTableId, showOnlyPending]);
+  const { data: readySummaryData } = useQuery({
+    queryKey: ["orders", "branch-ready-summary", accessToken, selectedBranchId],
+    enabled:
+      session.isClientReady &&
+      Boolean(accessToken) &&
+      Boolean(selectedBranchId) &&
+      canReadFloor,
+    refetchInterval: READY_SUMMARY_REFETCH_INTERVAL,
+    queryFn: () => ordersApi.listBranchReadySummary(accessToken!, selectedBranchId),
+  });
 
-  const focusedTableId = tables.some((table) => table.tableId === rawFocusedTableId)
+  const [myTablesOnly, setMyTablesOnly] = useState(true);
+  const readySummary = useMemo(() => readySummaryData ?? [], [readySummaryData]);
+  const visibleReadySummary = useMemo(() => {
+    if (!myTablesOnly || !currentUser) {
+      return readySummary;
+    }
+    return readySummary.filter(
+      (entry) => entry.openedByStaffUserId === currentUser.profileId
+    );
+  }, [readySummary, myTablesOnly, currentUser]);
+  const readySummaryByTableId = useMemo(() => {
+    const map = new Map<string, BranchReadySummaryItem>();
+    for (const entry of visibleReadySummary) {
+      map.set(entry.tableId, entry);
+    }
+    return map;
+  }, [visibleReadySummary]);
+
+  const [tableFilter, setTableFilter] = useState<TableFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const tables = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return allTables.filter((table) => {
+      if (query) {
+        const matchesQuery =
+          table.name.toLowerCase().includes(query) ||
+          table.code.toLowerCase().includes(query);
+        if (!matchesQuery) {
+          return false;
+        }
+      }
+
+      switch (tableFilter) {
+        case "available":
+          return table.status === "AVAILABLE";
+        case "occupied":
+          return table.status === "OCCUPIED";
+        case "pending": {
+          const bill = openBillsByTableId.get(table.tableId);
+          return Boolean(bill && Number(bill.remainingAmount) > 0);
+        }
+        case "stale":
+          return Boolean(
+            table.currentSession && isSessionStale(table.currentSession.openedAt, now)
+          );
+        default:
+          return true;
+      }
+    });
+  }, [allTables, tableFilter, searchQuery, openBillsByTableId, now]);
+
+  const focusedTableId = allTables.some((table) => table.tableId === rawFocusedTableId)
     ? rawFocusedTableId
-    : tables.find((table) => table.currentSession)?.tableId ?? tables[0]?.tableId ?? "";
-  const focusedTable = tables.find((table) => table.tableId === focusedTableId) ?? null;
+    : "";
+  const focusedTable = allTables.find((table) => table.tableId === focusedTableId) ?? null;
+
+  const openTableDetail = (tableId: string) => {
+    setFocusedTableId(tableId);
+    setDetailSheetOpen(true);
+  };
 
   const {
     data: currentSessionData,
@@ -276,6 +372,34 @@ export function FloorConsole() {
       canReadFloor,
     retry: false,
     queryFn: () => billingApi.getCurrentBill(accessToken!, activeSessionId),
+  });
+
+  const {
+    data: sessionOrdersData,
+    isLoading: isSessionOrdersLoading,
+  } = useQuery({
+    queryKey: ["orders", "session", accessToken, activeSessionId],
+    enabled:
+      session.isClientReady &&
+      Boolean(accessToken) &&
+      Boolean(activeSessionId) &&
+      detailSheetOpen,
+    queryFn: () => ordersApi.listSessionOrders(accessToken!, activeSessionId),
+  });
+  const sessionOrders = useMemo(() => sessionOrdersData ?? [], [sessionOrdersData]);
+
+  const deliverOrderMutation = useMutation({
+    mutationFn: (orderId: string) => ordersApi.deliverOrder(accessToken!, orderId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["orders", "session"] }),
+        queryClient.invalidateQueries({ queryKey: ["orders", "branch-ready-summary"] }),
+      ]);
+      toast.success(t("deliverSuccess"));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("deliverError"));
+    },
   });
 
   const createTableForm = useForm<CreateTableFormValues>({
@@ -322,14 +446,14 @@ export function FloorConsole() {
         tableId: table.tableId,
         openedBySource: selectedSource,
       }),
-    onSuccess: async (session) => {
-      setFocusedTableId(session.tableId);
+    onSuccess: async (openedSession) => {
+      setFocusedTableId(openedSession.tableId);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["floor", "tables"],
         }),
         queryClient.invalidateQueries({
-          queryKey: ["floor", "current-session", accessToken, session.tableId],
+          queryKey: ["floor", "current-session", accessToken, openedSession.tableId],
         }),
       ]);
       toast.success(t("openSuccess"));
@@ -349,7 +473,7 @@ export function FloorConsole() {
       floorApi.closeTableSession(accessToken!, sessionId, {
         closeReason: values.closeReason.trim() || t("closeReasonDefault"),
       }),
-    onSuccess: async (session) => {
+    onSuccess: async (closedSession) => {
       closeSessionForm.reset({
         closeReason: "",
       });
@@ -364,7 +488,8 @@ export function FloorConsole() {
           queryKey: ["billing", "current-bill"],
         }),
       ]);
-      setFocusedTableId(session.tableId);
+      setFocusedTableId(closedSession.tableId);
+      setDetailSheetOpen(false);
       toast.success(t("closeSuccess"));
     },
     onError: (error) => {
@@ -525,220 +650,116 @@ export function FloorConsole() {
             />
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
-              <CardHeader>
-                <div className="flex items-center gap-2 text-primary">
-                  <Plus className="size-4" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em]">
-                    {t("createEyebrow")}
-                  </p>
-                </div>
-                <CardTitle className="text-2xl">{t("createTitle")}</CardTitle>
-                <CardDescription className="leading-7">
-                  {canCreateTables ? t("createDescription") : t("createForbidden")}
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                <form
-                  onSubmit={createTableForm.handleSubmit((values) =>
-                    createTableMutation.mutate(values)
-                  )}
-                  className="grid gap-4"
-                >
-                  <FieldGroup>
-                    <FieldLabel htmlFor="table-code">{t("codeLabel")}</FieldLabel>
-                    <TextInput
-                      id="table-code"
-                      placeholder="M01"
-                      disabled={!canCreateTables || createTableMutation.isPending}
-                      {...createTableForm.register("code", { required: true })}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup>
-                    <FieldLabel htmlFor="table-name">{t("nameLabel")}</FieldLabel>
-                    <TextInput
-                      id="table-name"
-                      placeholder={t("namePlaceholder")}
-                      disabled={!canCreateTables || createTableMutation.isPending}
-                      {...createTableForm.register("name", { required: true })}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup>
-                    <FieldLabel htmlFor="table-capacity">{t("capacityLabel")}</FieldLabel>
-                    <TextInput
-                      id="table-capacity"
-                      type="number"
-                      min={1}
-                      max={24}
-                      disabled={!canCreateTables || createTableMutation.isPending}
-                      {...createTableForm.register("capacity", {
-                        required: true,
-                        valueAsNumber: true,
-                        min: 1,
-                      })}
-                    />
-                    <FieldHint>{t("capacityHint")}</FieldHint>
-                  </FieldGroup>
-
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="mt-2 rounded-full"
-                    disabled={!canCreateTables || createTableMutation.isPending}
+          {visibleReadySummary.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-primary/20 bg-primary/6 p-3">
+              <Bell className="size-4 shrink-0 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                {t("readyStripTitle")}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {visibleReadySummary.map((entry) => (
+                  <button
+                    key={entry.tableSessionId}
+                    type="button"
+                    onClick={() => openTableDetail(entry.tableId)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-primary/25 bg-card px-3 py-1 text-xs font-medium text-foreground transition hover:bg-primary/10"
                   >
-                    {createTableMutation.isPending ? (
-                      <>
-                        <Spinner />
-                        {t("createSubmitting")}
-                      </>
-                    ) : (
-                      t("createSubmit")
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                    {entry.tableCode}
+                    <Badge className="border-0 bg-primary/15 px-1.5 text-primary">
+                      {entry.readyUndeliveredCount}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+              <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={myTablesOnly}
+                  onChange={(event) => setMyTablesOnly(event.target.checked)}
+                  className="size-3.5 cursor-pointer rounded border-border accent-primary"
+                />
+                {t("myTablesOnly")}
+              </label>
+            </div>
+          ) : null}
 
-            <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
-              <CardHeader>
-                <div className="flex items-center gap-2 text-primary">
-                  <Sparkles className="size-4" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em]">
-                    {t("sessionEyebrow")}
-                  </p>
-                </div>
-                <CardTitle className="text-2xl">{t("sessionTitle")}</CardTitle>
-                <CardDescription className="leading-7">
-                  {t("sessionDescription")}
-                </CardDescription>
-              </CardHeader>
+          <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-primary">
+                <Plus className="size-4" />
+                <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+                  {t("createEyebrow")}
+                </p>
+              </div>
+              <CardTitle className="text-2xl">{t("createTitle")}</CardTitle>
+              <CardDescription className="leading-7">
+                {canCreateTables ? t("createDescription") : t("createForbidden")}
+              </CardDescription>
+            </CardHeader>
 
-              <CardContent>
-                {focusedTable && focusedTable.currentSession ? (
-                  <div className="space-y-4">
-                    <div className="rounded-[1.5rem] border border-primary/12 bg-primary/7 p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{focusedTable.code}</Badge>
-                        <Badge className={cn("border-0", getSessionStatusTone(focusedTable.currentSession.status))}>
-                          {t(`sessionStatus_${focusedTable.currentSession.status}`)}
-                        </Badge>
-                      </div>
-                      <h3 className="mt-3 text-xl font-semibold">{focusedTable.name}</h3>
-                      <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                        {t("sessionBranch", { branch: selectedBranch?.branchName ?? "" })}
-                      </p>
-                    </div>
-
-                    <SessionDetailRow
-                      label={t("sessionId")}
-                      value={
-                        currentSessionData?.tableSessionId ??
-                        focusedTable.currentSession.tableSessionId
-                      }
-                    />
-                    <SessionDetailRow
-                      label={t("sessionSource")}
-                      value={t(
-                        focusedSessionSource === "CASHIER"
-                          ? "sourceCashier"
-                          : "sourceWaiter"
-                      )}
-                    />
-                    <SessionDetailRow
-                      label={t("sessionOpenedAt")}
-                      value={formatDateTime(
-                        locale,
-                        currentSessionData?.openedAt ?? focusedTable.currentSession.openedAt
-                      )}
-                    />
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="rounded-full"
-                        disabled={isCurrentSessionFetching}
-                        onClick={() => {
-                          setFocusedTableId(focusedTable.tableId);
-                          void queryClient.invalidateQueries({
-                            queryKey: ["floor", "current-session", accessToken, focusedTable.tableId],
-                          });
-                        }}
-                      >
-                        {isCurrentSessionFetching ? (
-                          <Spinner />
-                        ) : (
-                          <RefreshCcw className="size-4" />
-                        )}
-                        {t("sessionRefresh")}
-                      </Button>
-
-                      {canAddOrder && activeSessionId ? (
-                        <Button
-                          type="button"
-                          className="rounded-full"
-                          onClick={() => setAddOrderOpen(true)}
-                        >
-                          <Plus className="size-4" />
-                          {t("addOrderAction")}
-                        </Button>
-                      ) : null}
-                    </div>
-
-                    {isCurrentSessionError ? (
-                      <p className="text-sm text-destructive">
-                        {currentSessionError instanceof Error
-                          ? currentSessionError.message
-                          : t("sessionError")}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm leading-7 text-muted-foreground">
-                    {t("sessionEmpty")}
-                  </div>
+            <CardContent>
+              <form
+                onSubmit={createTableForm.handleSubmit((values) =>
+                  createTableMutation.mutate(values)
                 )}
-              </CardContent>
-            </Card>
-          </section>
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
+              >
+                <FieldGroup>
+                  <FieldLabel htmlFor="table-code">{t("codeLabel")}</FieldLabel>
+                  <TextInput
+                    id="table-code"
+                    placeholder="M01"
+                    disabled={!canCreateTables || createTableMutation.isPending}
+                    {...createTableForm.register("code", { required: true })}
+                  />
+                </FieldGroup>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <TableQrCard
-              locale={locale}
-              t={t}
-              table={focusedTable}
-            />
+                <FieldGroup>
+                  <FieldLabel htmlFor="table-name">{t("nameLabel")}</FieldLabel>
+                  <TextInput
+                    id="table-name"
+                    placeholder={t("namePlaceholder")}
+                    disabled={!canCreateTables || createTableMutation.isPending}
+                    {...createTableForm.register("name", { required: true })}
+                  />
+                </FieldGroup>
 
-            <BillAndCloseCard
-              bill={currentBill}
-              billError={currentBillError}
-              canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
-              canSplitBill={canSplitBill && isSplitBillEnabled}
-              closeForm={closeSessionForm}
-              hasActiveSession={Boolean(activeSessionId)}
-              isClosing={closeTableMutation.isPending}
-              isLoadingBill={isCurrentBillLoading}
-              isSettled={isBillSettled(currentBill)}
-              locale={locale}
-              onAbandonClick={() => setAbandonOpen(true)}
-              onSplitBillClick={() => setSplitBillOpen(true)}
-              onSubmit={(values) => {
-                if (!activeSessionId) {
-                  return;
-                }
+                <FieldGroup>
+                  <FieldLabel htmlFor="table-capacity">{t("capacityLabel")}</FieldLabel>
+                  <TextInput
+                    id="table-capacity"
+                    type="number"
+                    min={1}
+                    max={24}
+                    disabled={!canCreateTables || createTableMutation.isPending}
+                    {...createTableForm.register("capacity", {
+                      required: true,
+                      valueAsNumber: true,
+                      min: 1,
+                    })}
+                  />
+                </FieldGroup>
 
-                closeTableMutation.mutate({
-                  sessionId: activeSessionId,
-                  values,
-                });
-              }}
-              t={t}
-            />
-          </section>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="rounded-full"
+                  disabled={!canCreateTables || createTableMutation.isPending}
+                >
+                  {createTableMutation.isPending ? (
+                    <>
+                      <Spinner />
+                      {t("createSubmitting")}
+                    </>
+                  ) : (
+                    t("createSubmit")
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <TableQrCard locale={locale} t={t} table={focusedTable} />
 
           <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
             <CardHeader>
@@ -752,15 +773,33 @@ export function FloorConsole() {
               <CardDescription className="leading-7">
                 {t("tablesDescription")}
               </CardDescription>
-              <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={showOnlyPending}
-                  onChange={(event) => setShowOnlyPending(event.target.checked)}
-                  className="size-4 cursor-pointer rounded border-border accent-primary"
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {TABLE_FILTERS.map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setTableFilter(filter)}
+                    className={cn(
+                      "cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
+                      tableFilter === filter
+                        ? "border-primary/40 bg-primary text-primary-foreground"
+                        : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {t(`tablesFilter_${filter}`)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-3 max-w-sm">
+                <TextInput
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("tablesSearchPlaceholder")}
+                  aria-label={t("tablesSearchPlaceholder")}
                 />
-                {t("tablesFilterPending")}
-              </label>
+              </div>
             </CardHeader>
 
             <CardContent className="space-y-4">
@@ -791,43 +830,51 @@ export function FloorConsole() {
 
               <div className="grid gap-4 lg:grid-cols-2">
                 {tables.map((table) => {
-                  const canOpenTable =
-                    table.status === "AVAILABLE" && availableOpenSources.length > 0;
-                  const isFocused = table.tableId === focusedTableId;
-                  const isOpeningTable =
-                    openTableMutation.isPending &&
-                    openTableMutation.variables?.tableId === table.tableId;
+                  const readyEntry = readySummaryByTableId.get(table.tableId);
 
                   return (
-                    <article
+                    <button
                       key={table.tableId}
+                      type="button"
+                      onClick={() => openTableDetail(table.tableId)}
                       className={cn(
-                        "rounded-[1.6rem] border p-5 transition",
-                        isFocused
-                          ? "border-primary/35 bg-primary/7 shadow-lg shadow-primary/10"
+                        "w-full cursor-pointer rounded-[1.6rem] border p-5 text-left transition hover:shadow-md",
+                        readyEntry
+                          ? "border-primary/45 bg-primary/6 shadow-lg shadow-primary/10"
                           : "border-border/70 bg-background/55"
                       )}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">{table.code}</Badge>
-                            <Badge className={cn("border-0", getTableStatusTone(table.status))}>
-                              {t(`tableStatus_${table.status}`)}
-                            </Badge>
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={cn(
+                              "flex size-11 shrink-0 items-center justify-center rounded-2xl",
+                              getTableStatusTone(table.status)
+                            )}
+                          >
+                            <Armchair className="size-5" />
                           </div>
-                          <h3 className="mt-3 text-xl font-semibold">{table.name}</h3>
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {t("tableCapacity", { capacity: table.capacity })}
-                          </p>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{table.code}</Badge>
+                              <Badge className={cn("border-0", getTableStatusTone(table.status))}>
+                                {t(`tableStatus_${table.status}`)}
+                              </Badge>
+                            </div>
+                            <h3 className="mt-2 text-xl font-semibold">{table.name}</h3>
+                            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                              <Users className="size-3.5" />
+                              {t("tableCapacity", { capacity: table.capacity })}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="rounded-2xl border border-border/70 bg-card/80 px-3 py-2 text-right text-xs text-muted-foreground">
-                          <p>{t("tableQrToken")}</p>
-                          <p className="mt-1 font-mono text-foreground">
-                            {table.qrToken.slice(0, 8)}
-                          </p>
-                        </div>
+                        {readyEntry ? (
+                          <Badge className="border-0 bg-primary text-primary-foreground">
+                            <Bell className="size-3" />
+                            {t("readyBadge", { count: readyEntry.readyUndeliveredCount })}
+                          </Badge>
+                        ) : null}
                       </div>
 
                       {table.currentSession ? (
@@ -852,62 +899,13 @@ export function FloorConsole() {
                                 </Badge>
                               ) : null;
                             })()}
+                            <span className="ml-auto text-xs font-semibold tabular-nums text-muted-foreground">
+                              {formatElapsedMinutes(table.currentSession.openedAt, now)}
+                            </span>
                           </div>
-                          <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                            {t("tableOpenedAt", {
-                              openedAt: formatDateTime(locale, table.currentSession.openedAt),
-                            })}
-                          </p>
                         </div>
                       ) : null}
-
-                      <div className="mt-5 flex flex-wrap gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-full"
-                          onClick={() => setFocusedTableId(table.tableId)}
-                        >
-                          <Users className="size-4" />
-                          {table.currentSession ? t("focusSession") : t("focusTable")}
-                        </Button>
-
-                        {table.currentSession ? (
-                          <Button
-                            type="button"
-                            className="rounded-full"
-                            onClick={() => {
-                              setFocusedTableId(table.tableId);
-                              void queryClient.invalidateQueries({
-                                queryKey: [
-                                  "floor",
-                                  "current-session",
-                                  accessToken,
-                                  table.tableId,
-                                ],
-                              });
-                            }}
-                          >
-                            <RefreshCcw className="size-4" />
-                            {t("resumeAction")}
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            className="rounded-full"
-                            disabled={!canOpenTable || isOpeningTable}
-                            onClick={() => openTableMutation.mutate(table)}
-                          >
-                            {isOpeningTable ? (
-                              <Spinner />
-                            ) : (
-                              <DoorOpen className="size-4" />
-                            )}
-                            {isOpeningTable ? t("openSubmitting") : t("openAction")}
-                          </Button>
-                        )}
-                      </div>
-                    </article>
+                    </button>
                   );
                 })}
               </div>
@@ -915,6 +913,60 @@ export function FloorConsole() {
           </Card>
         </>
       )}
+
+      {detailSheetOpen && focusedTable ? (
+        <TableDetailSheet
+          accessToken={accessToken}
+          branchId={selectedBranchId}
+          table={focusedTable}
+          session={currentSessionData}
+          sessionSource={focusedSessionSource}
+          activeSessionId={activeSessionId}
+          isSessionFetching={isCurrentSessionFetching}
+          isSessionError={isCurrentSessionError}
+          sessionError={currentSessionError}
+          orders={sessionOrders}
+          isOrdersLoading={isSessionOrdersLoading}
+          canAddOrder={canAddOrder}
+          canDeliver={canDeliver}
+          canOpenTable={
+            isTableOpenable(focusedTable, availableOpenSources) && !focusedTable.currentSession
+          }
+          isOpeningTable={
+            openTableMutation.isPending &&
+            openTableMutation.variables?.tableId === focusedTable.tableId
+          }
+          onOpenTable={() => openTableMutation.mutate(focusedTable)}
+          onDeliverOrder={(orderId) => deliverOrderMutation.mutate(orderId)}
+          isDelivering={deliverOrderMutation.isPending}
+          deliveringOrderId={deliverOrderMutation.variables}
+          onAddOrderClick={() => setAddOrderOpen(true)}
+          bill={currentBill}
+          billError={currentBillError}
+          canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
+          canSplitBill={canSplitBill && isSplitBillEnabled}
+          closeForm={closeSessionForm}
+          isClosing={closeTableMutation.isPending}
+          isLoadingBill={isCurrentBillLoading}
+          isSettled={isBillSettled(currentBill)}
+          locale={locale}
+          onAbandonClick={() => setAbandonOpen(true)}
+          onSplitBillClick={() => setSplitBillOpen(true)}
+          onCloseSubmit={(values) => {
+            if (!activeSessionId) {
+              return;
+            }
+            closeTableMutation.mutate({ sessionId: activeSessionId, values });
+          }}
+          onRefresh={() => {
+            void queryClient.invalidateQueries({
+              queryKey: ["floor", "current-session", accessToken, focusedTable.tableId],
+            });
+          }}
+          onClose={() => setDetailSheetOpen(false)}
+          t={t}
+        />
+      ) : null}
 
       {addOrderOpen && activeSessionId ? (
         <AddOrderSheet
@@ -943,6 +995,10 @@ export function FloorConsole() {
       ) : null}
     </div>
   );
+}
+
+function isTableOpenable(table: FloorTable, availableOpenSources: TableSessionSource[]) {
+  return table.status === "AVAILABLE" && availableOpenSources.length > 0;
 }
 
 interface MetricCardProps {
@@ -1200,132 +1256,350 @@ function BillAndCloseCard({
   t,
 }: BillAndCloseCardProps) {
   return (
-    <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
-      <CardHeader>
-        <div className="flex items-center gap-2 text-primary">
-          <Wallet className="size-4" />
-          <p className="text-xs font-semibold uppercase tracking-[0.22em]">
-            {t("billingEyebrow")}
-          </p>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-primary">
+        <Wallet className="size-4" />
+        <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+          {t("billingEyebrow")}
+        </p>
+      </div>
+
+      {isLoadingBill ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+          <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+          <Skeleton className="h-16 w-full rounded-[1.25rem]" />
+          <Skeleton className="h-16 w-full rounded-[1.25rem]" />
         </div>
-        <CardTitle className="text-2xl">{t("billingTitle")}</CardTitle>
-        <CardDescription className="leading-7">
-          {t("billingDescription")}
-        </CardDescription>
-      </CardHeader>
+      ) : null}
 
-      <CardContent className="space-y-4">
-        {isLoadingBill ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
-            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
-            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
-            <Skeleton className="h-16 w-full rounded-[1.25rem]" />
-          </div>
-        ) : null}
+      {!hasActiveSession ? (
+        <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm text-muted-foreground">
+          {t("billingEmpty")}
+        </div>
+      ) : null}
 
-        {!hasActiveSession ? (
-          <div className="rounded-[1.5rem] border border-dashed border-border bg-background/45 p-5 text-sm text-muted-foreground">
-            {t("billingEmpty")}
-          </div>
-        ) : null}
-
-        {bill ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SessionDetailRow label={t("billStatus")} value={bill.status} />
-            <SessionDetailRow
-              label={t("billRemaining")}
-              value={formatMoney(bill.remainingAmount, "CLP")}
-            />
-            <SessionDetailRow
-              label={t("billTotal")}
-              value={formatMoney(bill.totalAmount, "CLP")}
-            />
-            <SessionDetailRow
-              label={t("billOpenedAt")}
-              value={formatDateTime(locale, bill.openedAt)}
-            />
-          </div>
-        ) : null}
-
-        {billError ? (
-          <InlineError
-            title={t("billingErrorTitle")}
-            description={
-              billError instanceof Error
-                ? billError.message
-                : t("billingErrorDescription")
-            }
+      {bill ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SessionDetailRow label={t("billStatus")} value={bill.status} />
+          <SessionDetailRow
+            label={t("billRemaining")}
+            value={formatMoney(bill.remainingAmount, "CLP")}
           />
-        ) : null}
+          <SessionDetailRow
+            label={t("billTotal")}
+            value={formatMoney(bill.totalAmount, "CLP")}
+          />
+          <SessionDetailRow
+            label={t("billOpenedAt")}
+            value={formatDateTime(locale, bill.openedAt)}
+          />
+        </div>
+      ) : null}
 
-        {bill && canSplitBill && Number(bill.remainingAmount) > 0 ? (
+      {billError ? (
+        <InlineError
+          title={t("billingErrorTitle")}
+          description={
+            billError instanceof Error
+              ? billError.message
+              : t("billingErrorDescription")
+          }
+        />
+      ) : null}
+
+      {bill && canSplitBill && Number(bill.remainingAmount) > 0 ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-full"
+          onClick={onSplitBillClick}
+        >
+          <Wallet className="size-4" />
+          {t("splitAction")}
+        </Button>
+      ) : null}
+
+      {hasActiveSession ? (
+        <form
+          onSubmit={closeForm.handleSubmit(onSubmit)}
+          className="grid gap-4 rounded-[1.5rem] border border-border/70 bg-background/50 p-4"
+        >
+          <div className="flex items-center gap-2 text-primary">
+            <CheckCircle2 className="size-4" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+              {t("closeEyebrow")}
+            </p>
+          </div>
+
+          <FieldGroup>
+            <FieldLabel htmlFor="close-reason">{t("closeReasonLabel")}</FieldLabel>
+            <TextInput
+              id="close-reason"
+              placeholder={t("closeReasonPlaceholder")}
+              disabled={isClosing}
+              {...closeForm.register("closeReason")}
+            />
+            <FieldHint>
+              {isSettled ? t("closeHintAllowed") : t("closeHintBlocked")}
+            </FieldHint>
+          </FieldGroup>
+
+          <Button
+            type="submit"
+            size="lg"
+            className="rounded-full"
+            disabled={!bill || !isSettled || isClosing}
+          >
+            {isClosing ? (
+              <>
+                <Spinner />
+                {t("closeSubmitting")}
+              </>
+            ) : (
+              t("closeSubmit")
+            )}
+          </Button>
+
+          {canAbandon ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onAbandonClick}
+            >
+              <AlertCircle className="size-4" />
+              {t("abandonAction")}
+            </Button>
+          ) : null}
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+interface TableDetailSheetProps {
+  accessToken: string;
+  branchId: string;
+  table: FloorTable;
+  session: { tableSessionId: string; openedAt: string } | undefined;
+  sessionSource: TableSessionSource | undefined;
+  activeSessionId: string;
+  isSessionFetching: boolean;
+  isSessionError: boolean;
+  sessionError: unknown;
+  orders: OrderResponse[];
+  isOrdersLoading: boolean;
+  canAddOrder: boolean;
+  canDeliver: boolean;
+  canOpenTable: boolean;
+  isOpeningTable: boolean;
+  onOpenTable: () => void;
+  onDeliverOrder: (orderId: string) => void;
+  isDelivering: boolean;
+  deliveringOrderId: string | undefined;
+  onAddOrderClick: () => void;
+  bill: CurrentBill | undefined;
+  billError: unknown;
+  canAbandon: boolean;
+  canSplitBill: boolean;
+  closeForm: ReturnType<typeof useForm<CloseSessionFormValues>>;
+  isClosing: boolean;
+  isLoadingBill: boolean;
+  isSettled: boolean;
+  locale: string;
+  onAbandonClick: () => void;
+  onSplitBillClick: () => void;
+  onCloseSubmit: (values: CloseSessionFormValues) => void;
+  onRefresh: () => void;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations<"FloorConsole">>;
+}
+
+function TableDetailSheet({
+  table,
+  session,
+  sessionSource,
+  activeSessionId,
+  isSessionFetching,
+  isSessionError,
+  sessionError,
+  orders,
+  isOrdersLoading,
+  canAddOrder,
+  canDeliver,
+  canOpenTable,
+  isOpeningTable,
+  onOpenTable,
+  onDeliverOrder,
+  isDelivering,
+  deliveringOrderId,
+  onAddOrderClick,
+  bill,
+  billError,
+  canAbandon,
+  canSplitBill,
+  closeForm,
+  isClosing,
+  isLoadingBill,
+  isSettled,
+  locale,
+  onAbandonClick,
+  onSplitBillClick,
+  onCloseSubmit,
+  onRefresh,
+  onClose,
+  t,
+}: TableDetailSheetProps) {
+  const hasActiveSession = Boolean(table.currentSession);
+
+  return (
+    <BottomSheet onClose={onClose} labelledBy="table-detail-sheet-title">
+      <div className="flex items-center gap-2 text-primary">
+        <Sparkles className="size-4" />
+        <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+          {t("sessionEyebrow")}
+        </p>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{table.code}</Badge>
+        {table.currentSession ? (
+          <Badge className={cn("border-0", getSessionStatusTone(table.currentSession.status))}>
+            {t(`sessionStatus_${table.currentSession.status}`)}
+          </Badge>
+        ) : (
+          <Badge className={cn("border-0", getTableStatusTone(table.status))}>
+            {t(`tableStatus_${table.status}`)}
+          </Badge>
+        )}
+      </div>
+
+      <h2 id="table-detail-sheet-title" className="mt-2 text-2xl font-semibold">
+        {table.name}
+      </h2>
+
+      {!hasActiveSession ? (
+        <div className="mt-4 space-y-4">
+          <p className="text-sm leading-7 text-muted-foreground">{t("sessionEmpty")}</p>
           <Button
             type="button"
-            variant="outline"
+            size="lg"
             className="w-full rounded-full"
-            onClick={onSplitBillClick}
+            disabled={!canOpenTable || isOpeningTable}
+            onClick={onOpenTable}
           >
-            <Wallet className="size-4" />
-            {t("splitAction")}
+            {isOpeningTable ? <Spinner /> : <DoorOpen className="size-4" />}
+            {isOpeningTable ? t("openSubmitting") : t("openAction")}
           </Button>
-        ) : null}
+        </div>
+      ) : (
+        <div className="mt-4 space-y-5">
+          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            <span>
+              {t(sessionSource === "CASHIER" ? "sourceCashier" : "sourceWaiter")}
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              {t("sessionOpenedAt")}: {formatDateTime(locale, session?.openedAt ?? table.currentSession!.openedAt)}
+            </span>
+          </div>
 
-        {hasActiveSession ? (
-          <form
-            onSubmit={closeForm.handleSubmit(onSubmit)}
-            className="grid gap-4 rounded-[1.5rem] border border-border/70 bg-background/50 p-4"
-          >
-            <div className="flex items-center gap-2 text-primary">
-              <CheckCircle2 className="size-4" />
-              <p className="text-xs font-semibold uppercase tracking-[0.22em]">
-                {t("closeEyebrow")}
-              </p>
-            </div>
-
-            <FieldGroup>
-              <FieldLabel htmlFor="close-reason">{t("closeReasonLabel")}</FieldLabel>
-              <TextInput
-                id="close-reason"
-                placeholder={t("closeReasonPlaceholder")}
-                disabled={isClosing}
-                {...closeForm.register("closeReason")}
-              />
-              <FieldHint>
-                {isSettled ? t("closeHintAllowed") : t("closeHintBlocked")}
-              </FieldHint>
-            </FieldGroup>
-
-            <Button
-              type="submit"
-              size="lg"
-              className="rounded-full"
-              disabled={!bill || !isSettled || isClosing}
-            >
-              {isClosing ? (
-                <>
-                  <Spinner />
-                  {t("closeSubmitting")}
-                </>
-              ) : (
-                t("closeSubmit")
-              )}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={isSessionFetching} onClick={onRefresh}>
+              {isSessionFetching ? <Spinner /> : <RefreshCcw className="size-3.5" />}
+              {t("sessionRefresh")}
             </Button>
-
-            {canAbandon ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={onAbandonClick}
-              >
-                <AlertCircle className="size-4" />
-                {t("abandonAction")}
+            {canAddOrder && activeSessionId ? (
+              <Button type="button" size="sm" className="rounded-full" onClick={onAddOrderClick}>
+                <Plus className="size-3.5" />
+                {t("addOrderAction")}
               </Button>
             ) : null}
-          </form>
-        ) : null}
-      </CardContent>
-    </Card>
+          </div>
+
+          {isSessionError ? (
+            <p className="text-sm text-destructive">
+              {sessionError instanceof Error ? sessionError.message : t("sessionError")}
+            </p>
+          ) : null}
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {t("ordersTitle")}
+            </p>
+
+            {isOrdersLoading ? (
+              <Skeleton className="h-20 w-full rounded-2xl" />
+            ) : null}
+
+            {!isOrdersLoading && orders.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-center text-sm text-muted-foreground">
+                {t("ordersEmpty")}
+              </p>
+            ) : null}
+
+            <ul className="space-y-3">
+              {orders.map((order) => {
+                const orderIsReady = order.status === "READY";
+                const isDeliveringThis = isDelivering && deliveringOrderId === order.orderId;
+
+                return (
+                  <li
+                    key={order.orderId}
+                    className="rounded-2xl border border-border/70 bg-background/60 p-3.5"
+                  >
+                    <ul className="space-y-1 text-sm">
+                      {order.items.map((item) => (
+                        <li key={item.orderItemId} className="flex items-start justify-between gap-2">
+                          <span>
+                            <span className="font-semibold tabular-nums">{item.quantity}×</span>{" "}
+                            {item.name}
+                          </span>
+                          <Badge variant="secondary" className="shrink-0">
+                            {t(`itemStatus_${item.status}`)}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {canDeliver && orderIsReady ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-3 w-full rounded-full"
+                        disabled={isDeliveringThis}
+                        onClick={() => onDeliverOrder(order.orderId)}
+                      >
+                        {isDeliveringThis ? <Spinner /> : <CheckCheck className="size-3.5" />}
+                        {t("deliverAction")}
+                      </Button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <BillAndCloseCard
+            bill={bill}
+            billError={billError}
+            canAbandon={canAbandon}
+            canSplitBill={canSplitBill}
+            closeForm={closeForm}
+            hasActiveSession={hasActiveSession}
+            isClosing={isClosing}
+            isLoadingBill={isLoadingBill}
+            isSettled={isSettled}
+            locale={locale}
+            onAbandonClick={onAbandonClick}
+            onSplitBillClick={onSplitBillClick}
+            onSubmit={onCloseSubmit}
+            t={t}
+          />
+        </div>
+      )}
+    </BottomSheet>
   );
 }
