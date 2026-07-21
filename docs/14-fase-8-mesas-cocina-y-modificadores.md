@@ -157,6 +157,12 @@ de texto por nombre o codigo de mesa (`searchQuery`), todo derivado
 client-side sobre los datos que ya carga `floorApi.listTables` (sin
 endpoint nuevo).
 
+**Superado por doc 15:** las dos tarjetas de mesa descritas arriba (icono
+`Armchair`, capacidad y timer visibles directamente en la card grande) ya
+no son el diseño actual. Doc 15 las redujo a un tile chico (icono + codigo
++ timer, nada mas) y cambio `Armchair` por `UtensilsCrossed` — el filtro de
+chips y el buscador de texto de este parrafo siguen vigentes sin cambios.
+
 ### `BottomSheet` promovido a `shared/ui/`
 
 `shared/ui/bottom-sheet.tsx`: el componente `BottomSheet` vivia solo en
@@ -175,9 +181,16 @@ Se le agrego comportamiento responsive:
   se oculta el "handle" de arrastre
 
 Tambien se agrego un boton de cerrar (icono X, esquina superior derecha)
-replicando el patron ya usado en `components/ui/dialog.tsx` — antes solo se
-podia cerrar con click en el fondo o tecla Escape. Nueva prop opcional
-`showCloseButton` (default `true`).
+replicando el patron ya usado en `components/ui/dialog.tsx`. Nueva prop
+opcional `showCloseButton` (default `true`).
+
+**Correccion (ver doc 15):** el parrafo original decia que antes de esta
+fase el sheet ya se podia cerrar con click en el fondo o tecla Escape. Eso
+era incorrecto para el click en el fondo: existia un `div` de fondo con
+`onClick={onClose}`, pero un segundo `div` transparente pintado encima
+interceptaba todos los clicks de la pantalla sin tener handler propio — el
+`onClick` del fondo era codigo muerto, nunca funciono. El bug se detecto y
+corrigio en doc 15.
 
 ## Verificacion
 
@@ -190,11 +203,8 @@ y el `TableDetailSheet`.
 
 ## Backlog / pendiente
 
-1. **Asignacion formal de mesas a un mesero especifico.** Hoy el filtro
-   "Solo mis mesas" (punto F) usa `openedByStaffUserId` como aproximacion
-   interina: identifica quien abrio la sesion, no quien esta a cargo de la
-   mesa en este momento. No cubre cambios de turno (un mesero que releva a
-   otro sigue viendo los avisos del que abrio originalmente la mesa).
+1. ~~**Asignacion formal de mesas a un mesero especifico.**~~ Resuelto, ver
+   doc 15.
 2. **"Mesa virtual" para pedidos de mostrador o para llevar sin mesa fisica
    real** — patron usado por la competencia (Toteat). Hoy todo pedido en
-   Floor Console requiere una mesa fisica existente.
+   Floor Console requiere una mesa fisica existente. Sigue pendiente.

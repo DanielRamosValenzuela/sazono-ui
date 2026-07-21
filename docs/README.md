@@ -16,6 +16,7 @@
 12. [12 Fase 7: Landing Marketera y Captura de Leads](D:\Programacion\Sazono\sazono-ui\docs\12-fase-7-landing-marketera-y-leads.md)
 13. [13 App Nativa de Mesero y Cocina: Decisión de Arquitectura (Capacitor)](D:\Programacion\Sazono\sazono-ui\docs\13-app-mesero-capacitor.md)
 14. [14 Fase 8: Mesas, Cocina y Modificadores](D:\Programacion\Sazono\sazono-ui\docs\14-fase-8-mesas-cocina-y-modificadores.md)
+15. [15 Fase 9: Simplificación de Mesas del Salón y Asignación Formal](D:\Programacion\Sazono\sazono-ui\docs\15-fase-9-simplificacion-mesas-y-asignacion.md)
 
 ## Objetivo
 

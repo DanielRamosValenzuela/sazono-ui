@@ -118,8 +118,9 @@ tambien se cerro (era un hueco real: `ordersApi.listSessionOrders` existia
 en el cliente desde antes pero no se usaba en ninguna pantalla) al mismo
 tiempo que el rediseño de Mesas del salon, ver doc 14.
 
-Backlog vigente, detallado en doc 14:
+Backlog vigente, detallado en doc 15:
 
-- asignacion formal de mesas a un mesero especifico (hoy "mis mesas" es una
-  aproximacion via `openedByStaffUserId`, no cubre cambios de turno)
 - "mesa virtual" para pedidos de mostrador/para llevar sin mesa fisica real
+
+Asignacion formal de mesas a un mesero especifico (el hueco de
+`openedByStaffUserId` mencionado en doc 14) ya se resolvio — ver doc 15.
