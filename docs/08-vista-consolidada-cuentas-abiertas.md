@@ -38,7 +38,10 @@ tienen cuenta creada. Mismos roles que ya leen el salon
   adicional por mesa).
 - Un checkbox "Solo con saldo pendiente" sobre la grilla filtra la lista a
   solo las mesas que deben algo, para que caja/supervisor no tenga que
-  escanear mesas ya pagadas o libres.
+  escanear mesas ya pagadas o libres. **Actualizado en el rediseño de Mesas
+  del salon (doc 14): el checkbox unico se reemplazo por una fila de chips
+  (Todas / Libres / Ocupadas / Con saldo pendiente / Abiertas +30 min); el
+  badge "Debe $X" en la tarjeta de mesa no cambio.**
 - La lista de cuentas abiertas se refresca sola cada 15s
   (`refetchInterval`), igual que el resto de vistas operativas.
 

@@ -97,6 +97,7 @@ export interface BranchReadySummaryItem {
   tableId: string;
   tableCode: string;
   openedByStaffUserId: string | null;
+  assignedStaffUserId: string | null;
   readyUndeliveredCount: number;
 }
 

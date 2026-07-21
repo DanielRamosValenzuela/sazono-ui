@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { AuthenticatedProfile, AuthResponse } from "@/shared/types/auth";
+import { resolveSessionStorage } from "./secure-storage";
 
 type AdminSessionState = {
   accessToken: string | null;
@@ -79,7 +80,7 @@ export const useAdminSessionStore = create<AdminSessionState>()(
     }),
     {
       name: "sazono-admin-session",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(resolveSessionStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
         accessTokenExpiresAt: state.accessTokenExpiresAt,

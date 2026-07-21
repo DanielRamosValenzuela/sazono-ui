@@ -1,6 +1,7 @@
 import { apiRequest } from "@/shared/api/http-client";
 import type {
   AbandonTableSessionRequest,
+  AssignTableSessionRequest,
   CloseTableSessionRequest,
   CreateFloorTableRequest,
   FloorTable,
@@ -53,6 +54,17 @@ export const floorApi = {
     payload: AbandonTableSessionRequest
   ) {
     return apiRequest<TableSessionDetail>(`/floor/table-sessions/${tableSessionId}/abandon`, {
+      method: "POST",
+      token,
+      body: payload,
+    });
+  },
+  assignTableSession(
+    token: string,
+    tableSessionId: string,
+    payload: AssignTableSessionRequest
+  ) {
+    return apiRequest<TableSessionDetail>(`/floor/table-sessions/${tableSessionId}/assign`, {
       method: "POST",
       token,
       body: payload,

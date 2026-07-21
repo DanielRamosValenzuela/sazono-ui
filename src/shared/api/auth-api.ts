@@ -25,6 +25,19 @@ export const authApi = {
       body: { refreshToken },
     });
   },
+  setPin(pin: string, token: string) {
+    return apiRequest<void>("/auth/pin/set", {
+      method: "POST",
+      token,
+      body: { pin },
+    });
+  },
+  pinLogin(staffUserId: string, pin: string) {
+    return apiRequest<AuthResponse>("/auth/pin/login", {
+      method: "POST",
+      body: { staffUserId, pin },
+    });
+  },
   getRestaurantBySlug(slug: string) {
     return apiRequest<RestaurantBySlug>(
       `/restaurants/by-slug/${encodeURIComponent(slug)}`

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authApi } from "@/shared/api/auth-api";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
@@ -89,6 +89,15 @@ export function AdminShell({ children, area }: AdminShellProps) {
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           {tStaffLoginRequired("description")}
         </p>
+        <Link
+          href="/ingresar"
+          className={buttonVariants({
+            size: "lg",
+            className: "mt-6 rounded-full",
+          })}
+        >
+          {tStaffLoginRequired("cta")}
+        </Link>
       </main>
     );
   }

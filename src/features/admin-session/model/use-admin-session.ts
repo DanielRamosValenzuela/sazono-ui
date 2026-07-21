@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { authApi } from "@/shared/api/auth-api";
 import { ApiError } from "@/shared/api/http-client";
+import { deviceTokensApi } from "@/shared/api/device-tokens-api";
 import { useClientReady } from "@/shared/lib/use-client-ready";
+import { getCurrentFcmToken } from "@/features/push-notifications/model/device-token-registry";
 import { useAdminSessionStore } from "./admin-session.store";
 
 const SESSION_STALE_TIME_MS = 5 * 60_000;
@@ -166,6 +169,14 @@ export function useAdminSession() {
   };
 
   const logout = () => {
+    const fcmToken = getCurrentFcmToken();
+
+    if (Capacitor.isNativePlatform() && accessToken && fcmToken) {
+      void deviceTokensApi.unregister(accessToken, fcmToken).catch((error) => {
+        console.error("[push] device token unregister error:", error);
+      });
+    }
+
     clearActiveSession();
   };
 

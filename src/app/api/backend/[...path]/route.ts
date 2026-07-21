@@ -36,10 +36,12 @@ async function forwardRequest(request: NextRequest, context: RouteContext) {
     );
   }
 
+  const responseContentType = response.headers.get("content-type");
+
   return new Response(response.body, {
     status: response.status,
     headers: {
-      "Content-Type": response.headers.get("content-type") ?? "application/json",
+      ...(responseContentType ? { "Content-Type": responseContentType } : {}),
     },
   });
 }

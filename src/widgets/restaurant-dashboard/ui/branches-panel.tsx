@@ -480,6 +480,9 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
   const [autoDeliverMinutes, setAutoDeliverMinutes] = useState(
     branch.settings?.autoDeliverAfterMinutes ?? 5
   );
+  const [tableAssignmentEnabled, setTableAssignmentEnabled] = useState(
+    branch.settings?.tableAssignmentEnabled ?? false
+  );
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border/70 bg-background/60 p-4">
@@ -600,6 +603,21 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
         )}
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CheckboxRow className="sm:col-span-2">
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={tableAssignmentEnabled}
+            onChange={(event) => setTableAssignmentEnabled(event.target.checked)}
+          />
+          <span>{t("tableAssignmentEnabled")}</span>
+        </CheckboxRow>
+        <FieldHint className="sm:col-span-2">
+          {t("tableAssignmentHint")}
+        </FieldHint>
+      </div>
+
       <Button
         type="button"
         className="w-full rounded-full sm:w-auto"
@@ -615,6 +633,7 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
               splitBillEnabled,
               partialDeliveryEnabled,
               autoDeliverAfterMinutes: autoDeliverEnabled ? autoDeliverMinutes : null,
+              tableAssignmentEnabled,
             },
           })
         }

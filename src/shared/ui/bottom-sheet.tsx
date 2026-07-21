@@ -47,17 +47,20 @@ export function BottomSheet({
     <div className="fixed inset-0 z-50">
       <div
         aria-hidden
-        onClick={onClose}
         className={cn(
           "absolute inset-0 bg-background/70 backdrop-blur-sm transition-opacity duration-300",
           visible ? "opacity-100" : "opacity-0"
         )}
       />
-      <div className="absolute inset-0 flex items-end justify-center sm:items-center sm:p-4">
+      <div
+        onClick={onClose}
+        className="absolute inset-0 flex items-end justify-center sm:items-center sm:p-4"
+      >
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby={labelledBy}
+          onClick={(event) => event.stopPropagation()}
           className={cn(
             "relative w-full max-w-md rounded-t-3xl border border-b-0 border-border/80 bg-card shadow-2xl shadow-primary/10 transition-all duration-300 ease-out sm:rounded-3xl sm:border-b",
             visible

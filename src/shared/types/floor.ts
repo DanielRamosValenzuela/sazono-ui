@@ -13,6 +13,7 @@ export interface CurrentTableSessionSummary {
   status: TableSessionStatus;
   openedBySource: TableSessionSource;
   openedAt: string;
+  assignedStaffUserId: string | null;
 }
 
 export interface FloorTable {
@@ -46,6 +47,10 @@ export interface AbandonTableSessionRequest {
   closeReason: string;
 }
 
+export interface AssignTableSessionRequest {
+  staffUserId?: string;
+}
+
 export interface TableSessionDetail {
   tableSessionId: string;
   tableId: string;
@@ -55,4 +60,5 @@ export interface TableSessionDetail {
   openedAt: string;
   closeReason: string | null;
   closedAt: string | null;
+  assignedStaffUserId: string | null;
 }

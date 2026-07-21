@@ -123,7 +123,7 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 - [x] Implementar imagen principal por producto (`POST`/`DELETE /menus/items/:id/media`, bucket publico `menu-media` en Supabase Storage; ver doc 10)
 - [x] Implementar traducciones basicas de carta (`PUT /menus/categories|items/:id/translations/:locale`, la carta QR respeta `?locale=`; ver doc 10)
 - [x] Implementar preview simple de carta (reutiliza `MenuView` en modo solo-lectura; ver doc 10)
-- [x] Implementar ordenamiento de categorias e items con drag-and-drop (`@dnd-kit`, `PATCH .../reorder` en lote; ver doc 10)
+- [x] Implementar ordenamiento de categorias e items con drag-and-drop (`@dnd-kit`, `PATCH .../reorder` en lote; ver doc 10; el mismo patron se reutilizo despues en el tablero de cocina para mover tickets entre columnas, ver doc 14)
 - [x] Implementar publicacion de carta (publica el draft y lo deja como carta activa)
 - [x] Implementar gestion de estaciones de preparacion por sucursal
 - [x] Implementar pagina de menu QR
@@ -138,7 +138,8 @@ La prioridad no es construir toda la UI del sistema. La prioridad es que los flu
 - [x] Implementar creacion de orden postpaga por mesero (dialog "Agregar pedido" en Floor Console, carta publicada con selector de cantidad, `POST /orders`)
 - [x] Implementar vista de estado de mesa
 - [x] Implementar accion de cierre manual de mesa pagada
-- [x] Implementar tablero de cocina/barra (`widgets/kitchen-board`, ruta `/staff/kitchen`): tickets agrupados por estado en 4 columnas, avance con un clic, cancelacion restringida a admin/supervisor
+- [x] Implementar tablero de cocina/barra (`widgets/kitchen-board`, ruta `/staff/kitchen`): tickets agrupados por estado en 3 columnas (Pendiente/En preparacion/Listo), avance con un clic o drag-and-drop, cancelacion restringida a admin/supervisor; cocina puede ademas agregar pedidos desde Mesas (ver doc 14)
+- [x] Implementar modificadores de producto (grupos de opciones ONE/MANY, obligatorios u opcionales, con costo extra por opcion) editables desde Menu Studio y seleccionables tanto en el pedido de mesero como en el carrito QR (ver doc 14)
 - [x] Implementar accion de abandono de mesa (dialog con motivo obligatorio en Floor Console, gated a admin/supervisor/cajero)
 - [x] Implementar vista consolidada de cuentas abiertas para caja/supervisor: en vez de una pantalla nueva, la grilla de mesas de Floor Console muestra el saldo pendiente de cada mesa ocupada de un vistazo (`GET /billing/branches/:branchId/open-bills`, sin N+1) mas un filtro "Solo con saldo pendiente"
 - [x] Conectar reglas configurables por sucursal sin hardcodearlas en la UI (`branch_settings` editable desde `/admin/branches`)
@@ -209,5 +210,15 @@ Landing publica reescrita para ser marketera (sin exponer rutas internas):
 formulario real de contacto/demo (`ContactSection`, guarda en backend),
 pantalla "ya soy cliente" con buscador de restaurante (`/ingresar`), y vista
 de leads capturados en `/admin/leads`. Detalle completo en doc 12.
+
+## 15. Fase 8: mesas, cocina y modificadores
+
+Ronda de 10 observaciones de UX del dueño del producto sobre el flujo de
+mesero y cocina, tras verlo operar en terreno: modificadores de producto,
+tablero de cocina a 3 columnas con drag-and-drop, cocina con acceso a
+agregar pedidos, sidebar que colapsa cuando queda una sola opcion,
+notificacion de "pedido listo" con timer configurable, y rediseño completo
+de Mesas del salon (bottom-sheet unico de detalle de mesa, timer en vivo,
+filtros por chips, buscador). Detalle completo en doc 14.
 
 Detalle completo en doc 05.

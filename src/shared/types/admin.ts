@@ -37,6 +37,7 @@ export type BranchSettings = {
   splitBillEnabled: boolean;
   partialDeliveryEnabled: boolean;
   autoDeliverAfterMinutes: number | null;
+  tableAssignmentEnabled: boolean;
 };
 
 export type CreateBranchRequest = {

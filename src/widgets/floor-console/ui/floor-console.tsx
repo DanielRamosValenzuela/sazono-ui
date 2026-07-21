@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
-  Armchair,
   Bell,
   CheckCheck,
   CheckCircle2,
+  Clock,
   Copy,
   CircleDot,
   ClipboardList,
@@ -18,6 +18,8 @@ import {
   RefreshCcw,
   Wallet,
   Sparkles,
+  UserCheck,
+  UtensilsCrossed,
   Users,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -93,6 +95,8 @@ const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHI
 const FLOOR_SPLIT_BILL_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_ABANDON_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_DELIVER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER", "WAITER", "KITCHEN"];
+const FLOOR_ASSIGN_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
+const FLOOR_REASSIGN_ANYONE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 
 function getOpenSources(branchAccess: BranchAccess | null): TableSessionSource[] {
   if (!branchAccess) {
@@ -141,6 +145,81 @@ function getSessionStatusTone(status: TableSessionStatus) {
       return "bg-destructive/10 text-destructive";
     default:
       return "bg-secondary text-secondary-foreground";
+  }
+}
+
+type TableTileState = "available" | "occupied" | "paid" | "pending" | "disabled";
+
+const TABLE_TILE_LEGEND_STATES: TableTileState[] = [
+  "available",
+  "occupied",
+  "paid",
+  "pending",
+  "disabled",
+];
+
+function getTableTileState(table: FloorTable, remaining: number): TableTileState {
+  if (table.status === "DISABLED") {
+    return "disabled";
+  }
+
+  const session = table.currentSession;
+  if (!session) {
+    return "available";
+  }
+
+  if (remaining > 0) {
+    return "pending";
+  }
+
+  return session.status === "PAYMENT_COMPLETED" ? "paid" : "occupied";
+}
+
+function getTileToneClasses(state: TableTileState) {
+  switch (state) {
+    case "available":
+      return "bg-emerald-500/12 text-emerald-700 ring-emerald-500/35 dark:text-emerald-300";
+    case "occupied":
+      return "bg-primary/12 text-primary ring-primary/35";
+    case "paid":
+      return "bg-sky-500/12 text-sky-700 ring-sky-500/35 dark:text-sky-300";
+    case "pending":
+      return "bg-destructive/12 text-destructive ring-destructive/35";
+    case "disabled":
+      return "bg-muted text-muted-foreground ring-border";
+  }
+}
+
+function getTileDotClasses(state: TableTileState) {
+  switch (state) {
+    case "available":
+      return "bg-emerald-500";
+    case "occupied":
+      return "bg-primary";
+    case "paid":
+      return "bg-sky-500";
+    case "pending":
+      return "bg-destructive";
+    case "disabled":
+      return "bg-muted-foreground";
+  }
+}
+
+function getTileStatusLabel(
+  t: ReturnType<typeof useTranslations<"FloorConsole">>,
+  state: TableTileState
+) {
+  switch (state) {
+    case "available":
+      return t("tableStatus_AVAILABLE");
+    case "occupied":
+      return t("tableStatus_OCCUPIED");
+    case "paid":
+      return t("tileStatus_PAID");
+    case "pending":
+      return t("tablesFilter_pending");
+    case "disabled":
+      return t("tableStatus_DISABLED");
   }
 }
 
@@ -221,12 +300,48 @@ export function FloorConsole() {
 
   const { data: branchesData } = useQuery({
     queryKey: ["floor", "branch-settings", accessToken],
-    enabled: session.isClientReady && Boolean(accessToken) && canSplitBill,
+    enabled: session.isClientReady && Boolean(accessToken) && canReadFloor,
     queryFn: () => adminApi.listBranches(accessToken!),
   });
   const isSplitBillEnabled =
     branchesData?.find((branch) => branch.branchId === selectedBranchId)?.settings
       ?.splitBillEnabled ?? false;
+  const isTableAssignmentEnabled =
+    branchesData?.find((branch) => branch.branchId === selectedBranchId)?.settings
+      ?.tableAssignmentEnabled ?? false;
+  const canReassignAnyone = hasBranchPermission(
+    selectedBranch,
+    FLOOR_REASSIGN_ANYONE_ROLES,
+  );
+
+  const { data: staffListData, isLoading: isStaffListLoading } = useQuery({
+    queryKey: ["admin", "staff-list", accessToken],
+    enabled:
+      session.isClientReady &&
+      Boolean(accessToken) &&
+      isTableAssignmentEnabled &&
+      canReassignAnyone,
+    queryFn: () => adminApi.listStaff(accessToken!),
+  });
+  const assignableStaffOptions = useMemo(() => {
+    if (!staffListData) {
+      return [];
+    }
+    return staffListData
+      .filter(
+        (staffUser) =>
+          staffUser.status === "ACTIVE" &&
+          staffUser.branchRoles.some(
+            (branchRole) =>
+              branchRole.branchId === selectedBranchId &&
+              FLOOR_ASSIGN_ROLES.includes(branchRole.role),
+          ),
+      )
+      .map((staffUser) => ({
+        staffUserId: staffUser.staffUserId,
+        name: `${staffUser.firstName} ${staffUser.lastName}`.trim(),
+      }));
+  }, [staffListData, selectedBranchId]);
 
   const {
     data: tablesData,
@@ -281,10 +396,12 @@ export function FloorConsole() {
     if (!myTablesOnly || !currentUser) {
       return readySummary;
     }
-    return readySummary.filter(
-      (entry) => entry.openedByStaffUserId === currentUser.profileId
+    return readySummary.filter((entry) =>
+      isTableAssignmentEnabled
+        ? entry.assignedStaffUserId === currentUser.profileId
+        : entry.openedByStaffUserId === currentUser.profileId
     );
-  }, [readySummary, myTablesOnly, currentUser]);
+  }, [readySummary, myTablesOnly, currentUser, isTableAssignmentEnabled]);
   const readySummaryByTableId = useMemo(() => {
     const map = new Map<string, BranchReadySummaryItem>();
     for (const entry of visibleReadySummary) {
@@ -358,6 +475,10 @@ export function FloorConsole() {
     currentSessionData?.openedBySource ?? focusedTable?.currentSession?.openedBySource;
   const activeSessionId =
     currentSessionData?.tableSessionId ?? focusedTable?.currentSession?.tableSessionId ?? "";
+  const focusedAssignedStaffUserId =
+    currentSessionData?.assignedStaffUserId ??
+    focusedTable?.currentSession?.assignedStaffUserId ??
+    null;
 
   const {
     data: currentBill,
@@ -494,6 +615,33 @@ export function FloorConsole() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("closeError"));
+    },
+  });
+  const assignTableMutation = useMutation({
+    mutationFn: ({
+      sessionId,
+      staffUserId,
+    }: {
+      sessionId: string;
+      staffUserId?: string;
+    }) =>
+      floorApi.assignTableSession(
+        accessToken!,
+        sessionId,
+        staffUserId ? { staffUserId } : {},
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["floor", "tables"] }),
+        queryClient.invalidateQueries({ queryKey: ["floor", "current-session"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["orders", "branch-ready-summary"],
+        }),
+      ]);
+      toast.success(t("assignSuccess"));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("assignError"));
     },
   });
 
@@ -634,7 +782,7 @@ export function FloorConsole() {
         <>
           <section className="grid gap-4 md:grid-cols-3">
             <MetricCard
-              icon={Armchair}
+              icon={UtensilsCrossed}
               label={t("metricTables")}
               value={String(totalTables)}
             />
@@ -774,6 +922,29 @@ export function FloorConsole() {
                 {t("tablesDescription")}
               </CardDescription>
 
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                <span className="font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                  {t("tilesLegendLabel")}
+                </span>
+                {TABLE_TILE_LEGEND_STATES.map((state) => (
+                  <span key={state} className="inline-flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className={cn("size-2.5 shrink-0 rounded-full", getTileDotClasses(state))}
+                    />
+                    {getTileStatusLabel(t, state)}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock aria-hidden className="size-3 shrink-0 text-orange-500" />
+                  {t("tablesFilter_stale")}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Bell aria-hidden className="size-3 shrink-0 text-primary" />
+                  {t("tilesLegendReady")}
+                </span>
+              </div>
+
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {TABLE_FILTERS.map((filter) => (
                   <button
@@ -828,83 +999,71 @@ export function FloorConsole() {
                 </div>
               ) : null}
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
                 {tables.map((table) => {
                   const readyEntry = readySummaryByTableId.get(table.tableId);
+                  const bill = openBillsByTableId.get(table.tableId);
+                  const remaining = bill ? Number(bill.remainingAmount) : 0;
+                  const tileState = getTableTileState(table, remaining);
+                  const elapsed = table.currentSession
+                    ? formatElapsedMinutes(table.currentSession.openedAt, now)
+                    : null;
+                  const stale = Boolean(
+                    table.currentSession && isSessionStale(table.currentSession.openedAt, now)
+                  );
+
+                  const ariaLabelParts = [table.code, getTileStatusLabel(t, tileState)];
+                  if (elapsed) {
+                    ariaLabelParts.push(t("tileAriaOpenSince", { elapsed }));
+                  }
+                  if (stale) {
+                    ariaLabelParts.push(t("tablesFilter_stale"));
+                  }
+                  if (readyEntry) {
+                    ariaLabelParts.push(
+                      t("readyBadge", { count: readyEntry.readyUndeliveredCount })
+                    );
+                  }
+                  const ariaLabel = ariaLabelParts.join(", ");
 
                   return (
                     <button
                       key={table.tableId}
                       type="button"
                       onClick={() => openTableDetail(table.tableId)}
+                      aria-label={ariaLabel}
+                      title={ariaLabel}
                       className={cn(
-                        "w-full cursor-pointer rounded-[1.6rem] border p-5 text-left transition hover:shadow-md",
+                        "flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition hover:shadow-md",
                         readyEntry
-                          ? "border-primary/45 bg-primary/6 shadow-lg shadow-primary/10"
-                          : "border-border/70 bg-background/55"
+                          ? "border-primary/45 bg-primary/6 shadow-md shadow-primary/10"
+                          : tileState === "pending"
+                            ? "border-destructive/30 bg-destructive/4"
+                            : "border-border/70 bg-background/55"
                       )}
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              "flex size-11 shrink-0 items-center justify-center rounded-2xl",
-                              getTableStatusTone(table.status)
-                            )}
-                          >
-                            <Armchair className="size-5" />
-                          </div>
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">{table.code}</Badge>
-                              <Badge className={cn("border-0", getTableStatusTone(table.status))}>
-                                {t(`tableStatus_${table.status}`)}
-                              </Badge>
-                            </div>
-                            <h3 className="mt-2 text-xl font-semibold">{table.name}</h3>
-                            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                              <Users className="size-3.5" />
-                              {t("tableCapacity", { capacity: table.capacity })}
-                            </p>
-                          </div>
-                        </div>
-
+                      <span
+                        className={cn(
+                          "relative flex size-12 shrink-0 items-center justify-center rounded-full ring-2",
+                          getTileToneClasses(tileState)
+                        )}
+                      >
+                        <UtensilsCrossed className="size-5" />
                         {readyEntry ? (
-                          <Badge className="border-0 bg-primary text-primary-foreground">
-                            <Bell className="size-3" />
-                            {t("readyBadge", { count: readyEntry.readyUndeliveredCount })}
-                          </Badge>
+                          <span className="absolute -top-1 -right-1 flex size-[1.15rem] items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground ring-2 ring-card">
+                            {readyEntry.readyUndeliveredCount}
+                          </span>
                         ) : null}
-                      </div>
-
-                      {table.currentSession ? (
-                        <div className="mt-4 rounded-[1.25rem] border border-border/70 bg-card/72 p-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge className={cn("border-0", getSessionStatusTone(table.currentSession.status))}>
-                              {t(`sessionStatus_${table.currentSession.status}`)}
-                            </Badge>
-                            <Badge variant="secondary">
-                              {table.currentSession.openedBySource === "WAITER"
-                                ? t("sourceWaiter")
-                                : t("sourceCashier")}
-                            </Badge>
-                            {(() => {
-                              const bill = openBillsByTableId.get(table.tableId);
-                              const remaining = bill ? Number(bill.remainingAmount) : 0;
-                              return remaining > 0 ? (
-                                <Badge className="border-0 bg-destructive/10 text-destructive">
-                                  {t("tablesBalancePending", {
-                                    amount: formatMoney(remaining, "CLP"),
-                                  })}
-                                </Badge>
-                              ) : null;
-                            })()}
-                            <span className="ml-auto text-xs font-semibold tabular-nums text-muted-foreground">
-                              {formatElapsedMinutes(table.currentSession.openedAt, now)}
-                            </span>
-                          </div>
-                        </div>
-                      ) : null}
+                        {stale ? (
+                          <span className="absolute -bottom-1 -left-1 flex size-[1.15rem] items-center justify-center rounded-full bg-orange-500 text-white ring-2 ring-card">
+                            <Clock className="size-2.5" />
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums">{table.code}</span>
+                      <span className="h-[1.05rem] text-[0.7rem] font-medium tabular-nums text-muted-foreground">
+                        {elapsed ?? ""}
+                      </span>
                     </button>
                   );
                 })}
@@ -945,6 +1104,19 @@ export function FloorConsole() {
           billError={currentBillError}
           canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
           canSplitBill={canSplitBill && isSplitBillEnabled}
+          isTableAssignmentEnabled={isTableAssignmentEnabled}
+          canReassignAnyone={canReassignAnyone}
+          currentUserId={currentUser.profileId}
+          assignedStaffUserId={focusedAssignedStaffUserId}
+          assignableStaffOptions={assignableStaffOptions}
+          isStaffListLoading={isStaffListLoading}
+          isAssigning={assignTableMutation.isPending}
+          onAssign={(staffUserId) => {
+            if (!activeSessionId) {
+              return;
+            }
+            assignTableMutation.mutate({ sessionId: activeSessionId, staffUserId });
+          }}
           closeForm={closeSessionForm}
           isClosing={closeTableMutation.isPending}
           isLoadingBill={isCurrentBillLoading}
@@ -1002,7 +1174,7 @@ function isTableOpenable(table: FloorTable, availableOpenSources: TableSessionSo
 }
 
 interface MetricCardProps {
-  icon: typeof Armchair;
+  icon: typeof UtensilsCrossed;
   label: string;
   value: string;
 }
@@ -1403,6 +1575,14 @@ interface TableDetailSheetProps {
   billError: unknown;
   canAbandon: boolean;
   canSplitBill: boolean;
+  isTableAssignmentEnabled: boolean;
+  canReassignAnyone: boolean;
+  currentUserId: string;
+  assignedStaffUserId: string | null;
+  assignableStaffOptions: { staffUserId: string; name: string }[];
+  isStaffListLoading: boolean;
+  isAssigning: boolean;
+  onAssign: (staffUserId?: string) => void;
   closeForm: ReturnType<typeof useForm<CloseSessionFormValues>>;
   isClosing: boolean;
   isLoadingBill: boolean;
@@ -1439,6 +1619,14 @@ function TableDetailSheet({
   billError,
   canAbandon,
   canSplitBill,
+  isTableAssignmentEnabled,
+  canReassignAnyone,
+  currentUserId,
+  assignedStaffUserId,
+  assignableStaffOptions,
+  isStaffListLoading,
+  isAssigning,
+  onAssign,
   closeForm,
   isClosing,
   isLoadingBill,
@@ -1478,6 +1666,10 @@ function TableDetailSheet({
       <h2 id="table-detail-sheet-title" className="mt-2 text-2xl font-semibold">
         {table.name}
       </h2>
+      <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+        <Users className="size-3.5" />
+        {t("tableCapacity", { capacity: table.capacity })}
+      </p>
 
       {!hasActiveSession ? (
         <div className="mt-4 space-y-4">
@@ -1504,6 +1696,69 @@ function TableDetailSheet({
               {t("sessionOpenedAt")}: {formatDateTime(locale, session?.openedAt ?? table.currentSession!.openedAt)}
             </span>
           </div>
+
+          {isTableAssignmentEnabled ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-border/70 bg-background/55 p-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("assignedLabel")}
+              </span>
+              {canReassignAnyone ? (
+                <SelectInput
+                  value={assignedStaffUserId ?? ""}
+                  disabled={isAssigning}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value) {
+                      onAssign(value);
+                    }
+                  }}
+                  className="h-9 flex-1 basis-40"
+                >
+                  <option value="" disabled>
+                    {t("assignedSelectPlaceholder")}
+                  </option>
+                  {assignedStaffUserId &&
+                  !assignableStaffOptions.some(
+                    (option) => option.staffUserId === assignedStaffUserId
+                  ) ? (
+                    <option value={assignedStaffUserId}>
+                      {isStaffListLoading
+                        ? t("assignedLoadingOption")
+                        : t("assignedStaleOption")}
+                    </option>
+                  ) : null}
+                  {assignableStaffOptions.map((option) => (
+                    <option key={option.staffUserId} value={option.staffUserId}>
+                      {option.name}
+                    </option>
+                  ))}
+                </SelectInput>
+              ) : (
+                <>
+                  <span className="text-sm font-medium">
+                    {assignedStaffUserId === null
+                      ? t("assignedUnassigned")
+                      : assignedStaffUserId === currentUserId
+                        ? t("assignedToMe")
+                        : t("assignedToOther")}
+                  </span>
+                  {assignedStaffUserId !== currentUserId ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto rounded-full"
+                      disabled={isAssigning}
+                      onClick={() => onAssign(undefined)}
+                    >
+                      {isAssigning ? <Spinner /> : <UserCheck className="size-3.5" />}
+                      {t("takeTableAction")}
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={isSessionFetching} onClick={onRefresh}>
