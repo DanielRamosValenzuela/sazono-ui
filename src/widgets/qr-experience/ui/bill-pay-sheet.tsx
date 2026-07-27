@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Receipt } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CardPaymentBrick } from "@/features/mercado-pago-checkout/ui/card-payment-brick";
+import { useCardCheckoutPayment } from "@/features/mercado-pago-checkout/model/use-card-checkout-payment";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { OrderResponse, PaymentBillSummary } from "@/shared/types/order";
+import type { CardCheckoutFields } from "@/shared/types/payments";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
@@ -36,6 +39,8 @@ export function BillPaySheet({
   const [tipPercentage, setTipPercentage] = useState<number>(0);
   const [customTip, setCustomTip] = useState("");
   const [useCustomTip, setUseCustomTip] = useState(false);
+  const [brickInstanceKey, setBrickInstanceKey] = useState(0);
+  const [brickFailed, setBrickFailed] = useState(false);
 
   const remainingAmount = Number(bill.remainingAmount);
   const tipAmount = useCustomTip
@@ -44,6 +49,17 @@ export function BillPaySheet({
   const totalDue = remainingAmount + tipAmount;
 
   const billableOrders = orders.filter((order) => order.status !== "CANCELLED");
+
+  const submittedRemainingRef = useRef(remainingAmount);
+
+  const paymentConfigQuery = useQuery({
+    queryKey: ["qr-payment-config", qrToken],
+    queryFn: () => qrApi.getPaymentConfig(qrToken),
+  });
+
+  const isGatewayConnected =
+    paymentConfigQuery.data?.gatewayConnected === true &&
+    Boolean(paymentConfigQuery.data.publicKey);
 
   const payBill = useMutation({
     mutationFn: () =>
@@ -60,8 +76,58 @@ export function BillPaySheet({
     },
   });
 
+  const { phase: cardPhase, submitCheckout } = useCardCheckoutPayment({
+    submit: (checkout, signal) =>
+      qrApi
+        .payBill(
+          qrToken,
+          {
+            amount: bill.remainingAmount,
+            ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+            ...checkout,
+          },
+          signal
+        )
+        .then(() => undefined),
+    pollStatus: async () => {
+      const latestBill = await qrApi.getBill(qrToken);
+
+      if (
+        !latestBill ||
+        Number(latestBill.remainingAmount) < submittedRemainingRef.current
+      ) {
+        return "approved";
+      }
+
+      return "unresolved";
+    },
+    onApproved: () => {
+      toast.success(t("pay_successToast"));
+      onPaid();
+    },
+    onDeclined: (reason, message) => {
+      setBrickInstanceKey((key) => key + 1);
+      toast.error(
+        reason === "unverified"
+          ? t("pay_verifyUncertainToast")
+          : message || t("pay_declinedToast")
+      );
+    },
+  });
+
+  const isCardBusy = cardPhase !== "idle";
+
+  const handleBrickSubmit = (checkout: CardCheckoutFields) => {
+    submittedRemainingRef.current = remainingAmount;
+    return submitCheckout(checkout);
+  };
+
   return (
-    <BottomSheet onClose={onClose} labelledBy="qr-bill-title">
+    <BottomSheet
+      onClose={isCardBusy ? () => undefined : onClose}
+      labelledBy="qr-bill-title"
+      showCloseButton={!isCardBusy}
+    >
       <div className="flex items-start gap-3">
         <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Receipt className="size-5" />
@@ -172,22 +238,77 @@ export function BillPaySheet({
         </div>
       </dl>
 
+      {isGatewayConnected ? (
+        <div className="mt-6 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t("pay_cardTitle")}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              {t("pay_cardDescription")}
+            </p>
+          </div>
+
+          {cardPhase === "verifying" ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
+              <Spinner className="size-4 shrink-0" />
+              <span>{t("pay_verifyingDescription")}</span>
+            </div>
+          ) : null}
+
+          {brickFailed ? (
+            <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
+              <p>{t("pay_brickLoadErrorToast")}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => {
+                  setBrickFailed(false);
+                  setBrickInstanceKey((key) => key + 1);
+                }}
+              >
+                {t("pay_brickRetry")}
+              </Button>
+            </div>
+          ) : (
+            <CardPaymentBrick
+              key={brickInstanceKey}
+              publicKey={paymentConfigQuery.data?.publicKey ?? ""}
+              amount={totalDue}
+              onSubmit={handleBrickSubmit}
+              onError={(error) => {
+                if (error.type === "critical") {
+                  setBrickFailed(true);
+                  toast.error(t("pay_brickLoadErrorToast"));
+                }
+              }}
+              className={cn(isCardBusy && "pointer-events-none opacity-60")}
+            />
+          )}
+        </div>
+      ) : null}
+
       <div className="mt-5 space-y-2">
-        <Button
-          type="button"
-          size="lg"
-          className="w-full rounded-xl"
-          disabled={payBill.isPending}
-          onClick={() => payBill.mutate()}
-        >
-          {payBill.isPending ? <Spinner /> : null}
-          {t("pay_submit")}
-        </Button>
+        {!isGatewayConnected ? (
+          <Button
+            type="button"
+            size="lg"
+            className="w-full rounded-xl"
+            disabled={payBill.isPending}
+            onClick={() => payBill.mutate()}
+          >
+            {payBill.isPending ? <Spinner /> : null}
+            {t("pay_submit")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="lg"
           variant="ghost"
           className="w-full rounded-xl"
+          disabled={isCardBusy}
           onClick={onClose}
         >
           {t("pay_later")}

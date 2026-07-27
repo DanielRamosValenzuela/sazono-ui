@@ -1,21 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, HandCoins } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CardPaymentBrick } from "@/features/mercado-pago-checkout/ui/card-payment-brick";
+import { useCardCheckoutPayment } from "@/features/mercado-pago-checkout/model/use-card-checkout-payment";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { OrderResponse } from "@/shared/types/order";
+import type { CardCheckoutFields } from "@/shared/types/payments";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 const TIP_PERCENTAGES = [0, 5, 10] as const;
+const AWAITING_ORDER_STATUSES = ["AWAITING_PAYMENT", "PAYMENT_FAILED"];
 
 type PaymentSheetProps = {
   qrToken: string;
@@ -34,6 +38,8 @@ export function PaymentSheet({
   const [tipPercentage, setTipPercentage] = useState<number>(0);
   const [customTip, setCustomTip] = useState("");
   const [useCustomTip, setUseCustomTip] = useState(false);
+  const [brickInstanceKey, setBrickInstanceKey] = useState(0);
+  const [brickFailed, setBrickFailed] = useState(false);
 
   const isRetry = order.status === "PAYMENT_FAILED";
   const orderTotal = Number(order.orderTotalAmount);
@@ -41,6 +47,15 @@ export function PaymentSheet({
     ? Math.max(0, Math.floor(Number(customTip) || 0))
     : Math.round((orderTotal * tipPercentage) / 100);
   const totalDue = orderTotal + tipAmount;
+
+  const paymentConfigQuery = useQuery({
+    queryKey: ["qr-payment-config", qrToken],
+    queryFn: () => qrApi.getPaymentConfig(qrToken),
+  });
+
+  const isGatewayConnected =
+    paymentConfigQuery.data?.gatewayConnected === true &&
+    Boolean(paymentConfigQuery.data.publicKey);
 
   const payOrder = useMutation({
     mutationFn: () =>
@@ -58,8 +73,68 @@ export function PaymentSheet({
     },
   });
 
+  const { phase: cardPhase, submitCheckout } = useCardCheckoutPayment({
+    submit: (checkout, signal) =>
+      qrApi
+        .payOrder(
+          qrToken,
+          order.orderId,
+          {
+            ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+            ...checkout,
+          },
+          signal
+        )
+        .then(() => undefined),
+    pollStatus: async () => {
+      if (order.status === "PAYMENT_FAILED") {
+        return "declined";
+      }
+
+      if (!AWAITING_ORDER_STATUSES.includes(order.status)) {
+        return "approved";
+      }
+
+      const status = await qrApi.getOrderPaymentStatus(
+        qrToken,
+        order.orderId
+      );
+
+      if (status.orderStatus === "PAYMENT_FAILED") {
+        return "declined";
+      }
+
+      if (!AWAITING_ORDER_STATUSES.includes(status.orderStatus)) {
+        return "approved";
+      }
+
+      return "unresolved";
+    },
+    onApproved: () => {
+      toast.success(t("pay_successToast"));
+      onPaid();
+    },
+    onDeclined: (reason, message) => {
+      setBrickInstanceKey((key) => key + 1);
+      toast.error(
+        reason === "unverified"
+          ? t("pay_verifyUncertainToast")
+          : message || t("pay_declinedToast")
+      );
+    },
+  });
+
+  const isCardBusy = cardPhase !== "idle";
+
+  const handleBrickSubmit = (checkout: CardCheckoutFields) =>
+    submitCheckout(checkout);
+
   return (
-    <BottomSheet onClose={onClose} labelledBy="qr-pay-title">
+    <BottomSheet
+      onClose={isCardBusy ? () => undefined : onClose}
+      labelledBy="qr-pay-title"
+      showCloseButton={!isCardBusy}
+    >
       <div className="flex items-start gap-3">
         <div
           className={cn(
@@ -154,22 +229,77 @@ export function PaymentSheet({
         </div>
       </dl>
 
+      {isGatewayConnected ? (
+        <div className="mt-6 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t("pay_cardTitle")}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              {t("pay_cardDescription")}
+            </p>
+          </div>
+
+          {cardPhase === "verifying" ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
+              <Spinner className="size-4 shrink-0" />
+              <span>{t("pay_verifyingDescription")}</span>
+            </div>
+          ) : null}
+
+          {brickFailed ? (
+            <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
+              <p>{t("pay_brickLoadErrorToast")}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => {
+                  setBrickFailed(false);
+                  setBrickInstanceKey((key) => key + 1);
+                }}
+              >
+                {t("pay_brickRetry")}
+              </Button>
+            </div>
+          ) : (
+            <CardPaymentBrick
+              key={brickInstanceKey}
+              publicKey={paymentConfigQuery.data?.publicKey ?? ""}
+              amount={totalDue}
+              onSubmit={handleBrickSubmit}
+              onError={(error) => {
+                if (error.type === "critical") {
+                  setBrickFailed(true);
+                  toast.error(t("pay_brickLoadErrorToast"));
+                }
+              }}
+              className={cn(isCardBusy && "pointer-events-none opacity-60")}
+            />
+          )}
+        </div>
+      ) : null}
+
       <div className="mt-5 space-y-2">
-        <Button
-          type="button"
-          size="lg"
-          className="w-full rounded-xl"
-          disabled={payOrder.isPending}
-          onClick={() => payOrder.mutate()}
-        >
-          {payOrder.isPending ? <Spinner /> : null}
-          {isRetry ? t("pay_retrySubmit") : t("pay_submit")}
-        </Button>
+        {!isGatewayConnected ? (
+          <Button
+            type="button"
+            size="lg"
+            className="w-full rounded-xl"
+            disabled={payOrder.isPending}
+            onClick={() => payOrder.mutate()}
+          >
+            {payOrder.isPending ? <Spinner /> : null}
+            {isRetry ? t("pay_retrySubmit") : t("pay_submit")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="lg"
           variant="ghost"
           className="w-full rounded-xl"
+          disabled={isCardBusy}
           onClick={onClose}
         >
           {t("pay_later")}

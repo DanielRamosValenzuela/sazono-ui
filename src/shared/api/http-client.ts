@@ -16,11 +16,12 @@ type RequestOptions = {
   token?: string;
   body?: unknown;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  signal?: AbortSignal;
 };
 
 export async function apiRequest<T>(
   path: string,
-  { token, body, method = "GET" }: RequestOptions = {}
+  { token, body, method = "GET", signal }: RequestOptions = {}
 ): Promise<T> {
   const isFormData = body instanceof FormData;
 
@@ -35,6 +36,7 @@ export async function apiRequest<T>(
       },
       ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
       cache: "no-store",
+      signal,
     });
   } catch (error) {
     throw new ApiError(

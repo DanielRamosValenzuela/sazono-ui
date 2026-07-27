@@ -3,6 +3,7 @@ import type {
   PreparationStationSummary,
   PreparationStationType,
 } from "@/shared/types/menu";
+import type { CardCheckoutFields } from "@/shared/types/payments";
 
 export type OrderStatus =
   | "DRAFT"
@@ -112,11 +113,11 @@ export interface CreateWaiterOrderRequest {
   notes?: string;
 }
 
-export interface PayQrOrderRequest {
+export interface PayQrOrderRequest extends CardCheckoutFields {
   tipAmount?: string;
 }
 
-export interface PayQrBillRequest {
+export interface PayQrBillRequest extends CardCheckoutFields {
   amount: string;
   tipAmount?: string;
 }
@@ -146,4 +147,20 @@ export interface PaymentResult {
   paidAt: string | null;
   bill: PaymentBillSummary;
   order: PaidOrderSummary | null;
+}
+
+export type PaymentAttemptStatus =
+  | "PENDING"
+  | "FAILED"
+  | "SUCCEEDED"
+  | "CANCELLED";
+
+export interface QrOrderPaymentStatusResponse {
+  orderId: string;
+  orderStatus: OrderStatus;
+  attemptStatus: PaymentAttemptStatus | null;
+  paymentStatus: PaymentStatus | null;
+  providerReference: string | null;
+  failureReason: string | null;
+  updatedAt: string;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, HandCoins, QrCode, SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,12 +8,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { CardPaymentBrick } from "@/features/mercado-pago-checkout/ui/card-payment-brick";
+import { useCardCheckoutPayment } from "@/features/mercado-pago-checkout/model/use-card-checkout-payment";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import { useClientReady } from "@/shared/lib/use-client-ready";
+import type { CardCheckoutFields } from "@/shared/types/payments";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import { FieldGroup, FieldLabel, TextInput } from "@/shared/ui/form-controls";
+import { cn } from "@/lib/utils";
 
 const TIP_PERCENTAGES = [0, 5, 10] as const;
 const PAYABLE_STATUSES = ["PENDING", "PARTIALLY_PAID", "FAILED"];
@@ -50,6 +54,8 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
   const [tipPercentage, setTipPercentage] = useState<number>(0);
   const [customTip, setCustomTip] = useState("");
   const [useCustomTip, setUseCustomTip] = useState(false);
+  const [brickInstanceKey, setBrickInstanceKey] = useState(0);
+  const [brickFailed, setBrickFailed] = useState(false);
 
   const participantQuery = useQuery({
     queryKey: ["split-participant", participantToken],
@@ -58,10 +64,24 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
     retry: false,
   });
 
+  const participant = participantQuery.data;
+  const remaining = participant
+    ? Number(participant.allocatedAmount) - Number(participant.paidAmount)
+    : 0;
+  const tipAmount = useCustomTip
+    ? Math.max(0, Math.floor(Number(customTip) || 0))
+    : Math.round((remaining * tipPercentage) / 100);
+  const totalDue = remaining + tipAmount;
+  const isGatewayConnected = Boolean(
+    participant?.gatewayConnected && participant.publicKey
+  );
+
+  const submittedPaidAmountRef = useRef(0);
+
   const payMutation = useMutation({
-    mutationFn: (tipAmount: number) =>
+    mutationFn: (tipAmountToPay: number) =>
       qrApi.payBillSplitParticipant(participantToken as string, {
-        ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+        ...(tipAmountToPay > 0 ? { tipAmount: String(tipAmountToPay) } : {}),
       }),
     onSuccess: () => {
       toast.success(t("paySuccessToast"));
@@ -71,6 +91,54 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
       toast.error(t("payErrorToast"));
     },
   });
+
+  const { phase: cardPhase, submitCheckout } = useCardCheckoutPayment({
+    submit: (checkout, signal) =>
+      qrApi
+        .payBillSplitParticipant(
+          participantToken as string,
+          {
+            ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+            ...checkout,
+          },
+          signal
+        )
+        .then(() => undefined),
+    pollStatus: async () => {
+      const result = await participantQuery.refetch();
+
+      if (
+        result.data &&
+        Number(result.data.paidAmount) > submittedPaidAmountRef.current
+      ) {
+        return "approved";
+      }
+
+      return "unresolved";
+    },
+    onApproved: () => {
+      toast.success(t("paySuccessToast"));
+      void participantQuery.refetch();
+    },
+    onDeclined: (reason, message) => {
+      setBrickInstanceKey((key) => key + 1);
+      toast.error(
+        reason === "unverified"
+          ? t("payVerifyUncertainToast")
+          : message || t("payDeclinedToast")
+      );
+    },
+  });
+
+  const isCardBusy = cardPhase !== "idle";
+
+  const handleBrickSubmit = (checkout: CardCheckoutFields) => {
+    if (participant) {
+      submittedPaidAmountRef.current = Number(participant.paidAmount);
+    }
+
+    return submitCheckout(checkout);
+  };
 
   if (!participantToken) {
     return (
@@ -101,18 +169,11 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
     );
   }
 
-  const participant = participantQuery.data;
-
   if (!participant) {
     return null;
   }
 
-  const remaining = Number(participant.allocatedAmount) - Number(participant.paidAmount);
   const isPayable = PAYABLE_STATUSES.includes(participant.status) && remaining > 0;
-  const tipAmount = useCustomTip
-    ? Math.max(0, Math.floor(Number(customTip) || 0))
-    : Math.round((remaining * tipPercentage) / 100);
-  const totalDue = remaining + tipAmount;
 
   if (!isPayable) {
     return (
@@ -217,16 +278,70 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
           </div>
         </dl>
 
-        <Button
-          type="button"
-          size="lg"
-          className="mt-6 w-full rounded-xl"
-          disabled={payMutation.isPending}
-          onClick={() => payMutation.mutate(tipAmount)}
-        >
-          {payMutation.isPending ? <Spinner /> : null}
-          {t("paySubmit")}
-        </Button>
+        {isGatewayConnected ? (
+          <div className="mt-6 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t("cardTitle")}
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                {t("cardDescription")}
+              </p>
+            </div>
+
+            {cardPhase === "verifying" ? (
+              <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
+                <Spinner className="size-4 shrink-0" />
+                <span>{t("verifyingDescription")}</span>
+              </div>
+            ) : null}
+
+            {brickFailed ? (
+              <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
+                <p>{t("brickLoadErrorToast")}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() => {
+                    setBrickFailed(false);
+                    setBrickInstanceKey((key) => key + 1);
+                  }}
+                >
+                  {t("brickRetry")}
+                </Button>
+              </div>
+            ) : (
+              <CardPaymentBrick
+                key={brickInstanceKey}
+                publicKey={participant.publicKey ?? ""}
+                amount={totalDue}
+                onSubmit={handleBrickSubmit}
+                onError={(error) => {
+                  if (error.type === "critical") {
+                    setBrickFailed(true);
+                    toast.error(t("brickLoadErrorToast"));
+                  }
+                }}
+                className={cn(isCardBusy && "pointer-events-none opacity-60")}
+              />
+            )}
+          </div>
+        ) : null}
+
+        {!isGatewayConnected ? (
+          <Button
+            type="button"
+            size="lg"
+            className="mt-6 w-full rounded-xl"
+            disabled={payMutation.isPending}
+            onClick={() => payMutation.mutate(tipAmount)}
+          >
+            {payMutation.isPending ? <Spinner /> : null}
+            {t("paySubmit")}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

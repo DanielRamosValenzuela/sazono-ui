@@ -146,6 +146,9 @@ el `BottomSheet` compartido. Contiene:
 Si la mesa no tiene sesion activa, el sheet muestra directamente el boton
 "Abrir mesa".
 
+**Superado por doc 17:** el boton ya no abre la mesa directo, primero abre
+un dialogo que pide la cantidad de comensales.
+
 Tarjetas de mesa rediseñadas: icono `Armchair` coloreado segun estado,
 capacidad con icono `Users`, y un timer en vivo (`formatElapsedMinutes`,
 recalculado cada 30s via `setInterval`, sin cambios de API — usa el

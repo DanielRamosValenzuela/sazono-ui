@@ -54,6 +54,7 @@ import type { BranchRole } from "@/shared/types/auth";
 import type { BranchOpenBill, CurrentBill } from "@/shared/types/billing";
 import type {
   FloorTable,
+  TableSessionDetail,
   TableSessionSource,
   TableSessionStatus,
 } from "@/shared/types/floor";
@@ -68,6 +69,8 @@ import {
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
 import { AbandonSessionDialog } from "./abandon-session-dialog";
 import { AddOrderSheet } from "./add-order-sheet";
+import { ManageTableZonesDialog } from "./manage-table-zones-dialog";
+import { OpenTableDialog } from "./open-table-dialog";
 import { SplitBillDialog } from "./split-bill-dialog";
 
 interface CreateTableFormValues {
@@ -269,6 +272,8 @@ export function FloorConsole() {
   const [addOrderOpen, setAddOrderOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
+  const [openTableDialogOpen, setOpenTableDialogOpen] = useState(false);
+  const [manageZonesOpen, setManageZonesOpen] = useState(false);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -323,6 +328,16 @@ export function FloorConsole() {
       canReassignAnyone,
     queryFn: () => adminApi.listStaff(accessToken!),
   });
+  const { data: zonesData } = useQuery({
+    queryKey: ["floor", "zones", accessToken, selectedBranchId],
+    enabled:
+      session.isClientReady &&
+      Boolean(accessToken) &&
+      Boolean(selectedBranchId) &&
+      canReadFloor,
+    queryFn: () => floorApi.listZones(accessToken!, selectedBranchId),
+  });
+
   const assignableStaffOptions = useMemo(() => {
     if (!staffListData) {
       return [];
@@ -450,6 +465,19 @@ export function FloorConsole() {
     : "";
   const focusedTable = allTables.find((table) => table.tableId === focusedTableId) ?? null;
 
+  const focusedTableZone = useMemo(() => {
+    if (!focusedTable?.zoneId) {
+      return null;
+    }
+    return zonesData?.find((zone) => zone.zoneId === focusedTable.zoneId) ?? null;
+  }, [zonesData, focusedTable]);
+  const showZoneWarning = Boolean(
+    isTableAssignmentEnabled &&
+      focusedTableZone &&
+      currentUser &&
+      !focusedTableZone.staffUserIds.includes(currentUser.profileId)
+  );
+
   const openTableDetail = (tableId: string) => {
     setFocusedTableId(tableId);
     setDetailSheetOpen(true);
@@ -561,28 +589,6 @@ export function FloorConsole() {
     },
   });
 
-  const openTableMutation = useMutation({
-    mutationFn: (table: FloorTable) =>
-      floorApi.openTableSession(accessToken!, {
-        tableId: table.tableId,
-        openedBySource: selectedSource,
-      }),
-    onSuccess: async (openedSession) => {
-      setFocusedTableId(openedSession.tableId);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["floor", "tables"],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["floor", "current-session", accessToken, openedSession.tableId],
-        }),
-      ]);
-      toast.success(t("openSuccess"));
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("openError"));
-    },
-  });
   const closeTableMutation = useMutation({
     mutationFn: ({
       sessionId,
@@ -961,6 +967,17 @@ export function FloorConsole() {
                     {t(`tablesFilter_${filter}`)}
                   </button>
                 ))}
+                {canReassignAnyone && isTableAssignmentEnabled ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="ml-auto rounded-full"
+                    onClick={() => setManageZonesOpen(true)}
+                  >
+                    {t("zoneManageAction")}
+                  </Button>
+                ) : null}
               </div>
 
               <div className="mt-3 max-w-sm">
@@ -1091,11 +1108,7 @@ export function FloorConsole() {
           canOpenTable={
             isTableOpenable(focusedTable, availableOpenSources) && !focusedTable.currentSession
           }
-          isOpeningTable={
-            openTableMutation.isPending &&
-            openTableMutation.variables?.tableId === focusedTable.tableId
-          }
-          onOpenTable={() => openTableMutation.mutate(focusedTable)}
+          onOpenTable={() => setOpenTableDialogOpen(true)}
           onDeliverOrder={(orderId) => deliverOrderMutation.mutate(orderId)}
           isDelivering={deliverOrderMutation.isPending}
           deliveringOrderId={deliverOrderMutation.variables}
@@ -1163,6 +1176,37 @@ export function FloorConsole() {
           billId={currentBill.billId}
           remainingAmount={currentBill.remainingAmount}
           onClose={() => setSplitBillOpen(false)}
+        />
+      ) : null}
+
+      {openTableDialogOpen && focusedTable ? (
+        <OpenTableDialog
+          accessToken={accessToken!}
+          branchId={selectedBranchId}
+          table={focusedTable}
+          openedBySource={selectedSource}
+          showZoneWarning={showZoneWarning}
+          onOpened={async (openedSession: TableSessionDetail) => {
+            setOpenTableDialogOpen(false);
+            setFocusedTableId(openedSession.tableId);
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["floor", "tables"] }),
+              queryClient.invalidateQueries({
+                queryKey: ["floor", "current-session", accessToken, openedSession.tableId],
+              }),
+            ]);
+            toast.success(t("openSuccess"));
+          }}
+          onClose={() => setOpenTableDialogOpen(false)}
+        />
+      ) : null}
+
+      {manageZonesOpen ? (
+        <ManageTableZonesDialog
+          accessToken={accessToken!}
+          branchId={selectedBranchId}
+          tables={allTables}
+          onClose={() => setManageZonesOpen(false)}
         />
       ) : null}
     </div>
@@ -1554,7 +1598,7 @@ interface TableDetailSheetProps {
   accessToken: string;
   branchId: string;
   table: FloorTable;
-  session: { tableSessionId: string; openedAt: string } | undefined;
+  session: { tableSessionId: string; openedAt: string; guestCount: number | null } | undefined;
   sessionSource: TableSessionSource | undefined;
   activeSessionId: string;
   isSessionFetching: boolean;
@@ -1565,7 +1609,6 @@ interface TableDetailSheetProps {
   canAddOrder: boolean;
   canDeliver: boolean;
   canOpenTable: boolean;
-  isOpeningTable: boolean;
   onOpenTable: () => void;
   onDeliverOrder: (orderId: string) => void;
   isDelivering: boolean;
@@ -1609,7 +1652,6 @@ function TableDetailSheet({
   canAddOrder,
   canDeliver,
   canOpenTable,
-  isOpeningTable,
   onOpenTable,
   onDeliverOrder,
   isDelivering,
@@ -1640,6 +1682,7 @@ function TableDetailSheet({
   t,
 }: TableDetailSheetProps) {
   const hasActiveSession = Boolean(table.currentSession);
+  const guestCount = session?.guestCount ?? table.currentSession?.guestCount ?? null;
 
   return (
     <BottomSheet onClose={onClose} labelledBy="table-detail-sheet-title">
@@ -1678,11 +1721,11 @@ function TableDetailSheet({
             type="button"
             size="lg"
             className="w-full rounded-full"
-            disabled={!canOpenTable || isOpeningTable}
+            disabled={!canOpenTable}
             onClick={onOpenTable}
           >
-            {isOpeningTable ? <Spinner /> : <DoorOpen className="size-4" />}
-            {isOpeningTable ? t("openSubmitting") : t("openAction")}
+            <DoorOpen className="size-4" />
+            {t("openAction")}
           </Button>
         </div>
       ) : (
@@ -1694,6 +1737,13 @@ function TableDetailSheet({
             <span aria-hidden>·</span>
             <span>
               {t("sessionOpenedAt")}: {formatDateTime(locale, session?.openedAt ?? table.currentSession!.openedAt)}
+            </span>
+            <span aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1">
+              <Users className="size-3.5" />
+              {guestCount === null
+                ? t("guestCountMissing")
+                : t("guestCountValue", { count: guestCount })}
             </span>
           </div>
 

@@ -73,8 +73,7 @@ El frontend necesita contratos claros para:
 
 ## Siguiente paso sugerido para este repo
 
-1. Reemplazar el mock de pasarela de pago cuando exista un proveedor real
-2. Modelo de monetizacion de la plataforma (no existe aun, ver doc backend 14)
+1. Modelo de monetizacion de la plataforma (no existe aun, ver doc backend 14)
 
 Ya resuelto (ver doc 09 y sus referencias a docs 06-08; ver doc 10 para lo mas reciente):
 
@@ -93,3 +92,7 @@ Ya resuelto (ver doc 11):
 Ya resuelto (ver doc 12):
 
 - landing publica marketera (sin exponer `/admin`/`/staff`/`/qr`), formulario real de contacto/demo, pantalla "ya soy cliente" con buscador de restaurante, vista de leads en `/admin/leads`
+
+Ya resuelto (ver doc 18):
+
+- pasarela de pago real (Mercado Pago, modelo marketplace/OAuth por restaurante): checkout con tarjeta (`features/mercado-pago-checkout`) en pedido QR, cuenta abierta y participante de split, mas panel de conexion `/admin/payments`. Implementado y activo por diseño; queda inactivo (fallback al pago manual de siempre) en cualquier restaurante que aun no haya conectado su cuenta

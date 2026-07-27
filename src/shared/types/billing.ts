@@ -1,3 +1,8 @@
+import type {
+  CardCheckoutFields,
+  PaymentGatewayProvider,
+} from "@/shared/types/payments";
+
 export type BillStatus = "OPEN" | "PAID";
 
 export interface CurrentBill {
@@ -60,9 +65,13 @@ export interface BillSplitParticipantDetail {
   status: BillSplitParticipantStatus;
   currency: string;
   billStatus: string;
+  gatewayConnected: boolean;
+  provider?: PaymentGatewayProvider;
+  publicKey?: string;
+  environment?: string;
 }
 
-export interface PayBillSplitParticipantRequest {
+export interface PayBillSplitParticipantRequest extends CardCheckoutFields {
   tipAmount?: string;
 }
 

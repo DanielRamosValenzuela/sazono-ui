@@ -157,6 +157,11 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
   const cartCount = getCartCount(cart);
   const cartTotal = getCartTotal(cart);
   const showCartBar = cartCount > 0 && !cartOpen && !payingOrder && !billSheetOpen;
+  const livePayingOrder = payingOrder
+    ? (ordersQuery.data?.find(
+        (candidate) => candidate.orderId === payingOrder.orderId
+      ) ?? payingOrder)
+    : null;
 
   const handleSetQuantity = (item: MenuItemDetail, quantity: number) => {
     setCart((lines) => setCartQuantity(lines, item, quantity));
@@ -259,10 +264,10 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
         />
       ) : null}
 
-      {payingOrder ? (
+      {livePayingOrder ? (
         <PaymentSheet
           qrToken={qrToken}
-          order={payingOrder}
+          order={livePayingOrder}
           onClose={() => setPayingOrder(null)}
           onPaid={handlePaid}
         />

@@ -72,6 +72,8 @@ mesero.
   entregado" por cada orden en estado Listo, cobro/split/cierre/abandono, y
   el boton "Agregar pedido". Si la mesa no tiene sesion activa, el sheet
   muestra directamente "Abrir mesa".
+  - **Superado por doc 17:** el boton ya no abre la mesa directo, primero
+    abre un dialogo que pide la cantidad de comensales.
 - Filtros: fila de chips (Todas / Libres / Ocupadas / Con saldo pendiente /
   Abiertas +30 min) mas un buscador de texto por nombre o codigo de mesa,
   todo client-side sobre los datos que ya trae `floorApi.listTables` (sin

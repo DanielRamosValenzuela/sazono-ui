@@ -14,6 +14,7 @@ export interface CurrentTableSessionSummary {
   openedBySource: TableSessionSource;
   openedAt: string;
   assignedStaffUserId: string | null;
+  guestCount: number | null;
 }
 
 export interface FloorTable {
@@ -25,6 +26,7 @@ export interface FloorTable {
   status: FloorTableStatus;
   qrToken: string;
   currentSession: CurrentTableSessionSummary | null;
+  zoneId: string | null;
 }
 
 export interface CreateFloorTableRequest {
@@ -37,6 +39,7 @@ export interface CreateFloorTableRequest {
 export interface OpenTableSessionRequest {
   tableId: string;
   openedBySource: TableSessionSource;
+  guestCount: number;
 }
 
 export interface CloseTableSessionRequest {
@@ -61,4 +64,36 @@ export interface TableSessionDetail {
   closeReason: string | null;
   closedAt: string | null;
   assignedStaffUserId: string | null;
+  guestCount: number | null;
+}
+
+export interface TableZone {
+  zoneId: string;
+  branchId: string;
+  name: string;
+  tableIds: string[];
+  staffUserIds: string[];
+}
+
+export interface CreateTableZoneRequest {
+  branchId: string;
+  name: string;
+}
+
+export interface RenameTableZoneRequest {
+  name: string;
+}
+
+export interface SetTableZoneRequest {
+  zoneId: string | null;
+}
+
+export interface SetZoneStaffRequest {
+  staffUserIds: string[];
+}
+
+export interface BranchStaffMember {
+  staffUserId: string;
+  firstName: string;
+  lastName: string;
 }

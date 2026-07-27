@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   BookOpenText,
   ChefHat,
+  CreditCard,
   Flame,
   Inbox,
   LayoutDashboard,
@@ -140,6 +141,11 @@ export function AdminShell({ children, area }: AdminShellProps) {
             href: "/admin/branches",
             labelKey: "navBranches",
             icon: <MapPin className="size-4" />,
+          },
+          {
+            href: "/admin/payments",
+            labelKey: "navPayments",
+            icon: <CreditCard className="size-4" />,
           },
         ]
       : [];

@@ -18,6 +18,8 @@
 14. [14 Fase 8: Mesas, Cocina y Modificadores](D:\Programacion\Sazono\sazono-ui\docs\14-fase-8-mesas-cocina-y-modificadores.md)
 15. [15 Fase 9: Simplificación de Mesas del Salón y Asignación Formal](D:\Programacion\Sazono\sazono-ui\docs\15-fase-9-simplificacion-mesas-y-asignacion.md)
 16. [16 Notificaciones Push y Login por PIN](D:\Programacion\Sazono\sazono-ui\docs\16-notificaciones-push-y-login-por-pin.md)
+17. [17 Fase 10: Comensales al Abrir Mesa y Zonas del Salón](D:\Programacion\Sazono\sazono-ui\docs\17-comensales-y-zonas-de-mesa.md)
+18. [18 Integración de Mercado Pago (Checkout con Tarjeta y Conexión de Cuenta)](D:\Programacion\Sazono\sazono-ui\docs\18-mercado-pago-checkout.md)
 
 ## Objetivo
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type ComponentProps } from "react";
-import { ChevronDown, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function FieldGroup({
@@ -114,6 +115,53 @@ export function SelectInput({
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
       />
+    </div>
+  );
+}
+
+export function NumberStepper({
+  value,
+  onChange,
+  min = 1,
+  max,
+  className,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  min?: number;
+  max?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-1 py-0.5",
+        className
+      )}
+    >
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        className="rounded-full"
+        disabled={value <= min}
+        onClick={() => onChange(Math.max(min, value - 1))}
+      >
+        <Minus />
+      </Button>
+      <span className="min-w-6 text-center text-sm font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        className="rounded-full"
+        disabled={max !== undefined && value >= max}
+        onClick={() => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1)}
+      >
+        <Plus />
+      </Button>
     </div>
   );
 }

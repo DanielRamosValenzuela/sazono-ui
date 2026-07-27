@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus, Search, UtensilsCrossed, X } from "lucide-react";
+import { Plus, Search, UtensilsCrossed, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,13 @@ import {
 } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuItemDetail } from "@/shared/types/menu";
-import { FieldGroup, FieldLabel, TextArea, TextInput } from "@/shared/ui/form-controls";
+import {
+  FieldGroup,
+  FieldLabel,
+  NumberStepper,
+  TextArea,
+  TextInput,
+} from "@/shared/ui/form-controls";
 
 function isModifierSelectionValid(item: MenuItemDetail, selectedIds: string[]) {
   return item.modifierGroups.every((group) => {
@@ -307,29 +313,11 @@ export function AddOrderSheet({
                                 <Plus />
                               </Button>
                             ) : (
-                              <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-1 py-0.5">
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  className="rounded-full"
-                                  onClick={() => handleSetQuantity(item, quantity - 1)}
-                                >
-                                  <Minus />
-                                </Button>
-                                <span className="min-w-4 text-center text-sm font-semibold tabular-nums text-foreground">
-                                  {quantity}
-                                </span>
-                                <Button
-                                  type="button"
-                                  size="icon-xs"
-                                  variant="ghost"
-                                  className="rounded-full"
-                                  onClick={() => handleSetQuantity(item, quantity + 1)}
-                                >
-                                  <Plus />
-                                </Button>
-                              </div>
+                              <NumberStepper
+                                value={quantity}
+                                onChange={(next) => handleSetQuantity(item, next)}
+                                min={0}
+                              />
                             )}
                           </div>
 

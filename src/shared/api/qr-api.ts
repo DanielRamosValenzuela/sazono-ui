@@ -11,7 +11,9 @@ import type {
   PaymentResult,
   PayQrBillRequest,
   PayQrOrderRequest,
+  QrOrderPaymentStatusResponse,
 } from "@/shared/types/order";
+import type { QrPaymentConfigResponse } from "@/shared/types/payments";
 
 export const qrApi = {
   getMenu(qrToken: string, locale?: string) {
@@ -30,6 +32,11 @@ export const qrApi = {
       `/qr/tables/${encodeURIComponent(qrToken)}/bill`
     );
   },
+  getPaymentConfig(qrToken: string) {
+    return apiRequest<QrPaymentConfigResponse>(
+      `/qr/tables/${encodeURIComponent(qrToken)}/payment-config`
+    );
+  },
   createOrder(qrToken: string, payload: CreateQrOrderRequest) {
     return apiRequest<OrderResponse>(
       `/qr/tables/${encodeURIComponent(qrToken)}/orders`,
@@ -39,21 +46,35 @@ export const qrApi = {
       }
     );
   },
-  payOrder(qrToken: string, orderId: string, payload: PayQrOrderRequest = {}) {
+  payOrder(
+    qrToken: string,
+    orderId: string,
+    payload: PayQrOrderRequest = {},
+    signal?: AbortSignal
+  ) {
     return apiRequest<PaymentResult>(
       `/qr/tables/${encodeURIComponent(qrToken)}/orders/${orderId}/pay`,
       {
         method: "POST",
         body: payload,
+        signal,
       }
     );
   },
-  payBill(qrToken: string, payload: PayQrBillRequest) {
+  getOrderPaymentStatus(qrToken: string, orderId: string) {
+    return apiRequest<QrOrderPaymentStatusResponse>(
+      `/qr/tables/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(
+        orderId
+      )}/payment-status`
+    );
+  },
+  payBill(qrToken: string, payload: PayQrBillRequest, signal?: AbortSignal) {
     return apiRequest<PaymentResult>(
       `/qr/tables/${encodeURIComponent(qrToken)}/bill/payments`,
       {
         method: "POST",
         body: payload,
+        signal,
       }
     );
   },
@@ -64,13 +85,15 @@ export const qrApi = {
   },
   payBillSplitParticipant(
     participantToken: string,
-    payload: PayBillSplitParticipantRequest = {}
+    payload: PayBillSplitParticipantRequest = {},
+    signal?: AbortSignal
   ) {
     return apiRequest<PaymentResult>(
       `/qr/split-participants/${encodeURIComponent(participantToken)}/pay`,
       {
         method: "POST",
         body: payload,
+        signal,
       }
     );
   },
