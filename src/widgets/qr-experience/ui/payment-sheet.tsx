@@ -9,10 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { CardPaymentBrick } from "@/features/mercado-pago-checkout/ui/card-payment-brick";
 import { useCardCheckoutPayment } from "@/features/mercado-pago-checkout/model/use-card-checkout-payment";
+import { PaymentMethodOptions } from "@/features/payment-method-picker/ui/payment-method-options";
+import { ApiError } from "@/shared/api/http-client";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
+import { getPaymentProviderLabelKey } from "@/shared/lib/payment-provider-label";
+import { setPaymentRedirectReturnPath } from "@/shared/lib/payment-redirect-return-path";
+import { submitRedirectPaymentForm } from "@/shared/lib/redirect-payment-form";
 import type { OrderResponse } from "@/shared/types/order";
-import type { CardCheckoutFields } from "@/shared/types/payments";
+import type {
+  CardCheckoutFields,
+  PaymentGatewayProvider,
+  QrPaymentConfigOption,
+} from "@/shared/types/payments";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
@@ -40,6 +49,8 @@ export function PaymentSheet({
   const [useCustomTip, setUseCustomTip] = useState(false);
   const [brickInstanceKey, setBrickInstanceKey] = useState(0);
   const [brickFailed, setBrickFailed] = useState(false);
+  const [chosenProvider, setChosenProvider] =
+    useState<PaymentGatewayProvider | null>(null);
 
   const isRetry = order.status === "PAYMENT_FAILED";
   const orderTotal = Number(order.orderTotalAmount);
@@ -53,9 +64,13 @@ export function PaymentSheet({
     queryFn: () => qrApi.getPaymentConfig(qrToken),
   });
 
-  const isGatewayConnected =
-    paymentConfigQuery.data?.gatewayConnected === true &&
-    Boolean(paymentConfigQuery.data.publicKey);
+  const options = paymentConfigQuery.data?.options ?? [];
+  const showPicker = options.length > 1;
+  const activeOption: QrPaymentConfigOption | null = chosenProvider
+    ? (options.find((option) => option.provider === chosenProvider) ?? null)
+    : options.length === 1
+      ? options[0]
+      : null;
 
   const payOrder = useMutation({
     mutationFn: () =>
@@ -70,6 +85,27 @@ export function PaymentSheet({
     },
     onError: () => {
       toast.error(t("pay_errorToast"));
+    },
+  });
+
+  const startRedirect = useMutation({
+    mutationFn: (provider: PaymentGatewayProvider) =>
+      qrApi.startOrderRedirectPayment(qrToken, order.orderId, {
+        provider,
+        ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+      }),
+    onSuccess: (response) => {
+      setPaymentRedirectReturnPath(`/qr?table=${encodeURIComponent(qrToken)}`);
+      submitRedirectPaymentForm(
+        response.redirectUrl,
+        response.method,
+        response.fields
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : t("pay_redirectErrorToast")
+      );
     },
   });
 
@@ -125,15 +161,24 @@ export function PaymentSheet({
   });
 
   const isCardBusy = cardPhase !== "idle";
+  const isBusy = isCardBusy || startRedirect.isPending;
 
   const handleBrickSubmit = (checkout: CardCheckoutFields) =>
     submitCheckout(checkout);
 
+  const handleSelectOption = (option: QrPaymentConfigOption) => {
+    setChosenProvider(option.provider);
+
+    if (option.checkoutMode === "redirect") {
+      startRedirect.mutate(option.provider);
+    }
+  };
+
   return (
     <BottomSheet
-      onClose={isCardBusy ? () => undefined : onClose}
+      onClose={isBusy ? () => undefined : onClose}
       labelledBy="qr-pay-title"
-      showCloseButton={!isCardBusy}
+      showCloseButton={!isBusy}
     >
       <div className="flex items-start gap-3">
         <div
@@ -229,60 +274,116 @@ export function PaymentSheet({
         </div>
       </dl>
 
-      {isGatewayConnected ? (
+      {options.length > 0 ? (
         <div className="mt-6 space-y-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {t("pay_cardTitle")}
-            </p>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {t("pay_cardDescription")}
-            </p>
-          </div>
+          {showPicker ? (
+            <>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t("pay_chooseMethodTitle")}
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  {t("pay_chooseMethodDescription")}
+                </p>
+              </div>
+              <PaymentMethodOptions
+                options={options}
+                selectedProvider={activeOption?.provider ?? null}
+                disabled={isBusy}
+                onSelect={handleSelectOption}
+              />
+            </>
+          ) : null}
 
-          {cardPhase === "verifying" ? (
-            <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
-              <Spinner className="size-4 shrink-0" />
-              <span>{t("pay_verifyingDescription")}</span>
+          {activeOption?.checkoutMode === "embedded" ? (
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t("pay_cardTitle")}
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  {t("pay_cardDescription")}
+                </p>
+              </div>
+
+              {cardPhase === "verifying" ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
+                  <Spinner className="size-4 shrink-0" />
+                  <span>{t("pay_verifyingDescription")}</span>
+                </div>
+              ) : null}
+
+              {brickFailed ? (
+                <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
+                  <p>{t("pay_brickLoadErrorToast")}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    onClick={() => {
+                      setBrickFailed(false);
+                      setBrickInstanceKey((key) => key + 1);
+                    }}
+                  >
+                    {t("pay_brickRetry")}
+                  </Button>
+                </div>
+              ) : (
+                <CardPaymentBrick
+                  key={brickInstanceKey}
+                  publicKey={activeOption.publicKey ?? ""}
+                  amount={totalDue}
+                  onSubmit={handleBrickSubmit}
+                  onError={(error) => {
+                    if (error.type === "critical") {
+                      setBrickFailed(true);
+                      toast.error(t("pay_brickLoadErrorToast"));
+                    }
+                  }}
+                  className={cn(isCardBusy && "pointer-events-none opacity-60")}
+                />
+              )}
             </div>
           ) : null}
 
-          {brickFailed ? (
-            <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
-              <p>{t("pay_brickLoadErrorToast")}</p>
+          {activeOption?.checkoutMode === "redirect" ? (
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t("pay_redirectTitle", {
+                    provider: t(
+                      `pay_provider${getPaymentProviderLabelKey(activeOption.provider)}`
+                    ),
+                  })}
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  {t("pay_redirectDescription")}
+                </p>
+              </div>
               <Button
                 type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-lg"
-                onClick={() => {
-                  setBrickFailed(false);
-                  setBrickInstanceKey((key) => key + 1);
-                }}
+                size="lg"
+                className="w-full rounded-xl"
+                disabled={startRedirect.isPending}
+                onClick={() => startRedirect.mutate(activeOption.provider)}
               >
-                {t("pay_brickRetry")}
+                {startRedirect.isPending ? <Spinner /> : null}
+                {startRedirect.isPending
+                  ? t("pay_redirectPending")
+                  : t("pay_redirectSubmit", {
+                      provider: t(
+                        `pay_provider${getPaymentProviderLabelKey(activeOption.provider)}`
+                      ),
+                    })}
               </Button>
             </div>
-          ) : (
-            <CardPaymentBrick
-              key={brickInstanceKey}
-              publicKey={paymentConfigQuery.data?.publicKey ?? ""}
-              amount={totalDue}
-              onSubmit={handleBrickSubmit}
-              onError={(error) => {
-                if (error.type === "critical") {
-                  setBrickFailed(true);
-                  toast.error(t("pay_brickLoadErrorToast"));
-                }
-              }}
-              className={cn(isCardBusy && "pointer-events-none opacity-60")}
-            />
-          )}
+          ) : null}
         </div>
       ) : null}
 
       <div className="mt-5 space-y-2">
-        {!isGatewayConnected ? (
+        {options.length === 0 ? (
           <Button
             type="button"
             size="lg"
@@ -299,7 +400,7 @@ export function PaymentSheet({
           size="lg"
           variant="ghost"
           className="w-full rounded-xl"
-          disabled={isCardBusy}
+          disabled={isBusy}
           onClick={onClose}
         >
           {t("pay_later")}

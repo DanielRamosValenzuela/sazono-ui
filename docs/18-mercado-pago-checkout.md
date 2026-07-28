@@ -16,6 +16,14 @@ marketplace/OAuth, no una cuenta única de la plataforma) — por eso el
 checkout con tarjeta es opcional y depende de que ese restaurante en
 particular haya completado la conexión.
 
+**Nota:** desde que se agregó Transbank como segundo proveedor, el backend
+puede devolver más de una pasarela conectada por restaurante y el frontend
+agrega un selector de pasarela + el flujo completo de redirección cuando
+corresponde. Esta doc se mantiene enfocada en lo específico de Mercado Pago
+(el Brick embebido, el hook de checkout con tarjeta, el panel OAuth); el
+selector, el flujo de redirección de Transbank y el panel de admin con dos
+proveedores viven en `docs/19-transbank-y-checkout-multi-proveedor.md`.
+
 ## La feature `features/mercado-pago-checkout/`
 
 ```

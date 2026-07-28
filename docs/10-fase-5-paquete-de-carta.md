@@ -187,5 +187,11 @@ De los pendientes documentados en doc backend 03, quedan sin resolver
   pendiente ahi es multi idioma para las estaciones de preparacion y otros
   textos fuera de carta, si se necesitara a futuro
 - reembolsos y anulaciones con impacto financiero en ordenes prepagadas
-- adapter de pasarela de pago real (Webpay, MercadoPago, Stripe)
+- ~~adapter de pasarela de pago real (Webpay, MercadoPago, Stripe)~~ ya
+  resuelto: Mercado Pago (checkout embebido, OAuth por restaurante) y
+  Transbank Webpay (redireccion real, conexion manual) estan implementados
+  y activos por configuracion — ver doc 18 y doc 19. Queda pendiente, eso
+  si, que el flujo de participante de split soporte Transbank (hoy solo
+  soporta Mercado Pago; ver doc 19, seccion "Gap conocido: split bill no
+  soporta Transbank")
 - modelo de monetizacion de la plataforma

@@ -20,6 +20,13 @@
 16. [16 Notificaciones Push y Login por PIN](D:\Programacion\Sazono\sazono-ui\docs\16-notificaciones-push-y-login-por-pin.md)
 17. [17 Fase 10: Comensales al Abrir Mesa y Zonas del Salón](D:\Programacion\Sazono\sazono-ui\docs\17-comensales-y-zonas-de-mesa.md)
 18. [18 Integración de Mercado Pago (Checkout con Tarjeta y Conexión de Cuenta)](D:\Programacion\Sazono\sazono-ui\docs\18-mercado-pago-checkout.md)
+19. [19 Transbank y Checkout Multi-Proveedor](D:\Programacion\Sazono\sazono-ui\docs\19-transbank-y-checkout-multi-proveedor.md)
+
+Nota: los docs 18 y 19 cubren solo el lado frontend de pagos (checkout,
+selector de pasarela, panel de conexion). Para el mapa completo del sistema
+de pagos (flujos de dinero, por que existen dos pasarelas, matriz de
+capacidad flujo x proveedor, gaps conocidos consolidados) ver
+`sazono-backend-monolith/docs/24-pagos-vision-general.md`.
 
 ## Objetivo
 

@@ -13,7 +13,12 @@ import type {
   PayQrOrderRequest,
   QrOrderPaymentStatusResponse,
 } from "@/shared/types/order";
-import type { QrPaymentConfigResponse } from "@/shared/types/payments";
+import type {
+  QrPaymentConfigResponse,
+  RedirectPaymentResponse,
+  StartRedirectBillPaymentRequest,
+  StartRedirectOrderPaymentRequest,
+} from "@/shared/types/payments";
 
 export const qrApi = {
   getMenu(qrToken: string, locale?: string) {
@@ -75,6 +80,31 @@ export const qrApi = {
         method: "POST",
         body: payload,
         signal,
+      }
+    );
+  },
+  startOrderRedirectPayment(
+    qrToken: string,
+    orderId: string,
+    payload: StartRedirectOrderPaymentRequest
+  ) {
+    return apiRequest<RedirectPaymentResponse>(
+      `/qr/tables/${encodeURIComponent(qrToken)}/orders/${orderId}/pay/redirect`,
+      {
+        method: "POST",
+        body: payload,
+      }
+    );
+  },
+  startBillRedirectPayment(
+    qrToken: string,
+    payload: StartRedirectBillPaymentRequest
+  ) {
+    return apiRequest<RedirectPaymentResponse>(
+      `/qr/tables/${encodeURIComponent(qrToken)}/bill/payments/redirect`,
+      {
+        method: "POST",
+        body: payload,
       }
     );
   },

@@ -93,6 +93,23 @@ Ya resuelto (ver doc 12):
 
 - landing publica marketera (sin exponer `/admin`/`/staff`/`/qr`), formulario real de contacto/demo, pantalla "ya soy cliente" con buscador de restaurante, vista de leads en `/admin/leads`
 
-Ya resuelto (ver doc 18):
+Ya resuelto (ver doc 18 y doc 19):
 
-- pasarela de pago real (Mercado Pago, modelo marketplace/OAuth por restaurante): checkout con tarjeta (`features/mercado-pago-checkout`) en pedido QR, cuenta abierta y participante de split, mas panel de conexion `/admin/payments`. Implementado y activo por diseño; queda inactivo (fallback al pago manual de siempre) en cualquier restaurante que aun no haya conectado su cuenta
+- pasarela de pago real, hoy dos proveedores (Mercado Pago vía OAuth por
+  restaurante, checkout embebido con tarjeta vía `features/mercado-pago-checkout`;
+  Transbank Webpay vía conexión manual, redirección real fuera de la SPA y
+  página de retorno), más panel de admin `/admin/payments` con una tarjeta
+  por proveedor (conectar, pausar/reanudar, marcar preferido, desconectar).
+  El backend puede devolver más de una pasarela conectada a la vez
+  (`options[]`); el frontend muestra un selector solo cuando hay más de una
+  opción. Todo implementado y activo por diseño; queda inactivo (fallback al
+  pago manual de siempre) en cualquier restaurante que aún no haya conectado
+  ninguna cuenta. **Esto cubre pedido QR y cuenta abierta completos** (los
+  dos widgets usan `options[]` y soportan Transbank). **Participante de
+  split queda afuera de esta cobertura**: `split-payment.tsx` sigue
+  exclusivamente con el shape de una sola pasarela anterior a Transbank
+  (`gatewayConnected`/`publicKey`, ver doc 18) y no tiene ningún camino de
+  código hacia el picker ni hacia el redirect de Transbank, aunque el
+  backend sí expone el endpoint de cobro para ese caso — es un gap conocido
+  documentado en detalle en doc 19, sección "Gap conocido: split bill no
+  soporta Transbank"
