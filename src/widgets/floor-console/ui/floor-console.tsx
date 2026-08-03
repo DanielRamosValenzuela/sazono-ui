@@ -1860,6 +1860,11 @@ function TableDetailSheet({
                           <span>
                             <span className="font-semibold tabular-nums">{item.quantity}×</span>{" "}
                             {item.name}
+                            {item.modifiers.length > 0 ? (
+                              <span className="block pl-4 text-xs font-medium text-primary">
+                                {item.modifiers.map((modifier) => modifier.name).join(", ")}
+                              </span>
+                            ) : null}
                           </span>
                           <Badge variant="secondary" className="shrink-0">
                             {t(`itemStatus_${item.status}`)}

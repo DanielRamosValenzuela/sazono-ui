@@ -289,6 +289,11 @@ export function KitchenBoard() {
                                 {item.quantity}×
                               </span>{" "}
                               {item.name}
+                              {item.modifiers.length > 0 ? (
+                                <span className="block pl-4 text-xs font-medium text-primary">
+                                  {item.modifiers.join(", ")}
+                                </span>
+                              ) : null}
                               {item.notes ? (
                                 <span className="block pl-4 text-xs text-muted-foreground">
                                   {item.notes}

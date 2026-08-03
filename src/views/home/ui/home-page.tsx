@@ -23,8 +23,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
-import { ThemeToggle } from "@/shared/ui/theme-toggle";
+import { Footer } from "@/widgets/footer";
+import { SiteHeader } from "@/widgets/site-header";
 import { ContactSection } from "./contact-section";
 
 export function HomePage() {
@@ -93,18 +93,21 @@ export function HomePage() {
   ];
 
   return (
-    <main className="relative overflow-hidden">
-      <BackgroundGlow />
-      <Header t={t} />
-      <HeroSection t={t} stats={stats} />
-      <div id="producto">
-        <PillarsSection pillars={pillars} />
-        <JourneySection t={t} journey={journey} />
-        <SurfacesSection t={t} operatingSurfaces={operatingSurfaces} />
-      </div>
-      <ContactSection />
-      <FoundationSection t={t} installedBase={installedBase} />
-    </main>
+    <>
+      <main className="relative overflow-hidden">
+        <BackgroundGlow />
+        <SiteHeader />
+        <HeroSection t={t} stats={stats} />
+        <div id="producto">
+          <PillarsSection pillars={pillars} />
+          <JourneySection t={t} journey={journey} />
+          <SurfacesSection t={t} operatingSurfaces={operatingSurfaces} />
+        </div>
+        <ContactSection />
+        <FoundationSection t={t} installedBase={installedBase} />
+      </main>
+      <Footer />
+    </>
   );
 }
 
@@ -115,55 +118,6 @@ function BackgroundGlow() {
       <div className="absolute right-[-8%] top-52 size-72 rounded-full bg-accent/22 blur-3xl" />
       <div className="absolute bottom-12 left-1/3 size-56 rounded-full bg-secondary/35 blur-3xl" />
     </div>
-  );
-}
-
-function Header({ t }: { t: ReturnType<typeof useTranslations<"HomePage">> }) {
-  return (
-    <header className="relative z-10 mx-auto w-full max-w-7xl px-6 pt-6 sm:px-10 lg:px-12">
-      <nav className="flex items-center justify-between rounded-full border border-border/70 bg-card/78 px-4 py-3 shadow-lg shadow-primary/8 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full border border-primary/15 bg-primary text-primary-foreground shadow-md shadow-primary/15">
-            <ChefHat className="size-4" />
-          </div>
-          <div>
-            <p className="font-heading text-2xl leading-none">Sazono</p>
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              {t("navTagline")}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <a
-            href="#producto"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "lg" }),
-              "hidden md:inline-flex"
-            )}
-          >
-            {t("navProduct")}
-          </a>
-          <Link
-            href="/ingresar"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "lg" }),
-              "hidden md:inline-flex"
-            )}
-          >
-            {t("navClient")}
-          </Link>
-          <LocaleSwitcher />
-          <ThemeToggle />
-          <a
-            href="#contacto"
-            className={cn(buttonVariants({ size: "lg" }), "rounded-full px-4")}
-          >
-            {t("navCta")}
-          </a>
-        </div>
-      </nav>
-    </header>
   );
 }
 

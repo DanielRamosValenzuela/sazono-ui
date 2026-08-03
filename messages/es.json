@@ -137,6 +137,37 @@
     "sendAnother": "Enviar otro mensaje",
     "errorToast": "No pudimos enviar tu mensaje. Inténtalo de nuevo o escríbenos por WhatsApp."
   },
+  "Footer": {
+    "tagline": "La operación de tu restaurante — carta, salón, cocina y cuenta — en un mismo lugar.",
+    "productHeading": "Producto",
+    "linkProduct": "Producto",
+    "linkClient": "Ya soy cliente",
+    "contactHeading": "Contacto",
+    "whatsapp": "WhatsApp",
+    "email": "Correo",
+    "legalHeading": "Legal",
+    "linkTerms": "Términos y condiciones",
+    "linkPrivacy": "Política de privacidad",
+    "rights": "Todos los derechos reservados."
+  },
+  "TermsPage": {
+    "eyebrow": "Legal",
+    "title": "Términos y Condiciones",
+    "description": "Condiciones de uso de la plataforma Sazono para restaurantes, su personal y los comensales que piden a través de código QR.",
+    "draftBannerTitle": "Documento en versión borrador",
+    "draftBannerBody": "Este documento es un primer borrador a partir de la normativa chilena vigente. Está pendiente de completar los datos societarios de la empresa (razón social, RUT, domicilio) y de revisión por un abogado antes de considerarse vigente y definitivo.",
+    "lastUpdated": "Última actualización",
+    "backHome": "Volver al inicio"
+  },
+  "PrivacyPage": {
+    "eyebrow": "Legal",
+    "title": "Política de Privacidad",
+    "description": "Cómo Sazono recopila, usa y protege los datos personales de restaurantes, su personal y los comensales que piden a través de código QR.",
+    "draftBannerTitle": "Documento en versión borrador",
+    "draftBannerBody": "Este documento es un primer borrador a partir de la normativa chilena vigente. Está pendiente de completar los datos societarios de la empresa (razón social, RUT, domicilio) y de revisión por un abogado antes de considerarse vigente y definitivo.",
+    "lastUpdated": "Última actualización",
+    "backHome": "Volver al inicio"
+  },
   "FindRestaurantScreen": {
     "title": "Encuentra tu restaurante",
     "description": "Busca el nombre de tu restaurante para ir a su pantalla de acceso.",

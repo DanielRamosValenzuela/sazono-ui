@@ -10,6 +10,7 @@ export interface StationTicketItem {
   quantity: number;
   status: OrderItemStatus;
   notes: string | null;
+  modifiers: string[];
 }
 
 export interface StationTicket {

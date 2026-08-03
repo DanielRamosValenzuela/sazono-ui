@@ -137,6 +137,37 @@
     "sendAnother": "Send another message",
     "errorToast": "We couldn't send your message. Try again or message us on WhatsApp."
   },
+  "Footer": {
+    "tagline": "Your restaurant's floor, kitchen, menu and bill — in one place.",
+    "productHeading": "Product",
+    "linkProduct": "Product",
+    "linkClient": "I'm already a customer",
+    "contactHeading": "Contact",
+    "whatsapp": "WhatsApp",
+    "email": "Email",
+    "legalHeading": "Legal",
+    "linkTerms": "Terms and Conditions",
+    "linkPrivacy": "Privacy Policy",
+    "rights": "All rights reserved."
+  },
+  "TermsPage": {
+    "eyebrow": "Legal",
+    "title": "Terms and Conditions",
+    "description": "Terms of use for the Sazono platform for restaurants, their staff, and diners who order through a QR code.",
+    "draftBannerTitle": "Draft document",
+    "draftBannerBody": "This document is a first draft based on current Chilean law. It is pending the company's corporate details (legal name, tax ID, registered address) and legal review before it can be considered final and in force. The Spanish version is the legally authoritative one; this is a courtesy translation.",
+    "lastUpdated": "Last updated",
+    "backHome": "Back to home"
+  },
+  "PrivacyPage": {
+    "eyebrow": "Legal",
+    "title": "Privacy Policy",
+    "description": "How Sazono collects, uses, and protects the personal data of restaurants, their staff, and diners who order through a QR code.",
+    "draftBannerTitle": "Draft document",
+    "draftBannerBody": "This document is a first draft based on current Chilean law. It is pending the company's corporate details (legal name, tax ID, registered address) and legal review before it can be considered final and in force. The Spanish version is the legally authoritative one; this is a courtesy translation.",
+    "lastUpdated": "Last updated",
+    "backHome": "Back to home"
+  },
   "FindRestaurantScreen": {
     "title": "Find your restaurant",
     "description": "Search your restaurant's name to go to its sign-in screen.",
