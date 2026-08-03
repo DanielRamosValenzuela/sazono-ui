@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/shared/api/http-client";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuItemDetail } from "@/shared/types/menu";
@@ -102,7 +103,10 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
     queryKey: ["qr-menu", qrToken, locale],
     queryFn: () => qrApi.getMenu(qrToken as string, locale),
     enabled: Boolean(qrToken),
-    retry: 1,
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.status === 404
+        ? false
+        : failureCount < 1,
   });
 
   const ordersQuery = useQuery({
