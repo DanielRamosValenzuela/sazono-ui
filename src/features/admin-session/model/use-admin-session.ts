@@ -15,6 +15,8 @@ import { useAdminSessionStore } from "./admin-session.store";
 const SESSION_STALE_TIME_MS = 5 * 60_000;
 const SESSION_REFRESH_MARGIN_MS = 60_000;
 
+let inFlightRefresh: Promise<boolean> | null = null;
+
 export function useAdminSession() {
   const t = useTranslations("AdminShell");
   const queryClient = useQueryClient();
@@ -44,19 +46,30 @@ export function useAdminSession() {
   }, [clearActiveSession, t]);
 
   const refreshSession = useCallback(async () => {
+    if (inFlightRefresh) {
+      return inFlightRefresh;
+    }
+
     if (!refreshToken) {
       handleSessionExpired();
       return false;
     }
 
-    try {
-      const response = await authApi.refresh(refreshToken);
-      setSession(response);
-      return true;
-    } catch {
-      handleSessionExpired();
-      return false;
-    }
+    const currentRefreshToken = refreshToken;
+    inFlightRefresh = (async () => {
+      try {
+        const response = await authApi.refresh(currentRefreshToken);
+        setSession(response);
+        return true;
+      } catch {
+        handleSessionExpired();
+        return false;
+      } finally {
+        inFlightRefresh = null;
+      }
+    })();
+
+    return inFlightRefresh;
   }, [handleSessionExpired, refreshToken, setSession]);
 
   useEffect(() => {
