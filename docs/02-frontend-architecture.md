@@ -146,6 +146,12 @@ Reglas actuales:
 - `auth/me` se usa para bootstrap del perfil, rehidratacion y revalidacion puntual al volver al foco
 - widgets como `floor-console` y `menu-studio` no deben duplicar queries propias de sesion; ojo que hoy hacen sus propias llamadas HTTP via `http-client.ts`/`apiRequest` sin pasar por este mecanismo, asi que un 401 directo ahi no dispara refresh ni toast (pendiente si se vuelve a observar)
 
+## Shell movil y tema (2026-10-06)
+
+- Bajo `lg`, el header de `AdminShell` es un boton hamburguesa + logo que abre un panel lateral (secciones de navegacion, idioma/tema, usuario, cerrar sesion, boton X visible); se cierra solo al llegar a `lg`. El header es sticky y respeta el safe-area (`--safe-top` en `globals.css`).
+- El layout usa el client component `ThemeBootstrap` (`src/shared/ui/theme-bootstrap.tsx`), que renderiza el script de tema solo en SSR; evita el error de consola de React 19 sobre la etiqueta `script` al cambiar de idioma.
+- El dev server necesita `allowedDevOrigins: ["10.0.2.2"]` en `next.config.ts` para el WebView del emulador Android.
+
 ## Reglas para IA trabajando en frontend
 
 1. No meter logica de negocio compleja directamente en archivos dentro de `app/`.

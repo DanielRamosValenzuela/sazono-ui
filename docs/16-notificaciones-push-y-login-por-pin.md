@@ -128,8 +128,9 @@ Belifest providencia.
 
 ## Backlog
 
-- Push FCM real en primer plano: falta la prueba de punta a punta desde Firebase
-  Console (ver `A.`).
+- Push FCM real en primer plano: *(histórico)* faltaba la prueba de punta a punta
+  (ver `A.`). **Verificado 2026-10-06:** el push "Pedido listo" enviado por el
+  backend (Firebase Admin) llegó al emulador Android.
 - Copy de las notificaciones que manda el backend: en español, sin localizar por
   restaurante/perfil (ver doc 19 de `sazono-backend-monolith`).
 - iOS sigue bloqueado por falta de cuenta Apple Developer Program (sin cambios).

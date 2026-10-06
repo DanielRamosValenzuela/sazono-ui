@@ -6,7 +6,7 @@ Este frontend no es una app generica de ecommerce. Es una interfaz operativa par
 
 ## Contexto minimo de dominio
 
-- una mesa tiene una sola sesion activa
+- una mesa tiene una sola sesion activa (excepcion: la mesa virtual de la sucursal admite varias sesiones concurrentes)
 - una sesion tiene una sola cuenta activa
 - QR usa prepago
 - mesero puede crear orden postpago

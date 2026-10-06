@@ -173,6 +173,13 @@ de build.
   punta** (`./gradlew assembleDebug` genera un APK real). Gotcha encontrado:
   el JDK 25 del sistema rompe Gradle 8.14, hay que usar el JBR 21 de Android
   Studio (detalle en `sazono-staff-app/README.md`).
+- **Actualización 2026-10-06 (setup Android)**: el JDK 25 también rompe
+  Gradle si es el que trae Android Studio, usar JDK 21 (Temurin); el dev
+  server necesita `allowedDevOrigins: ["10.0.2.2"]` en `next.config.ts` (sin
+  eso, skeletons para siempre en el WebView); `npx cap run android` falla en
+  Windows, usar `.\gradlew.bat assembleDebug` + `adb install -r`;
+  `google-services.json` se re-descargó de Firebase console y con él se
+  obtiene el token FCM en el emulador. Detalle en `sazono-staff-app/README.md`.
 - `sazono-staff-app/` ahora tiene su propio `docs/` + `AGENTS.md` +
   `CLAUDE.md` (mismo patrón que este repo) — el detalle de estado y próximos
   pasos vive ahí, no se duplica acá.
