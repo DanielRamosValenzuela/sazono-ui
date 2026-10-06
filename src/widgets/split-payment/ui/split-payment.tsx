@@ -10,10 +10,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { CardPaymentBrick } from "@/features/mercado-pago-checkout/ui/card-payment-brick";
 import { useCardCheckoutPayment } from "@/features/mercado-pago-checkout/model/use-card-checkout-payment";
+import { PaymentMethodOptions } from "@/features/payment-method-picker/ui/payment-method-options";
+import { ApiError } from "@/shared/api/http-client";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
+import { getPaymentProviderLabelKey } from "@/shared/lib/payment-provider-label";
+import { setPaymentRedirectReturnPath } from "@/shared/lib/payment-redirect-return-path";
+import { submitRedirectPaymentForm } from "@/shared/lib/redirect-payment-form";
 import { useClientReady } from "@/shared/lib/use-client-ready";
-import type { CardCheckoutFields } from "@/shared/types/payments";
+import type {
+  CardCheckoutFields,
+  PaymentGatewayProvider,
+  QrPaymentConfigOption,
+} from "@/shared/types/payments";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import { FieldGroup, FieldLabel, TextInput } from "@/shared/ui/form-controls";
@@ -50,12 +59,15 @@ function StatusScreen({
 
 export function SplitPayment({ participantToken }: SplitPaymentProps) {
   const t = useTranslations("SplitPayment");
+  const tq = useTranslations("QrPage");
   const isClientReady = useClientReady();
   const [tipPercentage, setTipPercentage] = useState<number>(0);
   const [customTip, setCustomTip] = useState("");
   const [useCustomTip, setUseCustomTip] = useState(false);
   const [brickInstanceKey, setBrickInstanceKey] = useState(0);
   const [brickFailed, setBrickFailed] = useState(false);
+  const [chosenProvider, setChosenProvider] =
+    useState<PaymentGatewayProvider | null>(null);
 
   const participantQuery = useQuery({
     queryKey: ["split-participant", participantToken],
@@ -72,9 +84,12 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
     ? Math.max(0, Math.floor(Number(customTip) || 0))
     : Math.round((remaining * tipPercentage) / 100);
   const totalDue = remaining + tipAmount;
-  const isGatewayConnected = Boolean(
-    participant?.gatewayConnected && participant.publicKey
-  );
+  const options = participant?.options ?? [];
+  const activeOption: QrPaymentConfigOption | null = chosenProvider
+    ? (options.find((option) => option.provider === chosenProvider) ?? null)
+    : options.length === 1
+      ? options[0]
+      : null;
 
   const submittedPaidAmountRef = useRef(0);
 
@@ -89,6 +104,29 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
     },
     onError: () => {
       toast.error(t("payErrorToast"));
+    },
+  });
+
+  const startRedirect = useMutation({
+    mutationFn: (provider: PaymentGatewayProvider) =>
+      qrApi.startSplitParticipantRedirectPayment(participantToken as string, {
+        provider,
+        ...(tipAmount > 0 ? { tipAmount: String(tipAmount) } : {}),
+      }),
+    onSuccess: (response) => {
+      setPaymentRedirectReturnPath(
+        `/split?token=${encodeURIComponent(participantToken as string)}`
+      );
+      submitRedirectPaymentForm(
+        response.redirectUrl,
+        response.method,
+        response.fields
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : tq("pay_redirectErrorToast")
+      );
     },
   });
 
@@ -131,6 +169,15 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
   });
 
   const isCardBusy = cardPhase !== "idle";
+  const isBusy = isCardBusy || startRedirect.isPending;
+
+  const handleSelectOption = (option: QrPaymentConfigOption) => {
+    setChosenProvider(option.provider);
+
+    if (option.checkoutMode === "redirect") {
+      startRedirect.mutate(option.provider);
+    }
+  };
 
   const handleBrickSubmit = (checkout: CardCheckoutFields) => {
     if (participant) {
@@ -278,59 +325,117 @@ export function SplitPayment({ participantToken }: SplitPaymentProps) {
           </div>
         </dl>
 
-        {isGatewayConnected ? (
+        {options.length > 0 ? (
           <div className="mt-6 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {t("cardTitle")}
-              </p>
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                {t("cardDescription")}
-              </p>
-            </div>
+            {options.length > 1 ? (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {tq("pay_chooseMethodTitle")}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    {tq("pay_chooseMethodDescription")}
+                  </p>
+                </div>
+                <PaymentMethodOptions
+                  options={options}
+                  selectedProvider={activeOption?.provider ?? null}
+                  disabled={isBusy}
+                  onSelect={handleSelectOption}
+                />
+              </>
+            ) : null}
 
-            {cardPhase === "verifying" ? (
-              <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
-                <Spinner className="size-4 shrink-0" />
-                <span>{t("verifyingDescription")}</span>
+            {activeOption?.checkoutMode === "embedded" ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {t("cardTitle")}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    {t("cardDescription")}
+                  </p>
+                </div>
+
+                {cardPhase === "verifying" ? (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-3 text-sm text-foreground">
+                    <Spinner className="size-4 shrink-0" />
+                    <span>{t("verifyingDescription")}</span>
+                  </div>
+                ) : null}
+
+                {brickFailed ? (
+                  <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
+                    <p>{t("brickLoadErrorToast")}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg"
+                      onClick={() => {
+                        setBrickFailed(false);
+                        setBrickInstanceKey((key) => key + 1);
+                      }}
+                    >
+                      {t("brickRetry")}
+                    </Button>
+                  </div>
+                ) : (
+                  <CardPaymentBrick
+                    key={brickInstanceKey}
+                    publicKey={activeOption.publicKey ?? ""}
+                    amount={totalDue}
+                    onSubmit={handleBrickSubmit}
+                    onError={(error) => {
+                      if (error.type === "critical") {
+                        setBrickFailed(true);
+                        toast.error(t("brickLoadErrorToast"));
+                      }
+                    }}
+                    className={cn(
+                      isCardBusy && "pointer-events-none opacity-60",
+                    )}
+                  />
+                )}
               </div>
             ) : null}
 
-            {brickFailed ? (
-              <div className="space-y-2 rounded-xl border border-destructive/25 bg-destructive/8 px-3.5 py-3 text-sm text-destructive">
-                <p>{t("brickLoadErrorToast")}</p>
+            {activeOption?.checkoutMode === "redirect" ? (
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {tq("pay_redirectTitle", {
+                      provider: tq(
+                        `pay_provider${getPaymentProviderLabelKey(activeOption.provider)}`
+                      ),
+                    })}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    {tq("pay_redirectDescription")}
+                  </p>
+                </div>
                 <Button
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg"
-                  onClick={() => {
-                    setBrickFailed(false);
-                    setBrickInstanceKey((key) => key + 1);
-                  }}
+                  size="lg"
+                  className="w-full rounded-xl"
+                  disabled={startRedirect.isPending}
+                  onClick={() => startRedirect.mutate(activeOption.provider)}
                 >
-                  {t("brickRetry")}
+                  {startRedirect.isPending ? <Spinner /> : null}
+                  {startRedirect.isPending
+                    ? tq("pay_redirectPending")
+                    : tq("pay_redirectSubmit", {
+                        provider: tq(
+                          `pay_provider${getPaymentProviderLabelKey(activeOption.provider)}`
+                        ),
+                      })}
                 </Button>
               </div>
-            ) : (
-              <CardPaymentBrick
-                key={brickInstanceKey}
-                publicKey={participant.publicKey ?? ""}
-                amount={totalDue}
-                onSubmit={handleBrickSubmit}
-                onError={(error) => {
-                  if (error.type === "critical") {
-                    setBrickFailed(true);
-                    toast.error(t("brickLoadErrorToast"));
-                  }
-                }}
-                className={cn(isCardBusy && "pointer-events-none opacity-60")}
-              />
-            )}
+            ) : null}
           </div>
         ) : null}
 
-        {!isGatewayConnected ? (
+        {options.length === 0 ? (
           <Button
             type="button"
             size="lg"

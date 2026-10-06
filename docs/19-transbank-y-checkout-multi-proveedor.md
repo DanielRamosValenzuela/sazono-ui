@@ -126,52 +126,19 @@ const activeOption = chosenProvider
   `setPaymentRedirectReturnPath`; `split-payment.tsx` no la usa porque no
   tiene flujo de redirect (ver gap abajo).
 
-## Gap conocido: split bill no soporta Transbank
+## Split bill con Transbank (resuelto 2026-10-06)
 
-`split-payment.tsx` (participante de split, `/[locale]/split?token=`) no
-sigue nada de lo descrito arriba. Verificado leyendo el archivo completo:
-no importa `PaymentMethodOptions`, no llama `qrApi.getPaymentConfig`, no
-tiene ninguna mutation hacia un endpoint `.../pay/redirect`, y ni siquiera
-existen los artefactos para armarla -- no hay un metodo
-`startSplitParticipantRedirectPayment` en `shared/api/qr-api.ts` ni un tipo
-`StartRedirectSplitParticipantPaymentRequest` en `shared/types/payments.ts`
-(a diferencia de `startOrderRedirectPayment`/`startBillRedirectPayment`,
-que si existen).
-
-El widget sigue exclusivamente el shape de una sola pasarela, previo a
-Transbank, que describe doc 18: `qrApi.getBillSplitParticipant` devuelve
-`BillSplitParticipantDetail` (`shared/types/billing.ts`) con
-`gatewayConnected: boolean; provider?: PaymentGatewayProvider; publicKey?:
-string; environment?: string`, no el shape `options[]` que usa
-`QrPaymentConfigResponse` para los otros dos flujos. Cuando
-`gatewayConnected` es `true` (hoy solo puede serlo por Mercado Pago, ver
-abajo), split muestra el `CardPaymentBrick` embebido de siempre y sigue
-funcionando igual que antes de esta fase. Cuando es `false` -- incluido un
-restaurante con **solo Transbank conectado**, sin Mercado Pago -- split cae
-al boton de registro manual (`payMutation`, el mismo `POST
-.../split-participants/:token/pay` de siempre sin campos de tarjeta), igual
-que si no hubiera ninguna pasarela conectada.
-
-Esto no es solo un gap de frontend: el backend tampoco expone descubrimiento
-multi-proveedor para split. `GetBillSplitParticipantService` (backend)
-resuelve la pasarela llamando a un repositorio que filtra siempre por
-`provider: MERCADO_PAGO`, y hardcodea ese mismo valor en la respuesta
-publica -- por eso un restaurante con solo Transbank conectado ve
-`gatewayConnected: false` para split, aunque el endpoint de cobro
-(`POST .../split-participants/:token/pay/redirect`, via
-`StartRedirectPaymentService.startForSplitParticipant`) **si funciona** si
-se lo llama directo. El frontend no tiene forma de saber que esa opcion
-existe porque nunca la ve en la respuesta.
-
-En resumen, arreglar esto de punta a punta requiere trabajo en los dos
-repos: exponer `options[]` (o un campo equivalente) en el detalle del
-participante en el backend, y recien ahi reusar `PaymentMethodOptions` /
-`startRedirect` en este widget. Mientras eso no pase, este es el estado
-real y **ningun doc de este repo (ni de `sazono-backend-monolith`) debe
-describir split como compatible con Transbank**. Ver
-`sazono-backend-monolith/docs/24-pagos-vision-general.md`, seccion "Matriz
-de capacidad: flujo x proveedor", para el detalle completo del lado
-backend y el plan de arreglo.
+`split-payment.tsx` (participante de split, `/[locale]/split?token=`) sigue el
+mismo patron que `bill-pay-sheet.tsx`: `BillSplitParticipantDetail` ahora trae
+`options: QrPaymentConfigOption[]` (reemplaza `gatewayConnected`/`provider`/
+`publicKey`/`environment`), el selector `PaymentMethodOptions` aparece si hay
+mas de una pasarela, el `CardPaymentBrick` se muestra para pasarelas embedded,
+y para redirect (Transbank) `qrApi.startSplitParticipantRedirectPayment` llama
+`POST /qr/split-participants/:token/pay/redirect` y envia el form-POST. Antes
+de redirigir se guarda `/split?token=...` con `setPaymentRedirectReturnPath`
+para que la pagina de retorno vuelva al participante. Sin pasarelas conectadas
+sigue el boton de registro manual. Lado backend: ver
+`sazono-backend-monolith/docs/24-pagos-vision-general.md`.
 
 ## La pagina de retorno
 

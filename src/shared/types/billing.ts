@@ -1,6 +1,6 @@
 import type {
   CardCheckoutFields,
-  PaymentGatewayProvider,
+  QrPaymentConfigOption,
 } from "@/shared/types/payments";
 
 export type BillStatus = "OPEN" | "PAID";
@@ -65,10 +65,7 @@ export interface BillSplitParticipantDetail {
   status: BillSplitParticipantStatus;
   currency: string;
   billStatus: string;
-  gatewayConnected: boolean;
-  provider?: PaymentGatewayProvider;
-  publicKey?: string;
-  environment?: string;
+  options: QrPaymentConfigOption[];
 }
 
 export interface PayBillSplitParticipantRequest extends CardCheckoutFields {

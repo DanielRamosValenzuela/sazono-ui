@@ -113,6 +113,18 @@ export const qrApi = {
       `/qr/split-participants/${encodeURIComponent(participantToken)}`
     );
   },
+  startSplitParticipantRedirectPayment(
+    participantToken: string,
+    payload: StartRedirectOrderPaymentRequest
+  ) {
+    return apiRequest<RedirectPaymentResponse>(
+      `/qr/split-participants/${encodeURIComponent(participantToken)}/pay/redirect`,
+      {
+        method: "POST",
+        body: payload,
+      }
+    );
+  },
   payBillSplitParticipant(
     participantToken: string,
     payload: PayBillSplitParticipantRequest = {},
