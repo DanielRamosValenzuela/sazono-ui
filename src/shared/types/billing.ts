@@ -82,4 +82,7 @@ export interface BranchOpenBill {
   billId: string;
   totalAmount: string;
   remainingAmount: string;
+  isCounter: boolean;
+  ticketNumber: number | null;
+  customerLabel: string | null;
 }

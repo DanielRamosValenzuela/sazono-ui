@@ -3,11 +3,10 @@ import { IBM_Plex_Mono, Libre_Baskerville, Poppins } from "next/font/google";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import Script from "next/script";
 import { AppProviders } from "@/app/providers/app-providers";
 import { routing } from "@/i18n/routing";
 import { appMetadata, appViewport } from "@/shared/config/app-metadata";
-import { getThemeBootstrapScript } from "@/shared/lib/theme-config";
+import { ThemeBootstrap } from "@/shared/ui/theme-bootstrap";
 import { ServiceWorkerRegistration } from "@/shared/ui/service-worker-registration";
 import "../globals.css";
 
@@ -60,17 +59,17 @@ export default async function LocaleLayout({
       lang={locale}
       data-theme="light"
       data-scroll-behavior="smooth"
-      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${displayFont.variable} ${monoFont.variable} antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <ThemeBootstrap />
+      </head>
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
         <AppProviders>
           <NextIntlClientProvider>{children}</NextIntlClientProvider>
         </AppProviders>
-        <Script id="theme-bootstrap" strategy="beforeInteractive">
-          {getThemeBootstrapScript()}
-        </Script>
       </body>
     </html>
   );

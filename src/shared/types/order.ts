@@ -100,6 +100,9 @@ export interface BranchReadySummaryItem {
   openedByStaffUserId: string | null;
   assignedStaffUserId: string | null;
   readyUndeliveredCount: number;
+  isCounter: boolean;
+  ticketNumber: number | null;
+  customerLabel: string | null;
 }
 
 export interface CreateQrOrderRequest {
@@ -114,6 +117,11 @@ export interface CreateWaiterOrderRequest {
 }
 
 export interface PayQrOrderRequest extends CardCheckoutFields {
+  tipAmount?: string;
+}
+
+export interface PayStaffBillRequest {
+  amount: string;
   tipAmount?: string;
 }
 

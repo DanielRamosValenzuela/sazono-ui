@@ -271,7 +271,15 @@ export function KitchenBoard() {
                         disabled={isUpdating}
                       >
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge variant="outline">{ticket.tableCode}</Badge>
+                          {ticket.isCounter ? (
+                            <Badge className="bg-primary text-primary-foreground">
+                              {[t("counterBadge", { ticket: ticket.ticketNumber ?? "" }), ticket.customerLabel]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">{ticket.tableCode}</Badge>
+                          )}
                           <Badge variant="secondary">
                             {t(`source_${ticket.orderSource}`)}
                           </Badge>

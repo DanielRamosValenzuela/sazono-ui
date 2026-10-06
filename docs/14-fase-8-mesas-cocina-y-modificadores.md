@@ -208,6 +208,6 @@ y el `TableDetailSheet`.
 
 1. ~~**Asignacion formal de mesas a un mesero especifico.**~~ Resuelto, ver
    doc 15.
-2. **"Mesa virtual" para pedidos de mostrador o para llevar sin mesa fisica
+2. ~~**"Mesa virtual" para pedidos de mesa virtual o para llevar sin mesa fisica
    real** — patron usado por la competencia (Toteat). Hoy todo pedido en
-   Floor Console requiere una mesa fisica existente. Sigue pendiente.
+   Floor Console requiere una mesa fisica existente.~~ Resuelto, ver doc 15.

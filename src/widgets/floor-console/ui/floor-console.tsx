@@ -67,6 +67,12 @@ import {
   TextInput,
 } from "@/shared/ui/form-controls";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import {
+  COUNTER_ROLES,
+  CounterBoard,
+  FloorCounterToggle,
+  type ServiceView,
+} from "@/widgets/counter-board";
 import { AbandonSessionDialog } from "./abandon-session-dialog";
 import { AddOrderSheet } from "./add-order-sheet";
 import { ManageTableZonesDialog } from "./manage-table-zones-dialog";
@@ -274,6 +280,7 @@ export function FloorConsole() {
   const [splitBillOpen, setSplitBillOpen] = useState(false);
   const [openTableDialogOpen, setOpenTableDialogOpen] = useState(false);
   const [manageZonesOpen, setManageZonesOpen] = useState(false);
+  const [serviceView, setServiceView] = useState<ServiceView>("floor");
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -296,6 +303,8 @@ export function FloorConsole() {
 
   const canReadFloor = hasBranchPermission(selectedBranch, FLOOR_READ_ROLES);
   const canCreateTables = hasBranchPermission(selectedBranch, FLOOR_CREATE_ROLES);
+  const canUseCounter = hasBranchPermission(selectedBranch, COUNTER_ROLES);
+  const showCounter = canUseCounter && serviceView === "counter";
   const canAddOrder = hasBranchPermission(selectedBranch, FLOOR_ORDER_ROLES);
   const canDeliver = hasBranchPermission(selectedBranch, FLOOR_DELIVER_ROLES);
   const canSplitBill = hasBranchPermission(
@@ -389,6 +398,9 @@ export function FloorConsole() {
   const openBillsByTableId = useMemo(() => {
     const map = new Map<string, BranchOpenBill>();
     for (const bill of openBillsData ?? []) {
+      if (bill.isCounter) {
+        continue;
+      }
       map.set(bill.tableId, bill);
     }
     return map;
@@ -406,7 +418,10 @@ export function FloorConsole() {
   });
 
   const [myTablesOnly, setMyTablesOnly] = useState(true);
-  const readySummary = useMemo(() => readySummaryData ?? [], [readySummaryData]);
+  const readySummary = useMemo(
+    () => (readySummaryData ?? []).filter((entry) => !entry.isCounter),
+    [readySummaryData]
+  );
   const visibleReadySummary = useMemo(() => {
     if (!myTablesOnly || !currentUser) {
       return readySummary;
@@ -543,6 +558,7 @@ export function FloorConsole() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["orders", "session"] }),
         queryClient.invalidateQueries({ queryKey: ["orders", "branch-ready-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["floor", "counter-sessions"] }),
       ]);
       toast.success(t("deliverSuccess"));
     },
@@ -700,10 +716,10 @@ export function FloorConsole() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="rounded-[1.9rem] border border-border/70 bg-card/86 shadow-xl shadow-primary/10 backdrop-blur">
-        <CardContent className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-          <div className="space-y-4">
+    <div className="flex min-w-0 flex-col gap-6">
+      <Card className="rounded-[1.9rem] border border-border/70 bg-card/86 shadow-xl shadow-primary/10 backdrop-blur max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none max-lg:ring-0">
+        <CardContent className="grid gap-6 p-6 max-lg:p-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+          <div className="space-y-4 max-lg:hidden">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-primary text-primary-foreground">
                 {t("workspaceBadge")}
@@ -715,7 +731,7 @@ export function FloorConsole() {
               <h2 className="font-heading text-3xl font-semibold tracking-tight">
                 {t("workspaceTitle")}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
+              <p className="mt-2 hidden max-w-2xl text-sm leading-7 text-muted-foreground md:block">
                 {t("workspaceDescription")}
               </p>
             </div>
@@ -730,39 +746,43 @@ export function FloorConsole() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <FieldGroup>
-              <FieldLabel htmlFor="floor-branch">{t("branchLabel")}</FieldLabel>
-              <SelectInput
-                id="floor-branch"
-                value={selectedBranchId}
-                onChange={(event) => setSelectedBranchId(event.target.value)}
-              >
-                {branchAccessList.map((branch) => (
-                  <option key={branch.branchId} value={branch.branchId}>
-                    {branch.branchName}
-                  </option>
-                ))}
-              </SelectInput>
-              <FieldHint>{t("branchHint")}</FieldHint>
+            {branchAccessList.length <= 1 ? (
+              <p className="text-sm text-muted-foreground sm:col-span-2 lg:hidden">
+                {selectedBranch?.branchName}
+              </p>
+            ) : null}
+            <FieldGroup className={branchAccessList.length > 1 ? undefined : "max-lg:hidden"}>
+                <FieldLabel htmlFor="floor-branch">{t("branchLabel")}</FieldLabel>
+                <SelectInput
+                  id="floor-branch"
+                  value={selectedBranchId}
+                  onChange={(event) => setSelectedBranchId(event.target.value)}
+                >
+                  {branchAccessList.map((branch) => (
+                    <option key={branch.branchId} value={branch.branchId}>
+                      {branch.branchName}
+                    </option>
+                  ))}
+                </SelectInput>
+                <FieldHint>{t("branchHint")}</FieldHint>
             </FieldGroup>
 
-            <FieldGroup>
-              <FieldLabel htmlFor="floor-source">{t("sourceLabel")}</FieldLabel>
-              <SelectInput
-                id="floor-source"
-                value={selectedSource}
-                onChange={(event) =>
-                  setSelectedSource(event.target.value as TableSessionSource)
-                }
-                disabled={!availableOpenSources.length}
-              >
-                {availableOpenSources.map((source) => (
-                  <option key={source} value={source}>
-                    {source === "WAITER" ? t("sourceWaiter") : t("sourceCashier")}
-                  </option>
-                ))}
-              </SelectInput>
-              <FieldHint>{t("sourceHint")}</FieldHint>
+            <FieldGroup className={availableOpenSources.length > 1 ? undefined : "max-lg:hidden"}>
+                <FieldLabel htmlFor="floor-source">{t("sourceLabel")}</FieldLabel>
+                <SelectInput
+                  id="floor-source"
+                  value={selectedSource}
+                  onChange={(event) =>
+                    setSelectedSource(event.target.value as TableSessionSource)
+                  }
+                >
+                  {availableOpenSources.map((source) => (
+                    <option key={source} value={source}>
+                      {source === "WAITER" ? t("sourceWaiter") : t("sourceCashier")}
+                    </option>
+                  ))}
+                </SelectInput>
+                <FieldHint>{t("sourceHint")}</FieldHint>
             </FieldGroup>
           </div>
         </CardContent>
@@ -786,7 +806,19 @@ export function FloorConsole() {
         />
       ) : (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
+          {canUseCounter ? (
+            <FloorCounterToggle value={serviceView} onChange={setServiceView} />
+          ) : null}
+
+          {showCounter ? (
+            <CounterBoard
+              accessToken={accessToken}
+              branchId={selectedBranchId}
+              branchAccess={selectedBranch}
+            />
+          ) : (
+          <>
+          <section className="grid gap-4 max-md:order-last md:grid-cols-3">
             <MetricCard
               icon={UtensilsCrossed}
               label={t("metricTables")}
@@ -837,7 +869,8 @@ export function FloorConsole() {
             </div>
           ) : null}
 
-          <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
+          {canCreateTables ? (
+          <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur max-md:order-last">
             <CardHeader>
               <div className="flex items-center gap-2 text-primary">
                 <Plus className="size-4" />
@@ -912,8 +945,7 @@ export function FloorConsole() {
               </form>
             </CardContent>
           </Card>
-
-          <TableQrCard locale={locale} t={t} table={focusedTable} />
+          ) : null}
 
           <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
             <CardHeader>
@@ -924,32 +956,17 @@ export function FloorConsole() {
                 </p>
               </div>
               <CardTitle className="text-2xl">{t("tablesTitle")}</CardTitle>
-              <CardDescription className="leading-7">
+              <CardDescription className="hidden leading-7 md:block">
                 {t("tablesDescription")}
               </CardDescription>
 
-              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                <span className="font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+              <details className="mt-3 md:hidden">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
                   {t("tilesLegendLabel")}
-                </span>
-                {TABLE_TILE_LEGEND_STATES.map((state) => (
-                  <span key={state} className="inline-flex items-center gap-1.5">
-                    <span
-                      aria-hidden
-                      className={cn("size-2.5 shrink-0 rounded-full", getTileDotClasses(state))}
-                    />
-                    {getTileStatusLabel(t, state)}
-                  </span>
-                ))}
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock aria-hidden className="size-3 shrink-0 text-orange-500" />
-                  {t("tablesFilter_stale")}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Bell aria-hidden className="size-3 shrink-0 text-primary" />
-                  {t("tilesLegendReady")}
-                </span>
-              </div>
+                </summary>
+                <TileLegend t={t} className="mt-2" />
+              </details>
+              <TileLegend t={t} className="mt-4 hidden md:flex" showLabel />
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {TABLE_FILTERS.map((filter) => (
@@ -1087,6 +1104,8 @@ export function FloorConsole() {
               </div>
             </CardContent>
           </Card>
+          </>
+          )}
         </>
       )}
 
@@ -1117,6 +1136,7 @@ export function FloorConsole() {
           billError={currentBillError}
           canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
           canSplitBill={canSplitBill && isSplitBillEnabled}
+          canManageQr={canCreateTables}
           isTableAssignmentEnabled={isTableAssignmentEnabled}
           canReassignAnyone={canReassignAnyone}
           currentUserId={currentUser.profileId}
@@ -1217,6 +1237,46 @@ function isTableOpenable(table: FloorTable, availableOpenSources: TableSessionSo
   return table.status === "AVAILABLE" && availableOpenSources.length > 0;
 }
 
+interface TileLegendProps {
+  t: ReturnType<typeof useTranslations<"FloorConsole">>;
+  className?: string;
+  showLabel?: boolean;
+}
+
+function TileLegend({ t, className, showLabel }: TileLegendProps) {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground",
+        className
+      )}
+    >
+      {showLabel ? (
+        <span className="font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+          {t("tilesLegendLabel")}
+        </span>
+      ) : null}
+      {TABLE_TILE_LEGEND_STATES.map((state) => (
+        <span key={state} className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={cn("size-2.5 shrink-0 rounded-full", getTileDotClasses(state))}
+          />
+          {getTileStatusLabel(t, state)}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1.5">
+        <Clock aria-hidden className="size-3 shrink-0 text-orange-500" />
+        {t("tablesFilter_stale")}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Bell aria-hidden className="size-3 shrink-0 text-primary" />
+        {t("tilesLegendReady")}
+      </span>
+    </div>
+  );
+}
+
 interface MetricCardProps {
   icon: typeof UtensilsCrossed;
   label: string;
@@ -1285,7 +1345,7 @@ function SessionDetailRow({ label, value }: SessionDetailRowProps) {
       <p className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 font-mono text-sm text-foreground">{value}</p>
+      <p className="mt-2 break-all font-mono text-sm text-foreground">{value}</p>
     </div>
   );
 }
@@ -1618,6 +1678,7 @@ interface TableDetailSheetProps {
   billError: unknown;
   canAbandon: boolean;
   canSplitBill: boolean;
+  canManageQr: boolean;
   isTableAssignmentEnabled: boolean;
   canReassignAnyone: boolean;
   currentUserId: string;
@@ -1661,6 +1722,7 @@ function TableDetailSheet({
   billError,
   canAbandon,
   canSplitBill,
+  canManageQr,
   isTableAssignmentEnabled,
   canReassignAnyone,
   currentUserId,
@@ -1891,6 +1953,17 @@ function TableDetailSheet({
               })}
             </ul>
           </div>
+
+          {canManageQr ? (
+            <details className="rounded-2xl border border-border/70 bg-background/40 p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("qrEyebrow")}
+              </summary>
+              <div className="mt-3">
+                <TableQrCard locale={locale} t={t} table={table} />
+              </div>
+            </details>
+          ) : null}
 
           <BillAndCloseCard
             bill={bill}

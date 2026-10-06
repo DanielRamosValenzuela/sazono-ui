@@ -23,6 +23,9 @@ export interface StationTicket {
   status: StationTicketStatus;
   orderSource: OrderSource;
   tableCode: string;
+  isCounter: boolean;
+  ticketNumber: number | null;
+  customerLabel: string | null;
   orderNotes: string | null;
   sentAt: string | null;
   startedAt: string | null;

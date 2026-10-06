@@ -122,7 +122,7 @@ tiempo que el rediseño de Mesas del salon, ver doc 14.
 
 Backlog vigente, detallado en doc 15:
 
-- "mesa virtual" para pedidos de mostrador/para llevar sin mesa fisica real
+- ~~"mesa virtual" para pedidos sin mesa fisica real o para llevar sin mesa fisica real~~ — resuelto, ver doc 15 (pestaña Mesa virtual) y doc 26 del backend
 
 Asignacion formal de mesas a un mesero especifico (el hueco de
 `openedByStaffUserId` mencionado en doc 14) ya se resolvio — ver doc 15.

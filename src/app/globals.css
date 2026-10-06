@@ -58,6 +58,7 @@
   --shadow-2xl: 1px 1px 16px -2px hsl(0 63% 18% / 0.30);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
 }
 
 .dark {

@@ -4,10 +4,14 @@ import type {
   AssignTableSessionRequest,
   BranchStaffMember,
   CloseTableSessionRequest,
+  CounterSession,
+  CounterSessionListItem,
   CreateFloorTableRequest,
   CreateTableZoneRequest,
   FloorTable,
+  OpenCounterSessionRequest,
   OpenTableSessionRequest,
+  RenameCounterSessionRequest,
   RenameTableZoneRequest,
   SetTableZoneRequest,
   SetZoneStaffRequest,
@@ -125,5 +129,31 @@ export const floorApi = {
         token,
       }
     );
+  },
+  openCounterSession(token: string, payload: OpenCounterSessionRequest) {
+    return apiRequest<CounterSession>("/floor/counter-sessions", {
+      method: "POST",
+      token,
+      body: payload,
+    });
+  },
+  listCounterSessions(token: string, branchId: string, mine: boolean) {
+    return apiRequest<CounterSessionListItem[]>(
+      `/floor/counter-sessions?branchId=${encodeURIComponent(branchId)}&mine=${mine}`,
+      {
+        token,
+      }
+    );
+  },
+  renameCounterSession(
+    token: string,
+    tableSessionId: string,
+    payload: RenameCounterSessionRequest
+  ) {
+    return apiRequest<CounterSession>(`/floor/counter-sessions/${tableSessionId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
+    });
   },
 };

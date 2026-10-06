@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, UtensilsCrossed, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -65,6 +65,7 @@ type AddOrderSheetProps = {
   accessToken: string;
   branchId: string;
   tableSessionId: string;
+  counterTicketNumber?: number;
   onClose: () => void;
 };
 
@@ -72,10 +73,12 @@ export function AddOrderSheet({
   accessToken,
   branchId,
   tableSessionId,
+  counterTicketNumber,
   onClose,
 }: AddOrderSheetProps) {
   const t = useTranslations("FloorConsole");
   const queryClient = useQueryClient();
+  const popupRef = useRef<HTMLDivElement>(null);
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [notes, setNotes] = useState("");
@@ -198,8 +201,13 @@ export function AddOrderSheet({
       }),
     onSuccess: () => {
       toast.success(t("addOrderSuccess"));
-      void queryClient.invalidateQueries({ queryKey: ["billing", "current-bill"] });
-      void queryClient.invalidateQueries({ queryKey: ["orders", "session"] });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["billing", "current-bill"] }),
+        queryClient.invalidateQueries({ queryKey: ["orders", "session"] }),
+        queryClient.invalidateQueries({ queryKey: ["floor", "counter-sessions"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing", "open-bills"] }),
+        queryClient.invalidateQueries({ queryKey: ["orders", "branch-ready-summary"] }),
+      ]);
       onClose();
     },
     onError: (error) => {
@@ -212,10 +220,18 @@ export function AddOrderSheet({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl gap-5">
+      <DialogContent ref={popupRef} initialFocus={popupRef} className="max-w-2xl gap-5">
         <DialogHeader>
-          <DialogTitle>{t("addOrderTitle")}</DialogTitle>
-          <DialogDescription>{t("addOrderDescription")}</DialogDescription>
+          <DialogTitle>
+            {counterTicketNumber === undefined
+              ? t("addOrderTitle")
+              : t("addOrderCounterTitle", { ticket: counterTicketNumber })}
+          </DialogTitle>
+          <DialogDescription>
+            {counterTicketNumber === undefined
+              ? t("addOrderDescription")
+              : t("addOrderCounterDescription")}
+          </DialogDescription>
         </DialogHeader>
 
         {!isMenuLoading && !hasMenuError && publishedMenuId ? (

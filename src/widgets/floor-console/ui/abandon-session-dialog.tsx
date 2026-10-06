@@ -38,11 +38,15 @@ export function AbandonSessionDialog({
       floorApi.abandonTableSession(accessToken, tableSessionId, {
         closeReason: reason.trim(),
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t("abandonSuccess"));
-      void queryClient.invalidateQueries({ queryKey: ["floor", "tables"] });
-      void queryClient.invalidateQueries({ queryKey: ["floor", "current-session"] });
-      void queryClient.invalidateQueries({ queryKey: ["billing", "current-bill"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["floor", "tables"] }),
+        queryClient.invalidateQueries({ queryKey: ["floor", "counter-sessions"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing", "open-bills"] }),
+        queryClient.invalidateQueries({ queryKey: ["floor", "current-session"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing", "current-bill"] }),
+      ]);
       onClose();
     },
     onError: (error) => {

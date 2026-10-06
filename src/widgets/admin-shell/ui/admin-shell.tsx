@@ -1,6 +1,6 @@
 "use client";
 
-import type { PropsWithChildren, ReactNode } from "react";
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   BookOpenText,
@@ -11,6 +11,8 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
+  Menu,
+  X,
   Store,
   UtensilsCrossed,
   Users,
@@ -18,6 +20,7 @@ import {
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authApi } from "@/shared/api/auth-api";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
@@ -44,7 +47,19 @@ export function AdminShell({ children, area }: AdminShellProps) {
   const tRoles = useTranslations("Shared.roles");
   const tStaffLoginRequired = useTranslations("StaffLoginRequired");
   const session = useAdminSession();
+  const [menuOpen, setMenuOpen] = useState(false);
   usePushRegistration();
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setMenuOpen(false);
+      }
+    };
+    query.addEventListener("change", closeOnDesktop);
+    return () => query.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: (values: LoginRequest) => authApi.login(values),
@@ -259,52 +274,122 @@ export function AdminShell({ children, area }: AdminShellProps) {
         </aside>
       ) : null}
 
-      <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div className="flex min-h-screen min-w-0 flex-col">
+        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 pt-[var(--safe-top)] backdrop-blur">
+          <div className="flex items-center justify-between gap-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] py-3 sm:px-6">
             <div
               className={
                 collapseToHeader ? "flex items-center gap-3" : "flex items-center gap-3 lg:hidden"
               }
             >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-11 lg:hidden"
+                aria-label={t("openMenu")}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+              >
+                <Menu className="size-5" />
+              </Button>
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ChefHat className="size-4" />
               </div>
               <div>
                 <p className="font-heading text-base font-bold">Sazono</p>
                 {collapseToHeader ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="hidden text-xs text-muted-foreground lg:block">
                     {session.isPlatformAdmin ? t("platformSubtitle") : t("restaurantSubtitle")}
                   </p>
                 ) : null}
               </div>
             </div>
             {!collapseToHeader ? <div className="hidden lg:block" /> : null}
-            <div className="flex items-center gap-2">
+            <div
+              className={
+                "hidden items-center gap-2 lg:flex"
+              }
+            >
               <LocaleSwitcher />
               <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                className={collapseToHeader ? undefined : "lg:hidden"}
-                onClick={handleLogout}
-              >
-                <LogOut className="size-4" />
-                {t("logout")}
-              </Button>
+              {collapseToHeader ? (
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="size-4" />
+                  {t("logout")}
+                </Button>
+              ) : null}
             </div>
           </div>
-
-          {!collapseToHeader ? (
-            <nav className="flex gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:hidden">
-              {[...adminNav, ...operationsNav].map((item) => (
-                <MobileNavLink key={item.href} item={item} t={t} />
-              ))}
-            </nav>
-          ) : null}
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-10">
+        <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+            <DialogContent
+              showCloseButton={false}
+              className="top-0 left-0 flex h-dvh max-h-none w-[min(20rem,85vw)] max-w-none translate-x-0 translate-y-0 flex-col gap-6 rounded-none rounded-r-2xl p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] data-[ending-style]:-translate-x-full data-[ending-style]:scale-100 data-[starting-style]:-translate-x-full data-[starting-style]:scale-100 lg:hidden"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="text-lg">{t("menuTitle")}</DialogTitle>
+                <DialogClose
+                  aria-label={t("closeMenu")}
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "icon",
+                    className: "size-11",
+                  })}
+                >
+                  <X className="size-5" />
+                </DialogClose>
+              </div>
+              <nav className="flex flex-1 flex-col gap-6">
+                {adminNav.length > 0 ? (
+                  <NavSection
+                    title={t("sectionAdmin")}
+                    items={adminNav}
+                    t={t}
+                    onNavigate={() => setMenuOpen(false)}
+                  />
+                ) : null}
+                {operationsNav.length > 0 ? (
+                  <NavSection
+                    title={t("sectionOperations")}
+                    items={operationsNav}
+                    t={t}
+                    onNavigate={() => setMenuOpen(false)}
+                  />
+                ) : null}
+              </nav>
+              <div className="flex flex-wrap items-center gap-2">
+                <LocaleSwitcher />
+                <ThemeToggle />
+              </div>
+              <div className="flex items-center gap-3 border-t border-border pt-4">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
+                  {user.firstName.charAt(0)}
+                  {user.lastName.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {user.firstName} {user.lastName}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{primaryRole}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-11"
+                  aria-label={t("logout")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleLogout();
+                  }}
+                >
+                  <LogOut className="size-4" />
+                </Button>
+              </div>
+            </DialogContent>
+        </Dialog>
+
+        <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 overflow-x-clip pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-10">
           {session.userError ? (
             <div className="mb-6 rounded-2xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
               {t("refreshError")}
@@ -321,9 +406,10 @@ type NavSectionProps = {
   title: string;
   items: NavItem[];
   t: (key: string) => string;
+  onNavigate?: () => void;
 };
 
-function NavSection({ title, items, t }: NavSectionProps) {
+function NavSection({ title, items, t, onNavigate }: NavSectionProps) {
   const pathname = usePathname();
 
   return (
@@ -342,7 +428,8 @@ function NavSection({ title, items, t }: NavSectionProps) {
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                onClick={onNavigate}
+                className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
@@ -356,32 +443,5 @@ function NavSection({ title, items, t }: NavSectionProps) {
         })}
       </ul>
     </div>
-  );
-}
-
-type MobileNavLinkProps = {
-  item: NavItem;
-  t: (key: string) => string;
-};
-
-function MobileNavLink({ item, t }: MobileNavLinkProps) {
-  const pathname = usePathname();
-  const isActive = item.exact
-    ? pathname === item.href
-    : pathname.startsWith(item.href);
-
-  return (
-    <Link
-      href={item.href}
-      aria-current={isActive ? "page" : undefined}
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
-        isActive
-          ? "border-primary/30 bg-primary text-primary-foreground"
-          : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      {item.icon}
-      {t(item.labelKey)}
-    </Link>
   );
 }

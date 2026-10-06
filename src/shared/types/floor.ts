@@ -97,3 +97,52 @@ export interface BranchStaffMember {
   firstName: string;
   lastName: string;
 }
+
+export type CounterReadiness =
+  | "EMPTY"
+  | "WAITING"
+  | "PREPARING"
+  | "PARTIALLY_READY"
+  | "READY"
+  | "DELIVERED";
+
+export interface OpenCounterSessionRequest {
+  branchId: string;
+  customerLabel?: string;
+}
+
+export interface RenameCounterSessionRequest {
+  customerLabel: string;
+}
+
+export interface CounterSession {
+  tableSessionId: string;
+  tableId: string;
+  branchId: string;
+  billId: string | null;
+  ticketNumber: number;
+  customerLabel: string | null;
+  status: TableSessionStatus;
+  openedByStaffUserId: string | null;
+  assignedStaffUserId: string | null;
+  openedAt: string;
+}
+
+export interface CounterSessionListItem {
+  tableSessionId: string;
+  billId: string | null;
+  ticketNumber: number;
+  customerLabel: string | null;
+  status: TableSessionStatus;
+  openedByStaffUserId: string | null;
+  openedAt: string;
+  bill: {
+    status: string;
+    total: string;
+    paid: string;
+    remaining: string;
+  };
+  orders: { orderId: string; status: string }[];
+  readiness: CounterReadiness;
+  readyAt?: string;
+}
