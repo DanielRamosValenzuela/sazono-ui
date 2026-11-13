@@ -440,6 +440,7 @@ function CounterCard({
             variant="outline"
             className="min-h-11 rounded-full"
             onClick={onAddOrder}
+            disabled={item.bill.status === "PAID"}
           >
             <Plus className="size-4" />
             {t("addOrder")}
@@ -475,7 +476,7 @@ function CounterCard({
               {t("close")}
             </Button>
           ) : null}
-          {canAbandon ? (
+          {canAbandon && item.bill.status !== "PAID" ? (
             <Button
               type="button"
               variant="ghost"

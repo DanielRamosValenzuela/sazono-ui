@@ -380,6 +380,7 @@ export function FloorConsole() {
       Boolean(selectedBranchId) &&
       canReadFloor,
     retry: false,
+    refetchInterval: 15_000,
     queryFn: () => floorApi.listTables(accessToken!, selectedBranchId),
   });
 
@@ -1430,8 +1431,8 @@ function TableQrCard({ locale, t, table }: TableQrCardProps) {
 
       <CardContent>
         {table ? (
-          <div className="grid gap-5 md:grid-cols-[220px_1fr] md:items-start">
-            <div className="rounded-[1.75rem] border border-primary/12 bg-primary/8 p-4">
+          <div className="grid min-w-0 gap-5">
+            <div className="mx-auto w-full max-w-[240px] rounded-[1.75rem] border border-primary/12 bg-primary/8 p-4">
               {qrDataUrl ? (
                 <Image
                   src={qrDataUrl}
@@ -1447,7 +1448,7 @@ function TableQrCard({ locale, t, table }: TableQrCardProps) {
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{table.code}</Badge>
@@ -1637,7 +1638,7 @@ function BillAndCloseCard({
             )}
           </Button>
 
-          {canAbandon ? (
+          {canAbandon && bill?.status !== "PAID" ? (
             <Button
               type="button"
               variant="ghost"
@@ -1877,7 +1878,7 @@ function TableDetailSheet({
               {isSessionFetching ? <Spinner /> : <RefreshCcw className="size-3.5" />}
               {t("sessionRefresh")}
             </Button>
-            {canAddOrder && activeSessionId ? (
+            {canAddOrder && activeSessionId && bill?.status !== "PAID" ? (
               <Button type="button" size="sm" className="rounded-full" onClick={onAddOrderClick}>
                 <Plus className="size-3.5" />
                 {t("addOrderAction")}

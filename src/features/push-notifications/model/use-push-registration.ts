@@ -81,13 +81,15 @@ export function usePushRegistration() {
       const registrationListener = await PushNotifications.addListener(
         "registration",
         (token) => {
-          console.log("[push] FCM registration token:", token.value);
           fcmTokenRef.current = token.value;
           setCurrentFcmToken(token.value);
-          toast.success("Push registrado", {
-            description: token.value,
-            duration: 15000,
-          });
+          if (process.env.NODE_ENV !== "production") {
+            console.log("[push] FCM registration token:", token.value);
+            toast.success("Push registrado", {
+              description: token.value,
+              duration: 15000,
+            });
+          }
           registerDeviceTokenIfPending();
         }
       );

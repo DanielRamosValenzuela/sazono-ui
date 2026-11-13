@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   PointerSensor,
@@ -117,7 +117,15 @@ export function KitchenBoard() {
     refetchInterval: TICKETS_REFETCH_INTERVAL,
   });
 
+  const updatingTicketIds = new Set(
+    useMutationState({
+      filters: { mutationKey: ["kitchen", "update-status"], status: "pending" },
+      select: (m) => (m.state.variables as { stationTicketId: string }).stationTicketId,
+    }),
+  );
+
   const updateStatusMutation = useMutation({
+    mutationKey: ["kitchen", "update-status"],
     mutationFn: ({
       stationTicketId,
       status,
@@ -259,9 +267,7 @@ export function KitchenBoard() {
                   ) : null}
 
                   {columnTickets.map((ticket) => {
-                    const isUpdating =
-                      updateStatusMutation.isPending &&
-                      updateStatusMutation.variables?.stationTicketId === ticket.stationTicketId;
+                    const isUpdating = updatingTicketIds.has(ticket.stationTicketId);
                     const sentTime = formatTime(locale, ticket.sentAt);
 
                     return (

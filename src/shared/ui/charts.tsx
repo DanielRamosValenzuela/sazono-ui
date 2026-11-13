@@ -22,8 +22,8 @@ function buildTicks(maxValue: number) {
   }
 
   const magnitude = 10 ** Math.floor(Math.log10(maxValue));
-  const step = Math.ceil(maxValue / magnitude / 2) * (magnitude / 2);
-  const top = Math.max(step * 2, step);
+  const unit = magnitude / 2;
+  const top = Math.ceil(maxValue / unit) * unit;
   return [top, top / 2, 0];
 }
 
