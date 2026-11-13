@@ -24,8 +24,20 @@ const DEFAULT_SUBMIT_TIMEOUT_MS = 20_000;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const DEFAULT_POLL_TIMEOUT_MS = 30_000;
 
+const PAYMENT_IN_REVIEW_CODE = "PAYMENT_IN_REVIEW";
+
 function isAmbiguousNetworkError(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 0;
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+
+  if (error.status === 0) {
+    return true;
+  }
+
+  const details = error.details as { code?: unknown } | null | undefined;
+
+  return error.status === 409 && details?.code === PAYMENT_IN_REVIEW_CODE;
 }
 
 function extractDeclineMessage(error: unknown): string {

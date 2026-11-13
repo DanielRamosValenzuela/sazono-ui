@@ -902,6 +902,12 @@
     "connectButton": "Connect Mercado Pago",
     "connecting": "Connecting...",
     "connectError": "We couldn't generate the connection link. Please try again.",
+    "connectDialogTitle": "Connect Mercado Pago",
+    "connectDialogDescription": "We will connect the Mercado Pago account you are currently signed in to in this browser. If it is not the restaurant's account, sign out of Mercado Pago (or use an incognito window) before continuing.",
+    "connectDialogSandboxHint": "You are in test mode: connect a test seller account, not your real account.",
+    "connectDialogCancel": "Cancel",
+    "connectDialogContinue": "Continue to Mercado Pago",
+
     "disconnectButton": "Disconnect",
     "disconnecting": "Disconnecting...",
     "disconnectSuccess": "Your Mercado Pago account was disconnected.",

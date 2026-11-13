@@ -32,6 +32,7 @@ export interface MercadoPagoAuthorizationUrlResponse {
   authorizationUrl: string;
   state: string;
   expiresAt: string;
+  environment: string;
 }
 
 export interface ConnectTransbankAccountRequest {
@@ -93,6 +94,7 @@ export interface ConfirmRedirectPaymentResponse {
 export interface CardCheckoutFields {
   cardToken?: string;
   paymentMethodId?: string;
+  paymentTypeId?: string;
   issuerId?: string;
   installments?: number;
   payerEmail?: string;

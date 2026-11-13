@@ -73,7 +73,8 @@ export interface MercadoPagoCardPaymentCallbacks {
   onReady: () => void;
   onError: (error: MercadoPagoBrickError) => void;
   onSubmit?: (
-    cardData: MercadoPagoCardPaymentFormData
+    cardData: MercadoPagoCardPaymentFormData,
+    additionalData?: MercadoPagoCardPaymentAdditionalData
   ) => Promise<void>;
   onBinChange?: (bin: string) => void;
 }

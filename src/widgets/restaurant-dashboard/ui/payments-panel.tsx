@@ -30,6 +30,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { paymentAccountsApi } from "@/shared/api/payment-accounts-api";
 import type {
   ConnectTransbankAccountRequest,
+  MercadoPagoAuthorizationUrlResponse,
   PaymentAccountStatusResponse,
   PaymentGatewayProvider,
   TransbankEnvironment,
@@ -75,6 +76,8 @@ export function PaymentsPanel() {
   const session = useAdminSession();
   const [disconnectTarget, setDisconnectTarget] =
     useState<PaymentGatewayProvider | null>(null);
+  const [pendingAuthorization, setPendingAuthorization] =
+    useState<MercadoPagoAuthorizationUrlResponse | null>(null);
 
   const mercadoPagoQuery = useQuery({
     queryKey: [...MERCADO_PAGO_QUERY_KEY, session.accessToken],
@@ -110,7 +113,7 @@ export function PaymentsPanel() {
         session.accessToken!
       ),
     onSuccess: (response) => {
-      window.location.href = response.authorizationUrl;
+      setPendingAuthorization(response);
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("connectError"));
@@ -310,6 +313,58 @@ export function PaymentsPanel() {
           />
         )}
       </div>
+
+      <Dialog
+        open={pendingAuthorization !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAuthorization(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <CreditCard className="size-5" />
+              </div>
+              <div className="space-y-2">
+                <DialogTitle>{t("connectDialogTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("connectDialogDescription")}
+                </DialogDescription>
+                {pendingAuthorization?.environment === "sandbox" ? (
+                  <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                    {t("connectDialogSandboxHint")}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => setPendingAuthorization(null)}
+            >
+              {t("connectDialogCancel")}
+            </Button>
+            <Button
+              type="button"
+              className="rounded-full"
+              onClick={() => {
+                if (pendingAuthorization) {
+                  window.location.href = pendingAuthorization.authorizationUrl;
+                }
+              }}
+            >
+              {t("connectDialogContinue")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={disconnectTarget !== null}

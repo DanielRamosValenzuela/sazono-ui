@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { CardCheckoutFields } from "@/shared/types/payments";
 import type {
   MercadoPagoBrickError,
+  MercadoPagoCardPaymentAdditionalData,
   MercadoPagoCardPaymentBrickController,
   MercadoPagoCardPaymentFormData,
 } from "@/shared/types/mercado-pago";
@@ -15,11 +16,13 @@ const DEFAULT_DEBOUNCE_MS = 500;
 const SDK_LOAD_ERROR_CAUSE = "sdk_load_failed";
 
 function mapFormDataToCheckoutFields(
-  formData: MercadoPagoCardPaymentFormData
+  formData: MercadoPagoCardPaymentFormData,
+  additionalData?: MercadoPagoCardPaymentAdditionalData
 ): CardCheckoutFields {
   return {
     cardToken: formData.token,
     paymentMethodId: formData.payment_method_id,
+    paymentTypeId: additionalData?.paymentTypeId || undefined,
     issuerId: formData.issuer_id || undefined,
     installments: formData.installments,
     payerEmail: formData.payer.email || undefined,
@@ -136,9 +139,9 @@ export function CardPaymentBrick({
                 }
                 onErrorRef.current?.(error);
               },
-              onSubmit: (cardData) =>
+              onSubmit: (cardData, additionalData) =>
                 onSubmitRef.current(
-                  mapFormDataToCheckoutFields(cardData),
+                  mapFormDataToCheckoutFields(cardData, additionalData),
                   cardData
                 ),
             },
