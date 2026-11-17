@@ -14,6 +14,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import { getPaymentProviderLabelKey } from "@/shared/lib/payment-provider-label";
+import { PaymentProviderLogo } from "@/shared/ui/payment-provider-logo";
 import { setPaymentRedirectReturnPath } from "@/shared/lib/payment-redirect-return-path";
 import { submitRedirectPaymentForm } from "@/shared/lib/redirect-payment-form";
 import type { OrderResponse } from "@/shared/types/order";
@@ -350,6 +351,10 @@ export function PaymentSheet({
           {activeOption?.checkoutMode === "redirect" ? (
             <div className="space-y-2">
               <div>
+                <PaymentProviderLogo
+                  provider={activeOption.provider}
+                  className="mb-2"
+                />
                 <p className="text-sm font-medium text-foreground">
                   {t("pay_redirectTitle", {
                     provider: t(

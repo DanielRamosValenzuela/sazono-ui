@@ -1,15 +1,10 @@
 "use client";
 
-import { Building2, CreditCard } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { getPaymentProviderLabelKey } from "@/shared/lib/payment-provider-label";
+import { PaymentProviderLogo } from "@/shared/ui/payment-provider-logo";
 import type { QrPaymentConfigOption } from "@/shared/types/payments";
-
-const PROVIDER_ICON = {
-  MERCADO_PAGO: CreditCard,
-  TRANSBANK: Building2,
-} as const;
 
 type PaymentMethodOptionsProps = {
   options: QrPaymentConfigOption[];
@@ -29,7 +24,6 @@ export function PaymentMethodOptions({
   return (
     <div className="space-y-2">
       {options.map((option) => {
-        const Icon = PROVIDER_ICON[option.provider];
         const selected = option.provider === selectedProvider;
 
         return (
@@ -43,15 +37,19 @@ export function PaymentMethodOptions({
               selected
                 ? "border-primary bg-primary/5"
                 : "border-border/80 bg-background/60 hover:bg-muted",
-              disabled && "pointer-events-none opacity-60"
+              disabled && "pointer-events-none opacity-60",
             )}
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              <Icon className="size-4" />
-            </span>
+            <PaymentProviderLogo
+              provider={option.provider}
+              size="sm"
+              className="shrink-0"
+            />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-foreground">
-                {t(`pay_provider${getPaymentProviderLabelKey(option.provider)}`)}
+                {t(
+                  `pay_provider${getPaymentProviderLabelKey(option.provider)}`,
+                )}
               </span>
               {option.isPreferred ? (
                 <span className="block text-xs text-muted-foreground">
