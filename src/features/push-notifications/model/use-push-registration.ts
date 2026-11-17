@@ -13,6 +13,7 @@ import {
   type DevicePlatform,
 } from "@/shared/api/device-tokens-api";
 import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
+import { ApiError } from "@/shared/api/http-client";
 import { setCurrentFcmToken } from "./device-token-registry";
 
 let nextLocalNotificationId = 1;
@@ -59,6 +60,9 @@ export function usePushRegistration() {
       )
       .catch((error) => {
         registeredForProfileIdRef.current = null;
+        if (error instanceof ApiError && error.status === 401) {
+          return;
+        }
         console.error("[push] device token registration error:", error);
       });
   };

@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { formatMoney } from "@/shared/lib/format";
 import type {
   CreateMenuCategoryRequest,
+  CreatedMenuItem,
   CreateMenuItemRequest,
   MenuCategoryDetail,
   MenuCategoryStatus,
@@ -100,6 +101,7 @@ type ItemFormValues = {
 const CATEGORY_STATUSES: MenuCategoryStatus[] = ["ACTIVE", "HIDDEN", "ARCHIVED"];
 
 type MutationCallbacks = { onSuccess?: () => void };
+type AddItemCallbacks = { onSuccess?: (item: CreatedMenuItem) => void };
 
 type MenuEditorPanelProps = {
   branchId: string;
@@ -122,7 +124,7 @@ type MenuEditorPanelProps = {
   onAddItem: (
     menuCategoryId: string,
     payload: CreateMenuItemRequest,
-    options?: MutationCallbacks
+    options?: AddItemCallbacks
   ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
@@ -417,7 +419,7 @@ type CategorySectionProps = {
   onAddItem: (
     menuCategoryId: string,
     payload: CreateMenuItemRequest,
-    options?: MutationCallbacks
+    options?: AddItemCallbacks
   ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
@@ -751,7 +753,7 @@ function CategorySection({
                     isAvailable: values.isAvailable,
                   },
                   {
-                    onSuccess: () => {
+                    onSuccess: (createdItem) => {
                       itemForm.reset({
                         name: "",
                         description: "",
@@ -761,6 +763,7 @@ function CategorySection({
                         isAvailable: true,
                       });
                       setFormOpen(false);
+                      setEditingItem(createdItem);
                     },
                   }
                 );
@@ -862,6 +865,8 @@ function CategorySection({
                 />
                 {t("itemAvailableLabel")}
               </CheckboxRow>
+
+              <FieldHint>{t("itemOptionsAfterSaveHint")}</FieldHint>
 
               <div className="flex flex-wrap gap-3">
                 <Button

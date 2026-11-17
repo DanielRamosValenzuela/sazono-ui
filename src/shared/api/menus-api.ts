@@ -155,6 +155,21 @@ export const menusApi = {
       body: formData,
     });
   },
+  uploadModifierOptionImage(token: string, modifierOptionId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return apiRequest<ModifierOption>(
+      `/menus/modifier-options/${modifierOptionId}/image`,
+      { method: "POST", token, body: formData }
+    );
+  },
+  removeModifierOptionImage(token: string, modifierOptionId: string) {
+    return apiRequest<ModifierOption>(
+      `/menus/modifier-options/${modifierOptionId}/image`,
+      { method: "DELETE", token }
+    );
+  },
   removeMenuItemImage(token: string, menuItemId: string) {
     return apiRequest<CreatedMenuItem>(`/menus/items/${menuItemId}/media`, {
       method: "DELETE",

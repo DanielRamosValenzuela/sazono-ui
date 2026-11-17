@@ -1,4 +1,4 @@
-import type { MenuItemDetail } from "@/shared/types/menu";
+import type { MenuItemDetail, ModifierGroup } from "@/shared/types/menu";
 
 export interface CartLine {
   item: MenuItemDetail;
@@ -76,4 +76,63 @@ export function setCartQuantity(
       ? { ...line, quantity }
       : line
   );
+}
+
+export function isSingleChoiceGroup(group: ModifierGroup) {
+  return group.selectionType === "ONE" || group.maxSelect === 1;
+}
+
+export function getGroupEffectiveMin(group: ModifierGroup) {
+  return group.isRequired ? Math.max(group.minSelect, 1) : group.minSelect;
+}
+
+export function isModifierSelectionValid(item: MenuItemDetail, selectedIds: string[]) {
+  return item.modifierGroups.every((group) => {
+    const selectedInGroup = group.options.filter((option) =>
+      selectedIds.includes(option.modifierOptionId)
+    ).length;
+
+    if (selectedInGroup < getGroupEffectiveMin(group)) {
+      return false;
+    }
+
+    return group.maxSelect === null || selectedInGroup <= group.maxSelect;
+  });
+}
+
+export function toggleModifierOption(
+  group: ModifierGroup,
+  current: string[],
+  optionId: string
+) {
+  if (current.includes(optionId)) {
+    return current.filter((id) => id !== optionId);
+  }
+
+  const optionIdsInGroup = group.options.map((option) => option.modifierOptionId);
+
+  if (isSingleChoiceGroup(group)) {
+    return [...current.filter((id) => !optionIdsInGroup.includes(id)), optionId];
+  }
+
+  if (group.maxSelect !== null) {
+    const countInGroup = current.filter((id) => optionIdsInGroup.includes(id)).length;
+    if (countInGroup >= group.maxSelect) {
+      return current;
+    }
+  }
+
+  return [...current, optionId];
+}
+
+export function getLineModifierSummary(line: CartLine) {
+  return line.item.modifierGroups
+    .flatMap((group) => group.options)
+    .filter((option) => line.selectedModifierOptionIds.includes(option.modifierOptionId))
+    .map((option) => option.name)
+    .join(", ");
+}
+
+export function getSelectionUnitPrice(item: MenuItemDetail, selectedIds: string[]) {
+  return getLineUnitPrice({ item, quantity: 1, selectedModifierOptionIds: selectedIds });
 }

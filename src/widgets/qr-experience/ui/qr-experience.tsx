@@ -17,12 +17,14 @@ import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
 import {
   getCartCount,
+  getCartQuantity,
   getCartTotal,
   setCartQuantity,
   type CartLine,
 } from "@/shared/lib/cart";
 import { BillPaySheet } from "./bill-pay-sheet";
 import { CartSheet } from "./cart-sheet";
+import { ModifierSheet } from "./modifier-sheet";
 import { MenuView } from "./menu-view";
 import { PaymentSheet } from "./payment-sheet";
 import { StatusBanner } from "./status-banner";
@@ -96,6 +98,7 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [modifierItem, setModifierItem] = useState<MenuItemDetail | null>(null);
   const [payingOrder, setPayingOrder] = useState<OrderResponse | null>(null);
   const [billSheetOpen, setBillSheetOpen] = useState(false);
 
@@ -167,8 +170,29 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
       ) ?? payingOrder)
     : null;
 
-  const handleSetQuantity = (item: MenuItemDetail, quantity: number) => {
-    setCart((lines) => setCartQuantity(lines, item, quantity));
+  const handleSetQuantity = (
+    item: MenuItemDetail,
+    quantity: number,
+    selectedModifierOptionIds: string[] = []
+  ) => {
+    setCart((lines) =>
+      setCartQuantity(lines, item, quantity, selectedModifierOptionIds)
+    );
+  };
+
+  const handleConfirmModifiers = (
+    item: MenuItemDetail,
+    selectedModifierOptionIds: string[]
+  ) => {
+    setCart((lines) =>
+      setCartQuantity(
+        lines,
+        item,
+        getCartQuantity(lines, item.menuItemId, selectedModifierOptionIds) + 1,
+        selectedModifierOptionIds
+      )
+    );
+    setModifierItem(null);
   };
 
   const handleOrderCreated = (order: OrderResponse) => {
@@ -229,7 +253,12 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
         </header>
 
         <main className="flex-1 pb-10 pt-2">
-          <MenuView menu={menu} cart={cart} onSetQuantity={handleSetQuantity} />
+          <MenuView
+            menu={menu}
+            cart={cart}
+            onSetQuantity={handleSetQuantity}
+            onCustomize={setModifierItem}
+          />
         </main>
       </div>
 
@@ -256,6 +285,15 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {modifierItem ? (
+        <ModifierSheet
+          key={modifierItem.menuItemId}
+          item={modifierItem}
+          onConfirm={handleConfirmModifiers}
+          onClose={() => setModifierItem(null)}
+        />
       ) : null}
 
       {cartOpen ? (

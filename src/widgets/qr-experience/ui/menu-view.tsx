@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getCartQuantity, type CartLine } from "@/shared/lib/cart";
+import { getCartQuantity, getItemTotalQuantity, type CartLine } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuDetail, MenuItemDetail } from "@/shared/types/menu";
 
@@ -15,6 +15,7 @@ type MenuViewProps = {
   menu: MenuDetail;
   cart?: CartLine[];
   onSetQuantity?: (item: MenuItemDetail, quantity: number) => void;
+  onCustomize?: (item: MenuItemDetail) => void;
   readOnly?: boolean;
 };
 
@@ -26,6 +27,7 @@ export function MenuView({
   menu,
   cart = [],
   onSetQuantity,
+  onCustomize,
   readOnly = false,
 }: MenuViewProps) {
   const t = useTranslations("QrPage");
@@ -141,7 +143,10 @@ export function MenuView({
 
             <ul className="mt-1 divide-y divide-border/60">
               {category.items.map((item) => {
-                const quantity = getCartQuantity(cart, item.menuItemId);
+                const hasModifiers = item.modifierGroups.length > 0;
+                const quantity = hasModifiers
+                  ? getItemTotalQuantity(cart, item.menuItemId)
+                  : getCartQuantity(cart, item.menuItemId);
 
                 return (
                   <li
@@ -184,7 +189,26 @@ export function MenuView({
                     <div className="mt-2.5 flex justify-end">
                       {!item.isAvailable ? (
                         <Badge variant="outline">{t("menu_unavailable")}</Badge>
-                      ) : readOnly ? null : quantity === 0 ? (
+                      ) : readOnly ? null : hasModifiers ? (
+                        <div className="flex items-center gap-3">
+                          {quantity > 0 ? (
+                            <span className="text-xs text-muted-foreground">
+                              {t("menu_inCart", { count: quantity })}
+                            </span>
+                          ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+                            aria-label={t("menu_customize", { name: item.name })}
+                            onClick={() => onCustomize?.(item)}
+                          >
+                            <Plus data-icon="inline-start" />
+                            {t("menu_add")}
+                          </Button>
+                        </div>
+                      ) : quantity === 0 ? (
                         <Button
                           type="button"
                           size="sm"

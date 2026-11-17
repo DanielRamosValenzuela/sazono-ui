@@ -60,6 +60,7 @@ export interface ModifierOption {
   priceDelta: string;
   isAvailable: boolean;
   sortOrder: number;
+  imageUrl: string | null;
 }
 
 export interface ModifierGroup {

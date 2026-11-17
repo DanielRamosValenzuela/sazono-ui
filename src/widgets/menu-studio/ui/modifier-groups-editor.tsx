@@ -2,15 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import Image from "next/image";
+import { ImageIcon, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { menusApi } from "@/shared/api/menus-api";
 import { formatMoney } from "@/shared/lib/format";
-import type { MenuItemDetail, ModifierSelectionType } from "@/shared/types/menu";
+import type {
+  MenuItemDetail,
+  ModifierOption,
+  ModifierSelectionType,
+} from "@/shared/types/menu";
 import {
   CheckboxRow,
   FieldGroup,
@@ -26,6 +32,118 @@ type ModifierGroupsEditorProps = {
 };
 
 const SELECTION_TYPES: ModifierSelectionType[] = ["ONE", "MANY"];
+const OPTION_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const OPTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function ModifierOptionRow({
+  option,
+  accessToken,
+  onChanged,
+}: {
+  option: ModifierOption;
+  accessToken: string;
+  onChanged: () => void;
+}) {
+  const t = useTranslations("MenuStudio");
+  const [failed, setFailed] = useState(false);
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) =>
+      menusApi.uploadModifierOptionImage(accessToken, option.modifierOptionId, file),
+    onSuccess: () => {
+      setFailed(false);
+      onChanged();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("optionImageUploadError"));
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: () =>
+      menusApi.removeModifierOptionImage(accessToken, option.modifierOptionId),
+    onSuccess: onChanged,
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("optionImageRemoveError"));
+    },
+  });
+
+  const handleFile = (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    if (!OPTION_IMAGE_TYPES.includes(file.type)) {
+      toast.error(t("optionImageTypeError"));
+      return;
+    }
+    if (file.size > OPTION_IMAGE_MAX_BYTES) {
+      toast.error(t("optionImageSizeError"));
+      return;
+    }
+    uploadMutation.mutate(file);
+  };
+
+  const busy = uploadMutation.isPending || removeMutation.isPending;
+  const hasImage = Boolean(option.imageUrl) && !failed;
+
+  return (
+    <li className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-background/50">
+        {hasImage ? (
+          <Image
+            src={option.imageUrl as string}
+            alt={option.name}
+            width={40}
+            height={40}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            className="size-10 object-cover"
+          />
+        ) : (
+          <ImageIcon aria-hidden className="size-4" />
+        )}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{option.name}</span>
+      <span>{formatMoney(option.priceDelta, "CLP")}</span>
+      <label
+        className={cn(
+          "cursor-pointer rounded-full border border-border/70 px-2.5 py-1 font-medium text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50",
+          busy && "pointer-events-none opacity-50"
+        )}
+      >
+        {uploadMutation.isPending ? (
+          <Spinner />
+        ) : option.imageUrl ? (
+          t("optionImageReplace")
+        ) : (
+          t("optionImageUpload")
+        )}
+        <input
+          type="file"
+          accept={OPTION_IMAGE_TYPES.join(",")}
+          className="sr-only"
+          disabled={busy}
+          onChange={(event) => {
+            handleFile(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+      </label>
+      {option.imageUrl ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="rounded-full"
+          disabled={busy}
+          onClick={() => removeMutation.mutate()}
+        >
+          {removeMutation.isPending ? <Spinner /> : t("optionImageRemove")}
+        </Button>
+      ) : null}
+    </li>
+  );
+}
 
 export function ModifierGroupsEditor({
   branchId,
@@ -236,13 +354,12 @@ export function ModifierGroupsEditor({
               {group.options.length > 0 ? (
                 <ul className="mt-2 ml-6 space-y-1">
                   {group.options.map((option) => (
-                    <li
+                    <ModifierOptionRow
                       key={option.modifierOptionId}
-                      className="flex items-center justify-between text-xs text-muted-foreground"
-                    >
-                      <span>{option.name}</span>
-                      <span>{formatMoney(option.priceDelta, "CLP")}</span>
-                    </li>
+                      option={option}
+                      accessToken={accessToken}
+                      onChanged={() => void invalidateAll()}
+                    />
                   ))}
                 </ul>
               ) : null}

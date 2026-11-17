@@ -11,14 +11,23 @@ import { qrApi } from "@/shared/api/qr-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { MenuItemDetail } from "@/shared/types/menu";
 import type { OrderResponse } from "@/shared/types/order";
-import { getCartTotal, type CartLine } from "@/shared/lib/cart";
+import {
+  getCartTotal,
+  getLineModifierSummary,
+  getLineUnitPrice,
+  type CartLine,
+} from "@/shared/lib/cart";
 import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 type CartSheetProps = {
   qrToken: string;
   cart: CartLine[];
-  onSetQuantity: (item: MenuItemDetail, quantity: number) => void;
+  onSetQuantity: (
+    item: MenuItemDetail,
+    quantity: number,
+    selectedModifierOptionIds: string[]
+  ) => void;
   onClose: () => void;
   onCreated: (order: OrderResponse) => void;
 };
@@ -41,6 +50,9 @@ export function CartSheet({
         items: cart.map((line) => ({
           menuItemId: line.item.menuItemId,
           quantity: line.quantity,
+          ...(line.selectedModifierOptionIds.length
+            ? { modifierOptionIds: line.selectedModifierOptionIds }
+            : {}),
         })),
         notes: notes.trim() === "" ? undefined : notes.trim(),
       }),
@@ -68,17 +80,27 @@ export function CartSheet({
       ) : (
         <>
           <ul className="mt-3 divide-y divide-border/60">
-            {cart.map((line) => (
+            {cart.map((line) => {
+              const modifierSummary = getLineModifierSummary(line);
+              const unitPrice = getLineUnitPrice(line);
+              const lineLabel = modifierSummary
+                ? `${line.item.name} (${modifierSummary})`
+                : line.item.name;
+
+              return (
               <li
-                key={line.item.menuItemId}
+                key={`${line.item.menuItemId}::${[...line.selectedModifierOptionIds].sort().join(",")}`}
                 className="flex items-center gap-3 py-3"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-foreground">
                     {line.item.name}
                   </p>
+                  {modifierSummary ? (
+                    <p className="text-xs text-muted-foreground">{modifierSummary}</p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
-                    {formatMoney(line.item.price, "CLP")}
+                    {formatMoney(unitPrice, "CLP")}
                   </p>
                 </div>
 
@@ -88,8 +110,14 @@ export function CartSheet({
                     size="icon-xs"
                     variant="ghost"
                     className="rounded-full"
-                    aria-label={t("menu_removeOne", { name: line.item.name })}
-                    onClick={() => onSetQuantity(line.item, line.quantity - 1)}
+                    aria-label={t("menu_removeOne", { name: lineLabel })}
+                    onClick={() =>
+                      onSetQuantity(
+                        line.item,
+                        line.quantity - 1,
+                        line.selectedModifierOptionIds
+                      )
+                    }
                   >
                     <Minus />
                   </Button>
@@ -101,21 +129,25 @@ export function CartSheet({
                     size="icon-xs"
                     variant="ghost"
                     className="rounded-full"
-                    aria-label={t("menu_addOne", { name: line.item.name })}
-                    onClick={() => onSetQuantity(line.item, line.quantity + 1)}
+                    aria-label={t("menu_addOne", { name: lineLabel })}
+                    onClick={() =>
+                      onSetQuantity(
+                        line.item,
+                        line.quantity + 1,
+                        line.selectedModifierOptionIds
+                      )
+                    }
                   >
                     <Plus />
                   </Button>
                 </div>
 
                 <p className="w-20 text-right text-sm font-semibold tabular-nums text-foreground">
-                  {formatMoney(
-                    Number(line.item.price) * line.quantity,
-                    "CLP"
-                  )}
+                  {formatMoney(unitPrice * line.quantity, "CLP")}
                 </p>
               </li>
-            ))}
+              );
+            })}
           </ul>
 
           <FieldGroup className="mt-5">

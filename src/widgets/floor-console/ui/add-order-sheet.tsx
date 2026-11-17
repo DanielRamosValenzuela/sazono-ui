@@ -24,12 +24,15 @@ import {
   getCartQuantity,
   getCartTotal,
   getItemTotalQuantity,
+  getLineModifierSummary,
   getLineUnitPrice,
+  isModifierSelectionValid,
+  toggleModifierOption as toggleModifierOptionInSelection,
   setCartQuantity,
   type CartLine,
 } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
-import type { MenuItemDetail } from "@/shared/types/menu";
+import type { MenuItemDetail, ModifierGroup } from "@/shared/types/menu";
 import {
   FieldGroup,
   FieldLabel,
@@ -37,29 +40,7 @@ import {
   TextArea,
   TextInput,
 } from "@/shared/ui/form-controls";
-
-function isModifierSelectionValid(item: MenuItemDetail, selectedIds: string[]) {
-  return item.modifierGroups.every((group) => {
-    const selectedInGroup = group.options.filter((option) =>
-      selectedIds.includes(option.modifierOptionId)
-    ).length;
-    const effectiveMin = group.isRequired ? Math.max(group.minSelect, 1) : group.minSelect;
-
-    if (selectedInGroup < effectiveMin) {
-      return false;
-    }
-
-    return group.maxSelect === null || selectedInGroup <= group.maxSelect;
-  });
-}
-
-function lineModifierSummary(line: CartLine) {
-  return line.item.modifierGroups
-    .flatMap((group) => group.options)
-    .filter((option) => line.selectedModifierOptionIds.includes(option.modifierOptionId))
-    .map((option) => option.name)
-    .join(", ");
-}
+import { ModifierGroupsPicker } from "@/shared/ui/modifier-groups-picker";
 
 type AddOrderSheetProps = {
   accessToken: string;
@@ -136,37 +117,8 @@ export function AddOrderSheet({
     setPendingSelection([]);
   };
 
-  const toggleModifierOption = (
-    item: MenuItemDetail,
-    groupId: string,
-    optionId: string
-  ) => {
-    const group = item.modifierGroups.find((candidate) => candidate.modifierGroupId === groupId);
-
-    if (!group) {
-      return;
-    }
-
-    const optionIdsInGroup = group.options.map((option) => option.modifierOptionId);
-
-    setPendingSelection((current) => {
-      if (current.includes(optionId)) {
-        return current.filter((id) => id !== optionId);
-      }
-
-      if (group.maxSelect === 1) {
-        return [...current.filter((id) => !optionIdsInGroup.includes(id)), optionId];
-      }
-
-      if (group.maxSelect !== null) {
-        const countInGroup = current.filter((id) => optionIdsInGroup.includes(id)).length;
-        if (countInGroup >= group.maxSelect) {
-          return current;
-        }
-      }
-
-      return [...current, optionId];
-    });
+  const toggleModifierOption = (group: ModifierGroup, optionId: string) => {
+    setPendingSelection((current) => toggleModifierOptionInSelection(group, current, optionId));
   };
 
   const confirmModifierSelection = (item: MenuItemDetail) => {
@@ -339,60 +291,11 @@ export function AddOrderSheet({
 
                           {isPickerOpen ? (
                             <div className="mt-3 space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-3.5">
-                              {item.modifierGroups.map((group) => (
-                                <div key={group.modifierGroupId}>
-                                  <p className="text-xs font-semibold text-foreground">
-                                    {group.name}
-                                    {group.isRequired ? (
-                                      <span className="ml-1 text-destructive">*</span>
-                                    ) : null}
-                                  </p>
-                                  <ul className="mt-1.5 space-y-1">
-                                    {group.options.map((option) => {
-                                      const checked = pendingSelection.includes(
-                                        option.modifierOptionId
-                                      );
-                                      const priceDelta = Number(option.priceDelta);
-
-                                      return (
-                                        <li key={option.modifierOptionId}>
-                                          <label
-                                            className={cn(
-                                              "flex cursor-pointer items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-sm",
-                                              checked
-                                                ? "border-primary/50 bg-card"
-                                                : "border-transparent"
-                                            )}
-                                          >
-                                            <span className="flex items-center gap-2">
-                                              <input
-                                                type={group.maxSelect === 1 ? "radio" : "checkbox"}
-                                                checked={checked}
-                                                disabled={!option.isAvailable}
-                                                onChange={() =>
-                                                  toggleModifierOption(
-                                                    item,
-                                                    group.modifierGroupId,
-                                                    option.modifierOptionId
-                                                  )
-                                                }
-                                                className="cursor-pointer accent-primary"
-                                              />
-                                              {option.name}
-                                            </span>
-                                            {priceDelta !== 0 ? (
-                                              <span className="text-xs text-muted-foreground">
-                                                {priceDelta > 0 ? "+" : ""}
-                                                {formatMoney(priceDelta, "CLP")}
-                                              </span>
-                                            ) : null}
-                                          </label>
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                </div>
-                              ))}
+                              <ModifierGroupsPicker
+                                item={item}
+                                selectedIds={pendingSelection}
+                                onToggle={(group, optionId) => toggleModifierOption(group, optionId)}
+                              />
 
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -449,7 +352,7 @@ export function AddOrderSheet({
 
               <ul className="space-y-1.5">
                 {cart.map((line) => {
-                  const modifierSummary = lineModifierSummary(line);
+                  const modifierSummary = getLineModifierSummary(line);
 
                   return (
                     <li
