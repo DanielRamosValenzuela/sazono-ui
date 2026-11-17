@@ -763,7 +763,10 @@ function CategorySection({
                         isAvailable: true,
                       });
                       setFormOpen(false);
-                      setEditingItem(createdItem);
+                      setEditingItem({
+                        ...createdItem,
+                        translations: createdItem.translations ?? [],
+                      });
                     },
                   }
                 );
