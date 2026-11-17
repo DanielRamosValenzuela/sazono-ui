@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { ImageIcon, Plus } from "lucide-react";
@@ -179,23 +179,38 @@ export function ModifierGroupsEditor({
     [item.modifierGroups]
   );
 
+  const [optimisticIds, setOptimisticIds] = useState<string[] | null>(null);
+  const inflightRef = useRef(0);
+  const shownGroupIds = useMemo(
+    () => (optimisticIds ? new Set(optimisticIds) : attachedGroupIds),
+    [optimisticIds, attachedGroupIds]
+  );
+
   const setGroupsMutation = useMutation({
     mutationFn: (modifierGroupIds: string[]) =>
       menusApi.setMenuItemModifierGroups(accessToken, item.menuItemId, {
         modifierGroupIds,
       }),
-    onSuccess: () => {
-      void invalidateAll();
-    },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("modifierAttachError"));
+    },
+    onSettled: async () => {
+      inflightRef.current -= 1;
+      if (inflightRef.current > 0) {
+        return;
+      }
+      await invalidateAll();
+      setOptimisticIds(null);
     },
   });
 
   const toggleGroup = (modifierGroupId: string, nextChecked: boolean) => {
+    const current = optimisticIds ?? [...attachedGroupIds];
     const nextIds = nextChecked
-      ? [...attachedGroupIds, modifierGroupId]
-      : [...attachedGroupIds].filter((id) => id !== modifierGroupId);
+      ? [...current.filter((id) => id !== modifierGroupId), modifierGroupId]
+      : current.filter((id) => id !== modifierGroupId);
+    setOptimisticIds(nextIds);
+    inflightRef.current += 1;
     setGroupsMutation.mutate(nextIds);
   };
 
@@ -325,7 +340,7 @@ export function ModifierGroupsEditor({
         ) : null}
 
         {groups.map((group) => {
-          const isAttached = attachedGroupIds.has(group.modifierGroupId);
+          const isAttached = shownGroupIds.has(group.modifierGroupId);
 
           return (
             <div
@@ -337,7 +352,6 @@ export function ModifierGroupsEditor({
                   type="checkbox"
                   className="mt-0.5 cursor-pointer"
                   checked={isAttached}
-                  disabled={setGroupsMutation.isPending}
                   onChange={(event) =>
                     toggleGroup(group.modifierGroupId, event.target.checked)
                   }

@@ -98,7 +98,11 @@ type ItemFormValues = {
   isAvailable: boolean;
 };
 
-const CATEGORY_STATUSES: MenuCategoryStatus[] = ["ACTIVE", "HIDDEN", "ARCHIVED"];
+const CATEGORY_STATUSES: MenuCategoryStatus[] = [
+  "ACTIVE",
+  "HIDDEN",
+  "ARCHIVED",
+];
 
 type MutationCallbacks = { onSuccess?: () => void };
 type AddItemCallbacks = { onSuccess?: (item: CreatedMenuItem) => void };
@@ -124,17 +128,17 @@ type MenuEditorPanelProps = {
   onAddItem: (
     menuCategoryId: string,
     payload: CreateMenuItemRequest,
-    options?: AddItemCallbacks
+    options?: AddItemCallbacks,
   ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
     payload: UpdateMenuCategoryRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onUpdateItem: (
     menuItemId: string,
     payload: UpdateMenuItemRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onReorderCategories: (menuId: string, orderedCategoryIds: string[]) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
@@ -144,12 +148,12 @@ type MenuEditorPanelProps = {
     menuCategoryId: string,
     locale: string,
     payload: UpsertCategoryTranslationRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onUpsertItemTranslation: (
     menuItemId: string,
     locale: string,
-    payload: UpsertItemTranslationRequest
+    payload: UpsertItemTranslationRequest,
   ) => void;
   onPublish: (menuId: string) => void;
 };
@@ -186,7 +190,7 @@ export function MenuEditorPanel({
   const t = useTranslations("MenuStudio");
   const [isPreviewOpen, setPreviewOpen] = useState(false);
   const categorySensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
   const targetLocale = menu?.defaultLanguage === "en" ? "es" : "en";
 
@@ -195,11 +199,13 @@ export function MenuEditorPanel({
   });
 
   const isDraft = menu?.status === "DRAFT";
-  const activeStations = stations.filter((station) => station.status === "ACTIVE");
+  const activeStations = stations.filter(
+    (station) => station.status === "ACTIVE",
+  );
   const hasPublishableContent = Boolean(
     menu?.categories.some(
-      (category) => category.status === "ACTIVE" && category.items.length > 0
-    )
+      (category) => category.status === "ACTIVE" && category.items.length > 0,
+    ),
   );
 
   const handleCategoryDragEnd = (event: DragEndEvent) => {
@@ -210,10 +216,10 @@ export function MenuEditorPanel({
     }
 
     const oldIndex = menu.categories.findIndex(
-      (category) => category.menuCategoryId === active.id
+      (category) => category.menuCategoryId === active.id,
     );
     const newIndex = menu.categories.findIndex(
-      (category) => category.menuCategoryId === over.id
+      (category) => category.menuCategoryId === over.id,
     );
 
     if (oldIndex === -1 || newIndex === -1) {
@@ -223,7 +229,7 @@ export function MenuEditorPanel({
     const reordered = arrayMove(menu.categories, oldIndex, newIndex);
     onReorderCategories(
       menu.menuId,
-      reordered.map((category) => category.menuCategoryId)
+      reordered.map((category) => category.menuCategoryId),
     );
   };
 
@@ -263,7 +269,9 @@ export function MenuEditorPanel({
             </div>
             <CardTitle className="mt-2 text-2xl">{menu.name}</CardTitle>
             <CardDescription className="mt-1 leading-7">
-              {isDraft ? t("editorDraftDescription") : t("editorReadonlyDescription")}
+              {isDraft
+                ? t("editorDraftDescription")
+                : t("editorReadonlyDescription")}
             </CardDescription>
           </div>
 
@@ -327,7 +335,9 @@ export function MenuEditorPanel({
                     isDraggingDisabled={isReorderingCategories}
                     isUploadingItemImage={isUploadingItemImage}
                     isRemovingItemImage={isRemovingItemImage}
-                    isUpsertingCategoryTranslation={isUpsertingCategoryTranslation}
+                    isUpsertingCategoryTranslation={
+                      isUpsertingCategoryTranslation
+                    }
                     isUpsertingItemTranslation={isUpsertingItemTranslation}
                     targetLocale={targetLocale}
                     onAddItem={onAddItem}
@@ -359,7 +369,9 @@ export function MenuEditorPanel({
             className="flex flex-wrap items-end gap-4 rounded-[1.5rem] border border-border/70 bg-background/50 p-4"
           >
             <FieldGroup className="min-w-56 flex-1">
-              <FieldLabel htmlFor="category-name">{t("categoryNameLabel")}</FieldLabel>
+              <FieldLabel htmlFor="category-name">
+                {t("categoryNameLabel")}
+              </FieldLabel>
               <TextInput
                 id="category-name"
                 placeholder={t("categoryNamePlaceholder")}
@@ -368,7 +380,11 @@ export function MenuEditorPanel({
               />
             </FieldGroup>
 
-            <Button type="submit" className="rounded-full" disabled={isAddingCategory}>
+            <Button
+              type="submit"
+              className="rounded-full"
+              disabled={isAddingCategory}
+            >
               {isAddingCategory ? (
                 <>
                   <Spinner />
@@ -419,17 +435,17 @@ type CategorySectionProps = {
   onAddItem: (
     menuCategoryId: string,
     payload: CreateMenuItemRequest,
-    options?: AddItemCallbacks
+    options?: AddItemCallbacks,
   ) => void;
   onUpdateCategory: (
     menuCategoryId: string,
     payload: UpdateMenuCategoryRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onUpdateItem: (
     menuItemId: string,
     payload: UpdateMenuItemRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
   onUploadItemImage: (menuItemId: string, file: File) => void;
@@ -438,12 +454,12 @@ type CategorySectionProps = {
     menuCategoryId: string,
     locale: string,
     payload: UpsertCategoryTranslationRequest,
-    options?: MutationCallbacks
+    options?: MutationCallbacks,
   ) => void;
   onUpsertItemTranslation: (
     menuItemId: string,
     locale: string,
-    payload: UpsertItemTranslationRequest
+    payload: UpsertItemTranslationRequest,
   ) => void;
 };
 
@@ -490,7 +506,7 @@ function CategorySection({
   });
 
   const itemSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
 
   const handleItemDragEnd = (event: DragEndEvent) => {
@@ -501,10 +517,10 @@ function CategorySection({
     }
 
     const oldIndex = category.items.findIndex(
-      (item) => item.menuItemId === active.id
+      (item) => item.menuItemId === active.id,
     );
     const newIndex = category.items.findIndex(
-      (item) => item.menuItemId === over.id
+      (item) => item.menuItemId === over.id,
     );
 
     if (oldIndex === -1 || newIndex === -1) {
@@ -514,7 +530,7 @@ function CategorySection({
     const reordered = arrayMove(category.items, oldIndex, newIndex);
     onReorderItems(
       category.menuCategoryId,
-      reordered.map((item) => item.menuItemId)
+      reordered.map((item) => item.menuItemId),
     );
   };
 
@@ -530,7 +546,7 @@ function CategorySection({
   });
 
   const existingCategoryTranslation = category.translations.find(
-    (translation) => translation.locale === targetLocale
+    (translation) => translation.locale === targetLocale,
   );
 
   const categoryEditForm = useForm<CategoryEditFormValues>({
@@ -574,7 +590,7 @@ function CategorySection({
                   categoryDone = true;
                   closeIfDone();
                 },
-              }
+              },
             );
 
             if (translatedName) {
@@ -587,14 +603,16 @@ function CategorySection({
                     translationDone = true;
                     closeIfDone();
                   },
-                }
+                },
               );
             }
           })}
           className="grid gap-3 rounded-[1.25rem] border border-primary/20 bg-primary/5 p-4"
         >
           <FieldGroup>
-            <FieldLabel htmlFor={`category-edit-name-${category.menuCategoryId}`}>
+            <FieldLabel
+              htmlFor={`category-edit-name-${category.menuCategoryId}`}
+            >
               {t("categoryEditNameLabel")}
             </FieldLabel>
             <TextInput
@@ -606,7 +624,9 @@ function CategorySection({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <FieldGroup>
-              <FieldLabel htmlFor={`category-edit-status-${category.menuCategoryId}`}>
+              <FieldLabel
+                htmlFor={`category-edit-status-${category.menuCategoryId}`}
+              >
                 {t("categoryEditStatusLabel")}
               </FieldLabel>
               <SelectInput
@@ -768,7 +788,7 @@ function CategorySection({
                         translations: createdItem.translations ?? [],
                       });
                     },
-                  }
+                  },
                 );
               })}
               className="grid gap-4 rounded-[1.4rem] border border-primary/15 bg-primary/5 p-4"
@@ -807,7 +827,9 @@ function CategorySection({
                 </FieldGroup>
 
                 <FieldGroup className="md:col-span-2">
-                  <FieldLabel htmlFor={`item-description-${category.menuCategoryId}`}>
+                  <FieldLabel
+                    htmlFor={`item-description-${category.menuCategoryId}`}
+                  >
                     {t("itemDescriptionLabel")}
                   </FieldLabel>
                   <TextInput
@@ -836,13 +858,17 @@ function CategorySection({
                 </FieldGroup>
 
                 <FieldGroup>
-                  <FieldLabel htmlFor={`item-station-${category.menuCategoryId}`}>
+                  <FieldLabel
+                    htmlFor={`item-station-${category.menuCategoryId}`}
+                  >
                     {t("itemStationLabel")}
                   </FieldLabel>
                   <SelectInput
                     id={`item-station-${category.menuCategoryId}`}
                     disabled={isAddingItem || !stations.length}
-                    {...itemForm.register("preparationStationId", { required: true })}
+                    {...itemForm.register("preparationStationId", {
+                      required: true,
+                    })}
                   >
                     {stations.map((station) => (
                       <option
@@ -914,7 +940,7 @@ function CategorySection({
           accessToken={accessToken}
           item={
             category.items.find(
-              (item) => item.menuItemId === editingItem.menuItemId
+              (item) => item.menuItemId === editingItem.menuItemId,
             ) ?? editingItem
           }
           categoryName={category.name}
@@ -930,7 +956,9 @@ function CategorySection({
               onSuccess: () => setEditingItem(null),
             });
           }}
-          onUploadImage={(file) => onUploadItemImage(editingItem.menuItemId, file)}
+          onUploadImage={(file) =>
+            onUploadItemImage(editingItem.menuItemId, file)
+          }
           onRemoveImage={() => onRemoveItemImage(editingItem.menuItemId)}
           onUpsertTranslation={(locale, payload) =>
             onUpsertItemTranslation(editingItem.menuItemId, locale, payload)
@@ -977,7 +1005,7 @@ function SortableItemCard({
       }}
       className={cn(
         "rounded-[1.25rem] border border-border/70 bg-card/72 p-4",
-        !item.isAvailable && "opacity-60"
+        !item.isAvailable && "opacity-60",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1072,7 +1100,7 @@ type EditItemDialogProps = {
   onRemoveImage: () => void;
   onUpsertTranslation: (
     locale: string,
-    payload: UpsertItemTranslationRequest
+    payload: UpsertItemTranslationRequest,
   ) => void;
 };
 
@@ -1096,7 +1124,7 @@ function EditItemDialog({
   const t = useTranslations("MenuStudio");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const existingTranslation = item.translations.find(
-    (translation) => translation.locale === targetLocale
+    (translation) => translation.locale === targetLocale,
   );
 
   const form = useForm<EditItemFormValues>({
@@ -1115,202 +1143,220 @@ function EditItemDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg gap-5">
-        <DialogHeader>
+      <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden p-0 max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto]">
+        <DialogHeader className="border-b border-border/60 p-5 pr-14">
           <DialogTitle>
             {t("itemEditFormEyebrow", { category: categoryName })}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-4">
-          <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted">
-            {item.imageUrl ? (
-              <Image
-                src={item.imageUrl}
-                alt=""
-                width={80}
-                height={80}
-                className="size-full object-cover"
-              />
-            ) : (
-              <ImageIcon className="size-6 text-muted-foreground" />
-            )}
-          </div>
-          <div className="flex flex-1 flex-col gap-2">
-            <p className="text-sm font-medium">{t("itemImageLabel")}</p>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  onUploadImage(file);
-                }
-                event.target.value = "";
-              }}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                disabled={isUploadingImage}
-                onClick={() => imageInputRef.current?.click()}
-              >
-                {isUploadingImage ? <Spinner /> : null}
-                {item.imageUrl ? t("itemImageReplace") : t("itemImageUpload")}
-              </Button>
-              {item.imageUrl ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled={isRemovingImage}
-                  onClick={onRemoveImage}
-                >
-                  {isRemovingImage ? <Spinner /> : null}
-                  {t("itemImageRemove")}
-                </Button>
-              ) : null}
-            </div>
-            <FieldHint>{t("itemImageHint")}</FieldHint>
-          </div>
-        </div>
-
-        <form
-          onSubmit={form.handleSubmit((values) => {
-            onSave({
-              name: values.name.trim(),
-              description: values.description.trim() || undefined,
-              price: values.price.trim(),
-              sku: values.sku.trim() || undefined,
-              itemType: values.itemType,
-              preparationStationId: values.preparationStationId,
-              isAvailable: values.isAvailable,
-            });
-
-            const translatedName = values.translatedName.trim();
-            if (translatedName) {
-              onUpsertTranslation(targetLocale, {
-                name: translatedName,
-                description: values.translatedDescription.trim() || undefined,
-              });
-            }
-          })}
-          className="grid gap-4"
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-name">{t("itemNameLabel")}</FieldLabel>
-              <TextInput
-                id="edit-item-name"
-                disabled={isUpdating}
-                {...form.register("name", { required: true })}
-              />
-            </FieldGroup>
-
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-price">{t("itemPriceLabel")}</FieldLabel>
-              <TextInput
-                id="edit-item-price"
-                type="number"
-                min={0}
-                step="1"
-                disabled={isUpdating}
-                {...form.register("price", { required: true })}
-              />
-              <FieldHint>{t("itemPriceHint")}</FieldHint>
-            </FieldGroup>
-
-            <FieldGroup className="md:col-span-2">
-              <FieldLabel htmlFor="edit-item-description">
-                {t("itemDescriptionLabel")}
-              </FieldLabel>
-              <TextInput
-                id="edit-item-description"
-                disabled={isUpdating}
-                {...form.register("description")}
-              />
-            </FieldGroup>
-
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-type">{t("itemTypeLabel")}</FieldLabel>
-              <SelectInput
-                id="edit-item-type"
-                disabled={isUpdating}
-                {...form.register("itemType")}
-              >
-                {ITEM_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {t(`itemType_${type}`)}
-                  </option>
-                ))}
-              </SelectInput>
-            </FieldGroup>
-
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-station">
-                {t("itemStationLabel")}
-              </FieldLabel>
-              <SelectInput
-                id="edit-item-station"
-                disabled={isUpdating || !stations.length}
-                {...form.register("preparationStationId", { required: true })}
-              >
-                {stations.map((station) => (
-                  <option
-                    key={station.preparationStationId}
-                    value={station.preparationStationId}
+        <div className="grid min-h-0 gap-6 overflow-y-auto p-5 lg:grid-cols-2">
+          <div className="grid content-start gap-5">
+            <div className="flex items-center gap-4">
+              <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted">
+                {item.imageUrl ? (
+                  <Image
+                    src={item.imageUrl}
+                    alt=""
+                    width={80}
+                    height={80}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="size-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                <p className="text-sm font-medium">{t("itemImageLabel")}</p>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      onUploadImage(file);
+                    }
+                    event.target.value = "";
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={isUploadingImage}
+                    onClick={() => imageInputRef.current?.click()}
                   >
-                    {station.name}
-                  </option>
-                ))}
-              </SelectInput>
-            </FieldGroup>
-          </div>
+                    {isUploadingImage ? <Spinner /> : null}
+                    {item.imageUrl
+                      ? t("itemImageReplace")
+                      : t("itemImageUpload")}
+                  </Button>
+                  {item.imageUrl ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full"
+                      disabled={isRemovingImage}
+                      onClick={onRemoveImage}
+                    >
+                      {isRemovingImage ? <Spinner /> : null}
+                      {t("itemImageRemove")}
+                    </Button>
+                  ) : null}
+                </div>
+                <FieldHint>{t("itemImageHint")}</FieldHint>
+              </div>
+            </div>
 
-          <CheckboxRow>
-            <input
-              type="checkbox"
-              className="size-4 cursor-pointer accent-primary"
-              disabled={isUpdating}
-              {...form.register("isAvailable")}
-            />
-            {t("itemAvailableLabel")}
-          </CheckboxRow>
+            <form
+              id="edit-item-form"
+              onSubmit={form.handleSubmit((values) => {
+                onSave({
+                  name: values.name.trim(),
+                  description: values.description.trim() || undefined,
+                  price: values.price.trim(),
+                  sku: values.sku.trim() || undefined,
+                  itemType: values.itemType,
+                  preparationStationId: values.preparationStationId,
+                  isAvailable: values.isAvailable,
+                });
 
-          <div className="grid gap-4 rounded-[1.25rem] border border-border/70 bg-background/50 p-4 md:grid-cols-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground md:col-span-2">
-              {t("translationSectionTitle", { locale: targetLocale })}
-            </p>
+                const translatedName = values.translatedName.trim();
+                if (translatedName) {
+                  onUpsertTranslation(targetLocale, {
+                    name: translatedName,
+                    description:
+                      values.translatedDescription.trim() || undefined,
+                  });
+                }
+              })}
+              className="grid gap-4"
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-name">
+                    {t("itemNameLabel")}
+                  </FieldLabel>
+                  <TextInput
+                    id="edit-item-name"
+                    disabled={isUpdating}
+                    {...form.register("name", { required: true })}
+                  />
+                </FieldGroup>
 
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-translated-name">
-                {t("translationNameLabel")}
-              </FieldLabel>
-              <TextInput
-                id="edit-item-translated-name"
-                disabled={isUpdating || isUpsertingTranslation}
-                {...form.register("translatedName")}
-              />
-            </FieldGroup>
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-price">
+                    {t("itemPriceLabel")}
+                  </FieldLabel>
+                  <TextInput
+                    id="edit-item-price"
+                    type="number"
+                    min={0}
+                    step="1"
+                    disabled={isUpdating}
+                    {...form.register("price", { required: true })}
+                  />
+                  <FieldHint>{t("itemPriceHint")}</FieldHint>
+                </FieldGroup>
 
-            <FieldGroup>
-              <FieldLabel htmlFor="edit-item-translated-description">
-                {t("translationDescriptionLabel")}
-              </FieldLabel>
-              <TextInput
-                id="edit-item-translated-description"
-                disabled={isUpdating || isUpsertingTranslation}
-                {...form.register("translatedDescription")}
-              />
-            </FieldGroup>
+                <FieldGroup className="md:col-span-2">
+                  <FieldLabel htmlFor="edit-item-description">
+                    {t("itemDescriptionLabel")}
+                  </FieldLabel>
+                  <TextInput
+                    id="edit-item-description"
+                    disabled={isUpdating}
+                    {...form.register("description")}
+                  />
+                </FieldGroup>
 
-            <FieldHint className="md:col-span-2">{t("translationHint")}</FieldHint>
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-type">
+                    {t("itemTypeLabel")}
+                  </FieldLabel>
+                  <SelectInput
+                    id="edit-item-type"
+                    disabled={isUpdating}
+                    {...form.register("itemType")}
+                  >
+                    {ITEM_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {t(`itemType_${type}`)}
+                      </option>
+                    ))}
+                  </SelectInput>
+                </FieldGroup>
+
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-station">
+                    {t("itemStationLabel")}
+                  </FieldLabel>
+                  <SelectInput
+                    id="edit-item-station"
+                    disabled={isUpdating || !stations.length}
+                    {...form.register("preparationStationId", {
+                      required: true,
+                    })}
+                  >
+                    {stations.map((station) => (
+                      <option
+                        key={station.preparationStationId}
+                        value={station.preparationStationId}
+                      >
+                        {station.name}
+                      </option>
+                    ))}
+                  </SelectInput>
+                </FieldGroup>
+              </div>
+
+              <CheckboxRow>
+                <input
+                  type="checkbox"
+                  className="size-4 cursor-pointer accent-primary"
+                  disabled={isUpdating}
+                  {...form.register("isAvailable")}
+                />
+                {t("itemAvailableLabel")}
+              </CheckboxRow>
+
+              <div className="grid gap-4 rounded-[1.25rem] border border-border/70 bg-background/50 p-4 md:grid-cols-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground md:col-span-2">
+                  {t("translationSectionTitle", { locale: targetLocale })}
+                </p>
+
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-translated-name">
+                    {t("translationNameLabel")}
+                  </FieldLabel>
+                  <TextInput
+                    id="edit-item-translated-name"
+                    disabled={isUpdating || isUpsertingTranslation}
+                    {...form.register("translatedName")}
+                  />
+                </FieldGroup>
+
+                <FieldGroup>
+                  <FieldLabel htmlFor="edit-item-translated-description">
+                    {t("translationDescriptionLabel")}
+                  </FieldLabel>
+                  <TextInput
+                    id="edit-item-translated-description"
+                    disabled={isUpdating || isUpsertingTranslation}
+                    {...form.register("translatedDescription")}
+                  />
+                </FieldGroup>
+
+                <FieldHint className="md:col-span-2">
+                  {t("translationHint")}
+                </FieldHint>
+              </div>
+            </form>
           </div>
 
           <ModifierGroupsEditor
@@ -1318,26 +1364,27 @@ function EditItemDialog({
             accessToken={accessToken}
             item={item}
           />
+        </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="submit"
-              className="rounded-full"
-              disabled={isUpdating || !stations.length}
-            >
-              {isUpdating ? <Spinner /> : null}
-              {isUpdating ? t("itemUpdateSubmitting") : t("itemUpdateSubmit")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              onClick={onClose}
-            >
-              {t("itemCancel")}
-            </Button>
-          </div>
-        </form>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-border/60 bg-card p-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={onClose}
+          >
+            {t("itemCancel")}
+          </Button>
+          <Button
+            type="submit"
+            form="edit-item-form"
+            className="rounded-full"
+            disabled={isUpdating || !stations.length}
+          >
+            {isUpdating ? <Spinner /> : null}
+            {isUpdating ? t("itemUpdateSubmitting") : t("itemUpdateSubmit")}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
