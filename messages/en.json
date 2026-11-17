@@ -244,6 +244,7 @@
     "cart_submit": "Send order",
     "cart_continue": "Keep browsing the menu",
     "cart_submitError": "We couldn't send your order. Please try again in a moment.",
+    "order_disabledNotice": "This branch does not take orders by QR. Please order with your server.",
     "order_createdToast": "We got your order!",
     "pay_title": "Almost there",
     "pay_description": "Pay now and the kitchen will get started on your order.",

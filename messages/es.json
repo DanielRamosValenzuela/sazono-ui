@@ -244,6 +244,7 @@
     "cart_submit": "Enviar pedido",
     "cart_continue": "Seguir mirando la carta",
     "cart_submitError": "No pudimos enviar tu pedido. Inténtalo de nuevo en un momento.",
+    "order_disabledNotice": "Esta sucursal no recibe pedidos por QR. Pídele tu pedido al mesero.",
     "order_createdToast": "¡Recibimos tu pedido!",
     "pay_title": "Ya casi está",
     "pay_description": "Paga ahora y la cocina se pone manos a la obra con tu pedido.",

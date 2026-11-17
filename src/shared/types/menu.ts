@@ -109,6 +109,7 @@ export interface MenuDetail {
   defaultLanguage: string;
   publishedAt: string | null;
   isDefaultMenu: boolean;
+  qrOrderingEnabled?: boolean;
   categories: MenuCategoryDetail[];
 }
 

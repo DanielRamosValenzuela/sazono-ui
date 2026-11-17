@@ -161,6 +161,7 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
   }
 
   const menu = menuQuery.data;
+  const orderingDisabled = menu.qrOrderingEnabled === false;
   const cartCount = getCartCount(cart);
   const cartTotal = getCartTotal(cart);
   const showCartBar = cartCount > 0 && !cartOpen && !payingOrder && !billSheetOpen;
@@ -253,7 +254,13 @@ export function QrExperience({ qrToken }: QrExperienceProps) {
         </header>
 
         <main className="flex-1 pb-10 pt-2">
+          {orderingDisabled ? (
+            <p className="mx-4 mb-3 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
+              {t("order_disabledNotice")}
+            </p>
+          ) : null}
           <MenuView
+            readOnly={orderingDisabled}
             menu={menu}
             cart={cart}
             onSetQuantity={handleSetQuantity}
