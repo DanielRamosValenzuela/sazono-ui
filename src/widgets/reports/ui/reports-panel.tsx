@@ -1,7 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { Suspense, useEffect, useRef } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+} from "@tanstack/react-query";
 import { Download, Receipt, Users, Wallet, HandCoins } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -10,7 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { reportsApi } from "@/shared/api/reports-api";
+import { reportsApi, retryReportRequest } from "@/shared/api/reports-api";
+import {
+  DEFAULT_REPORT_SORT,
+  REPORT_FILTER_SUPPORT,
+  type ReportFilters,
+  type ReportKindKey,
+  type ReportSort,
+} from "@/shared/types/reports";
 import { formatMoney } from "@/shared/lib/format";
 import { getBranchAccessList, hasBranchPermission } from "@/shared/lib/branch-access";
 import { SelectInput, TextInput } from "@/shared/ui/form-controls";
@@ -18,8 +29,21 @@ import { StatCard } from "@/shared/ui/stat-card";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { downloadBlob } from "./download-blob";
+import { ReportFilterBar } from "./filter-bar";
 import { HierarchyTab } from "./hierarchy-tab";
 import { PaymentsTab } from "./payments-tab";
+import {
+  applyPatch,
+  effectiveFilters,
+  effectiveSort,
+  filtersError,
+  filtersToParams,
+  parseFilters,
+  parseSort,
+  sortToParams,
+  type FilterPatch,
+  type SavedView,
+} from "./report-filters";
 import {
   RANGE_PRESETS,
   isRangePreset,
@@ -27,6 +51,7 @@ import {
   type RangePreset,
 } from "./report-range";
 import { SalesTab } from "./sales-tab";
+import { useReportFilterOptions } from "./use-report-filter-options";
 
 const PAGE_SIZE = 50;
 const MAX_RANGE_DAYS = 366;
@@ -35,6 +60,12 @@ const REPORT_ROLES = ["ADMIN", "SUPERVISOR", "CASHIER"] as const;
 const FULL_ROLES = ["ADMIN", "SUPERVISOR"] as const;
 
 type ReportTab = "sales" | "payments" | "hierarchy";
+
+const TAB_KINDS: Record<ReportTab, ReportKindKey> = {
+  sales: "sales-by-order",
+  payments: "payments",
+  hierarchy: "sales-by-hierarchy",
+};
 
 const TAB_LABELS = {
   sales: "tabSales",
@@ -93,10 +124,59 @@ function ReportsContent() {
     (Date.parse(range.to) - Date.parse(range.from)) / DAY_MS + 1 > MAX_RANGE_DAYS;
   const rangeIsValid = rangeIsOrdered && !rangeIsTooLong;
 
-  const updateParams = (updates: Record<string, string>) => {
-    const next = Object.fromEntries(searchParams.entries());
-    Object.assign(next, updates);
-    router.replace({ pathname, query: next });
+  const filters = parseFilters(searchParams);
+  const sort = parseSort(searchParams);
+  const kind = TAB_KINDS[tab];
+  const tabFilters = effectiveFilters(kind, filters, fullAccess);
+  const tabSort = effectiveSort(kind, sort);
+  const filterCount = Object.keys(tabFilters).length;
+  const validationError = filtersError(tabFilters);
+
+  const latestParams = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    latestParams.current = Object.fromEntries(searchParams.entries());
+  }, [searchParams]);
+
+  const updateParams = (updates: Record<string, string | undefined>) => {
+    const next = { ...latestParams.current };
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        next[key] = value;
+      } else {
+        delete next[key];
+      }
+    }
+
+    latestParams.current = next;
+    router.replace({ pathname, query: next }, { scroll: false });
+  };
+
+  const currentFilters = () =>
+    parseFilters({ get: (name) => latestParams.current[name] ?? null });
+
+  const changeFilters = (patch: FilterPatch) =>
+    updateParams(filtersToParams(applyPatch(currentFilters(), patch)));
+
+  const changeSort = (next: ReportSort) => updateParams(sortToParams(next));
+
+  const replaceFilters = (next: ReportFilters, nextSort: ReportSort) =>
+    updateParams({ ...filtersToParams(next), ...sortToParams(nextSort) });
+
+  const clearFilters = () => updateParams(filtersToParams({}));
+
+  const applyView = (view: SavedView) => {
+    const supportsAll = (target: ReportKindKey) =>
+      Object.keys(view.filters).every((key) =>
+        REPORT_FILTER_SUPPORT[target].some((entry) => entry === key)
+      );
+
+    updateParams({
+      ...filtersToParams(view.filters),
+      ...sortToParams(view.sort),
+      ...(supportsAll(kind) ? {} : { tab: "sales" }),
+    });
   };
 
   const selectPreset = (nextPreset: RangePreset) =>
@@ -106,19 +186,41 @@ function ReportsContent() {
         : { preset: nextPreset }
     );
 
+  const selectBranch = (nextBranch: string) =>
+    updateParams({ branch: nextBranch, ...filtersToParams({}) });
+
   const enabled =
     session.isClientReady &&
     Boolean(session.accessToken) &&
     Boolean(branchId) &&
-    rangeIsValid;
+    rangeIsValid &&
+    validationError === null;
+
+  const optionsQuery = useReportFilterOptions(
+    session.accessToken ?? null,
+    branchId,
+    session.isClientReady
+  );
 
   const salesQuery = useInfiniteQuery({
-    queryKey: ["reports", "sales", branchId, range.from, range.to],
+    queryKey: [
+      "reports",
+      "sales",
+      branchId,
+      range.from,
+      range.to,
+      tabFilters,
+      tab === "sales" ? tabSort : DEFAULT_REPORT_SORT,
+    ],
     enabled,
+    placeholderData: keepPreviousData,
+    retry: retryReportRequest,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       reportsApi.getSalesByOrder(session.accessToken!, branchId!, {
         ...range,
+        filters: tabFilters,
+        sort: tab === "sales" ? tabSort : DEFAULT_REPORT_SORT,
         cursor: pageParam,
         limit: PAGE_SIZE,
       }),
@@ -126,12 +228,24 @@ function ReportsContent() {
   });
 
   const paymentsQuery = useInfiniteQuery({
-    queryKey: ["reports", "payments", branchId, range.from, range.to],
+    queryKey: [
+      "reports",
+      "payments",
+      branchId,
+      range.from,
+      range.to,
+      tabFilters,
+      tabSort,
+    ],
     enabled: enabled && tab === "payments",
+    placeholderData: keepPreviousData,
+    retry: retryReportRequest,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       reportsApi.getPayments(session.accessToken!, branchId!, {
         ...range,
+        filters: tabFilters,
+        sort: tabSort,
         cursor: pageParam,
         limit: PAGE_SIZE,
       }),
@@ -140,14 +254,14 @@ function ReportsContent() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const kind = tab === "payments" ? "payments" : "sales-by-order";
+      const exportKind = tab === "payments" ? "payments" : "sales-by-order";
       const blob = await reportsApi.downloadCsv(
         session.accessToken!,
         branchId!,
-        kind,
-        range
+        exportKind,
+        { ...range, filters: tabFilters, sort: tabSort }
       );
-      const fileName = `${kind === "payments" ? "pagos" : "cierre-ventas"}_${branchId}_${range.from}_${range.to}.csv`;
+      const fileName = `${exportKind === "payments" ? "pagos" : "cierre-ventas"}_${branchId}_${range.from}_${range.to}.csv`;
       downloadBlob(blob, fileName);
     },
     onError: (error) => {
@@ -186,7 +300,7 @@ function ReportsContent() {
               <SelectInput
                 id="reports-branch"
                 value={branch.branchId}
-                onChange={(event) => updateParams({ branch: event.target.value })}
+                onChange={(event) => selectBranch(event.target.value)}
               >
                 {branches.map((entry) => (
                   <option key={entry.branchId} value={entry.branchId}>
@@ -245,6 +359,26 @@ function ReportsContent() {
             </>
           ) : null}
 
+          <ReportFilterBar
+            key={branch.branchId}
+            branchId={branch.branchId}
+            kind={kind}
+            filters={filters}
+            effective={tabFilters}
+            sort={tabSort}
+            options={optionsQuery.data}
+            optionsLoading={optionsQuery.isLoading}
+            optionsError={optionsQuery.isError}
+            fullAccess={fullAccess}
+            validationError={validationError}
+            onRetryOptions={() => void optionsQuery.refetch()}
+            onChange={changeFilters}
+            onSortChange={changeSort}
+            onReplace={replaceFilters}
+            onApplyView={applyView}
+            onClear={clearFilters}
+          />
+
           {tab === "hierarchy" ? null : (
             <Button
               variant="outline"
@@ -261,7 +395,11 @@ function ReportsContent() {
 
       <section
         aria-label={t("statsAria")}
-        className="grid grid-cols-2 gap-4 xl:grid-cols-4"
+        aria-busy={salesQuery.isPlaceholderData}
+        className={cn(
+          "grid grid-cols-2 gap-4 transition-opacity xl:grid-cols-4",
+          salesQuery.isPlaceholderData && "opacity-60"
+        )}
       >
         <StatCard
           label={t("cardNetSales")}
@@ -313,17 +451,32 @@ function ReportsContent() {
           {rangeIsOrdered ? t("rangeTooLong") : t("invalidRange")}
         </div>
       ) : tab === "sales" ? (
-        <SalesTab query={salesQuery} />
+        <SalesTab
+          query={salesQuery}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+        />
       ) : tab === "hierarchy" ? (
         <HierarchyTab
           key={branch.branchId}
           accessToken={session.accessToken ?? null}
           branchId={branch.branchId}
           range={range}
+          filters={tabFilters}
           enabled={enabled}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
         />
       ) : (
-        <PaymentsTab query={paymentsQuery} />
+        <PaymentsTab
+          query={paymentsQuery}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+        />
       )}
     </div>
   );

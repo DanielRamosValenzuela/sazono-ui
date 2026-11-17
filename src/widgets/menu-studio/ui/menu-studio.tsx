@@ -16,6 +16,8 @@ import type {
   CreateMenuItemRequest,
   CreateMenuRequest,
   CreatePreparationStationRequest,
+  MenuDetail,
+  MenuSummary,
   ReorderMenuCategoriesRequest,
   ReorderMenuItemsRequest,
   UpdateMenuCategoryRequest,
@@ -144,6 +146,64 @@ export function MenuStudio() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("versionCreateError"));
+    },
+  });
+
+  const listQueryKey = ["menus", "list", accessToken, selectedBranchId];
+
+  const duplicateMenuMutation = useMutation({
+    mutationFn: ({ menuId, name }: { menuId: string; name: string }) =>
+      menusApi.duplicateMenu(accessToken!, menuId, { name }),
+    onSuccess: (detail) => {
+      queryClient.setQueryData<MenuDetail>(
+        ["menus", "detail", accessToken, detail.menuId],
+        detail
+      );
+      setSelectedMenuId(detail.menuId);
+      void queryClient.invalidateQueries({ queryKey: ["menus", "list"] });
+      toast.success(t("versionDuplicateSuccess", { name: detail.name }));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("versionDuplicateError"));
+    },
+  });
+
+  const renameMenuMutation = useMutation({
+    mutationFn: ({ menuId, name }: { menuId: string; name: string }) =>
+      menusApi.renameMenu(accessToken!, menuId, { name }),
+    onSuccess: (renamed) => {
+      queryClient.setQueryData<MenuSummary[]>(listQueryKey, (current) =>
+        current?.map((menu) => (menu.menuId === renamed.menuId ? renamed : menu))
+      );
+      queryClient.setQueryData<MenuDetail>(
+        ["menus", "detail", accessToken, renamed.menuId],
+        (current) => (current ? { ...current, name: renamed.name } : current)
+      );
+      toast.success(t("versionRenameSuccess", { name: renamed.name }));
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("versionRenameError"));
+    },
+  });
+
+  const deleteMenuMutation = useMutation({
+    mutationFn: (menuId: string) => menusApi.deleteMenu(accessToken!, menuId),
+    onSuccess: (_result, menuId) => {
+      queryClient.setQueryData<MenuSummary[]>(listQueryKey, (current) =>
+        current?.filter((menu) => menu.menuId !== menuId)
+      );
+      queryClient.removeQueries({
+        queryKey: ["menus", "detail", accessToken, menuId],
+      });
+      setSelectedMenuId((current) => (current === menuId ? "" : current));
+      toast.success(
+        t("versionDeleteSuccess", {
+          name: menus.find((menu) => menu.menuId === menuId)?.name ?? "",
+        })
+      );
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t("versionDeleteError"));
     },
   });
 
@@ -466,8 +526,26 @@ export function MenuStudio() {
             selectedMenuId={selectedMenuId}
             isLoading={isMenusLoading}
             isCreating={createMenuMutation.isPending}
+            duplicatingMenuId={
+              duplicateMenuMutation.isPending
+                ? duplicateMenuMutation.variables.menuId
+                : null
+            }
+            renamingMenuId={
+              renameMenuMutation.isPending ? renameMenuMutation.variables.menuId : null
+            }
+            deletingMenuId={
+              deleteMenuMutation.isPending ? deleteMenuMutation.variables : null
+            }
             onSelect={setSelectedMenuId}
             onCreate={(payload) => createMenuMutation.mutate(payload)}
+            onDuplicate={(menuId, name, options) =>
+              duplicateMenuMutation.mutate({ menuId, name }, options)
+            }
+            onRename={(menuId, name, options) =>
+              renameMenuMutation.mutate({ menuId, name }, options)
+            }
+            onDelete={(menuId, options) => deleteMenuMutation.mutate(menuId, options)}
           />
         </div>
 
@@ -488,6 +566,10 @@ export function MenuStudio() {
           isUpsertingCategoryTranslation={upsertCategoryTranslationMutation.isPending}
           isUpsertingItemTranslation={upsertItemTranslationMutation.isPending}
           isPublishing={publishMenuMutation.isPending}
+          isDuplicating={duplicateMenuMutation.isPending}
+          onDuplicate={(menuId, name) =>
+            duplicateMenuMutation.mutate({ menuId, name })
+          }
           onAddCategory={(menuId, payload) =>
             createCategoryMutation.mutate({ menuId, payload })
           }

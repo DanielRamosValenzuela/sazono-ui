@@ -48,6 +48,13 @@ export function ModifierGroupsPicker({
     <>
       {item.modifierGroups.map((group) => {
         const single = isSingleChoiceGroup(group);
+        const selectedInGroup = group.options.filter((option) =>
+          selectedIds.includes(option.modifierOptionId),
+        ).length;
+        const atLimit =
+          !single &&
+          group.maxSelect !== null &&
+          selectedInGroup >= group.maxSelect;
         const hint = describeGroup?.(group);
 
         return (
@@ -59,25 +66,43 @@ export function ModifierGroupsPicker({
                   <span aria-hidden className="ml-1 text-destructive">
                     *
                   </span>
-                  {requiredLabel ? <span className="sr-only"> ({requiredLabel})</span> : null}
+                  {requiredLabel ? (
+                    <span className="sr-only"> ({requiredLabel})</span>
+                  ) : null}
                 </>
               ) : null}
               {hint ? (
-                <span className="ml-2 font-normal text-muted-foreground">{hint}</span>
+                <span className="ml-2 font-normal text-muted-foreground">
+                  {hint}
+                </span>
+              ) : null}
+              {!single && group.maxSelect !== null ? (
+                <span
+                  className={cn(
+                    "ml-2 text-xs font-normal tabular-nums",
+                    atLimit ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {selectedInGroup}/{group.maxSelect}
+                </span>
               ) : null}
             </legend>
             <ul className="mt-1.5 space-y-1">
               {group.options.map((option) => {
                 const checked = selectedIds.includes(option.modifierOptionId);
                 const priceDelta = Number(option.priceDelta);
+                const blockedByLimit = atLimit && !checked;
+                const blocked = !option.isAvailable || blockedByLimit;
 
                 return (
                   <li key={option.modifierOptionId}>
                     <label
                       className={cn(
                         "flex cursor-pointer items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50",
-                        checked ? "border-primary/50 bg-card" : "border-transparent",
-                        !option.isAvailable && "cursor-not-allowed opacity-50"
+                        checked
+                          ? "border-primary/50 bg-card"
+                          : "border-transparent",
+                        blocked && "cursor-not-allowed opacity-50",
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -85,8 +110,10 @@ export function ModifierGroupsPicker({
                           type={single ? "radio" : "checkbox"}
                           name={single ? group.modifierGroupId : undefined}
                           checked={checked}
-                          disabled={!option.isAvailable}
-                          onChange={() => onToggle(group, option.modifierOptionId)}
+                          disabled={blocked}
+                          onChange={() =>
+                            onToggle(group, option.modifierOptionId)
+                          }
                           onClick={() => {
                             if (single && checked) {
                               onToggle(group, option.modifierOptionId);

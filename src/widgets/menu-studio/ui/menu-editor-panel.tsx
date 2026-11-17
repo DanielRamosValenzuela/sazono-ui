@@ -22,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   CornerDownRight,
+  Copy,
   Eye,
   GripVertical,
   Image as ImageIcon,
@@ -135,6 +136,8 @@ type MenuEditorPanelProps = {
   isUpsertingCategoryTranslation: boolean;
   isUpsertingItemTranslation: boolean;
   isPublishing: boolean;
+  isDuplicating: boolean;
+  onDuplicate: (menuId: string, name: string) => void;
   onAddCategory: (menuId: string, payload: CreateMenuCategoryRequest) => void;
   onAddItem: (
     menuCategoryId: string,
@@ -186,6 +189,8 @@ export function MenuEditorPanel({
   isUpsertingCategoryTranslation,
   isUpsertingItemTranslation,
   isPublishing,
+  isDuplicating,
+  onDuplicate,
   onAddCategory,
   onAddItem,
   onUpdateCategory,
@@ -369,6 +374,29 @@ export function MenuEditorPanel({
             ) : null}
           </div>
         </div>
+
+        {!isDraft ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.4rem] border border-primary/25 bg-primary/7 p-4">
+            <p className="min-w-0 flex-1 text-sm font-medium leading-6">
+              {t(`editorReadonlyBanner_${menu.status}`)}
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              className="rounded-full"
+              disabled={isDuplicating}
+              onClick={() =>
+                onDuplicate(
+                  menu.menuId,
+                  t("versionCopyName", { name: menu.name.slice(0, 100) })
+                )
+              }
+            >
+              {isDuplicating ? <Spinner /> : <Copy className="size-4" />}
+              {isDuplicating ? t("editorDuplicating") : t("editorDuplicateAndEdit")}
+            </Button>
+          </div>
+        ) : null}
       </CardHeader>
 
       <CardContent className="space-y-6">

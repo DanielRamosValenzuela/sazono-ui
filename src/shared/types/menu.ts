@@ -225,3 +225,11 @@ export interface UpdateModifierOptionRequest {
 export interface SetMenuItemModifierGroupsRequest {
   modifierGroupIds: string[];
 }
+
+export interface DuplicateMenuRequest {
+  name?: string;
+}
+
+export interface RenameMenuRequest {
+  name: string;
+}

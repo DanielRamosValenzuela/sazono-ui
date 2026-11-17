@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,19 +15,39 @@ import {
 import { formatMoney } from "@/shared/lib/format";
 import type { PaymentsReportResponse, PaymentsReportRow } from "@/shared/types/reports";
 import { formatReportDateTime } from "./report-range";
+import { OrderDetailDialog } from "./order-detail-dialog";
 import { DetailGrid, LoadMore, ReportQueryState } from "./report-parts";
 import { BodyCell, HeadCell, SelectableRow } from "./report-table";
 
 type PaymentsTabProps = {
   query: UseInfiniteQueryResult<InfiniteData<PaymentsReportResponse>, Error>;
+  token: string | null;
+  branchId: string;
+  isFiltered: boolean;
+  onClearFilters: () => void;
 };
 
 const FAILED_STATUSES = ["FAILED", "CANCELLED"];
 
-export function PaymentsTab({ query }: PaymentsTabProps) {
+export function PaymentsTab({
+  query,
+  token,
+  branchId,
+  isFiltered,
+  onClearFilters,
+}: PaymentsTabProps) {
   const t = useTranslations("Reports");
   const locale = useLocale();
   const [selected, setSelected] = useState<PaymentsReportRow | null>(null);
+  const [detail, setDetail] = useState<{ id: string; number: string | null } | null>(
+    null
+  );
+
+  const openDetail = (row: PaymentsReportRow) => {
+    if (row.billId) {
+      setDetail({ id: row.billId, number: row.orderNumber });
+    }
+  };
 
   const pages = query.data?.pages ?? [];
   const rows = pages.flatMap((page) => page.rows);
@@ -60,159 +81,199 @@ export function PaymentsTab({ query }: PaymentsTabProps) {
   );
 
   return (
-    <ReportQueryState
-      isLoading={query.isLoading}
-      isError={query.isError}
-      isEmpty={rows.length === 0}
-      onRetry={() => void query.refetch()}
-    >
-      <div className="space-y-4">
-        {totals ? (
-          <div className="grid gap-3 lg:grid-cols-2">
-            <SummaryList
-              title={t("summaryByStatus")}
-              items={totals.byStatus.map((entry) => ({
-                key: entry.status,
-                label: statusLabel(entry.status),
-                count: entry.count,
-                amount: entry.amount,
-              }))}
-            />
-            <SummaryList
-              title={t("summaryByMethod")}
-              items={totals.byMethod.map((entry) => ({
-                key: entry.method,
-                label: t(`methods.${entry.method}`),
-                count: entry.count,
-                amount: entry.amount,
-              }))}
-            />
-          </div>
-        ) : null}
+    <>
+      <ReportQueryState
+        isLoading={query.isLoading}
+        isError={query.isError}
+        isEmpty={rows.length === 0}
+        isRefreshing={query.isPlaceholderData}
+        isFiltered={isFiltered}
+        onClearFilters={onClearFilters}
+        onRetry={() => void query.refetch()}
+      >
+        <div className="space-y-4">
+          {totals ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              <SummaryList
+                title={t("summaryByStatus")}
+                items={totals.byStatus.map((entry) => ({
+                  key: entry.status,
+                  label: statusLabel(entry.status),
+                  count: entry.count,
+                  amount: entry.amount,
+                }))}
+              />
+              <SummaryList
+                title={t("summaryByMethod")}
+                items={totals.byMethod.map((entry) => ({
+                  key: entry.method,
+                  label: t(`methods.${entry.method}`),
+                  count: entry.count,
+                  amount: entry.amount,
+                }))}
+              />
+            </div>
+          ) : null}
 
-        <div className="hidden max-h-[65vh] overflow-auto rounded-2xl border border-border/70 bg-card md:block">
-          <table className="w-full border-separate border-spacing-0 text-sm tabular-nums">
-            <thead>
-              <tr>
-                <HeadCell>{t("colDate")}</HeadCell>
-                <HeadCell>{t("colKind")}</HeadCell>
-                <HeadCell>{t("colOrder")}</HeadCell>
-                <HeadCell>{t("colTable")}</HeadCell>
-                <HeadCell>{t("colMethod")}</HeadCell>
-                <HeadCell>{t("colProvider")}</HeadCell>
-                <HeadCell>{t("colStatus")}</HeadCell>
-                <HeadCell align="right">{t("colAmount")}</HeadCell>
-                <HeadCell align="right">{t("colTip")}</HeadCell>
-                <HeadCell align="right">{t("colCharged")}</HeadCell>
-                <HeadCell>{t("colCaja")}</HeadCell>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <SelectableRow
-                  key={`${row.kind}-${row.id}`}
-                  onSelect={() => setSelected(row)}
+          <div className="hidden max-h-[65vh] overflow-auto rounded-2xl border border-border/70 bg-card md:block">
+            <table className="w-full border-separate border-spacing-0 text-sm tabular-nums">
+              <thead>
+                <tr>
+                  <HeadCell>{t("colDate")}</HeadCell>
+                  <HeadCell>{t("colKind")}</HeadCell>
+                  <HeadCell>{t("colOrder")}</HeadCell>
+                  <HeadCell>{t("colTable")}</HeadCell>
+                  <HeadCell>{t("colMethod")}</HeadCell>
+                  <HeadCell>{t("colProvider")}</HeadCell>
+                  <HeadCell>{t("colStatus")}</HeadCell>
+                  <HeadCell align="right">{t("colAmount")}</HeadCell>
+                  <HeadCell align="right">{t("colTip")}</HeadCell>
+                  <HeadCell align="right">{t("colCharged")}</HeadCell>
+                  <HeadCell>{t("colCaja")}</HeadCell>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <SelectableRow
+                    key={`${row.kind}-${row.id}`}
+                    onSelect={() => setSelected(row)}
+                  >
+                    <BodyCell>{formatReportDateTime(row.paidAt ?? row.createdAt, locale)}</BodyCell>
+                    <BodyCell>{t(`kinds.${row.kind}`)}</BodyCell>
+                    <BodyCell className="font-medium">
+                      {row.orderNumber && row.billId ? (
+                        <button
+                          type="button"
+                          className="cursor-pointer rounded-md underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDetail(row);
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          #{row.orderNumber}
+                        </button>
+                      ) : row.orderNumber ? (
+                        `#${row.orderNumber}`
+                      ) : (
+                        "—"
+                      )}
+                    </BodyCell>
+                    <BodyCell>{row.table ?? "—"}</BodyCell>
+                    <BodyCell>{methodLabel(row)}</BodyCell>
+                    <BodyCell>{row.provider}</BodyCell>
+                    <BodyCell>{statusBadge(row)}</BodyCell>
+                    <BodyCell align="right">{formatMoney(row.amount)}</BodyCell>
+                    <BodyCell align="right">{formatMoney(row.tip)}</BodyCell>
+                    <BodyCell align="right" className="font-medium">
+                      {formatMoney(row.total)}
+                    </BodyCell>
+                    <BodyCell>{row.caja}</BodyCell>
+                  </SelectableRow>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <ul className="space-y-3 md:hidden">
+            {rows.map((row) => (
+              <li key={`${row.kind}-${row.id}`}>
+                <button
+                  type="button"
+                  className="w-full cursor-pointer rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm"
+                  onClick={() => setSelected(row)}
                 >
-                  <BodyCell>{formatReportDateTime(row.paidAt ?? row.createdAt, locale)}</BodyCell>
-                  <BodyCell>{t(`kinds.${row.kind}`)}</BodyCell>
-                  <BodyCell className="font-medium">
-                    {row.orderNumber ? `#${row.orderNumber}` : "—"}
-                  </BodyCell>
-                  <BodyCell>{row.table ?? "—"}</BodyCell>
-                  <BodyCell>{methodLabel(row)}</BodyCell>
-                  <BodyCell>{row.provider}</BodyCell>
-                  <BodyCell>{statusBadge(row)}</BodyCell>
-                  <BodyCell align="right">{formatMoney(row.amount)}</BodyCell>
-                  <BodyCell align="right">{formatMoney(row.tip)}</BodyCell>
-                  <BodyCell align="right" className="font-medium">
-                    {formatMoney(row.total)}
-                  </BodyCell>
-                  <BodyCell>{row.caja}</BodyCell>
-                </SelectableRow>
-              ))}
-            </tbody>
-          </table>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">
+                        {row.orderNumber ? `#${row.orderNumber}` : t(`kinds.${row.kind}`)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatReportDateTime(row.paidAt ?? row.createdAt, locale)}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {methodLabel(row)} · {row.provider} · {row.caja}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold tabular-nums">
+                        {formatMoney(row.total)}
+                      </p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {t("colTip")}: {formatMoney(row.tip)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3">{statusBadge(row)}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <LoadMore
+            hasNextPage={Boolean(query.hasNextPage)}
+            isFetching={query.isFetchingNextPage}
+            onLoadMore={() => void query.fetchNextPage()}
+          />
         </div>
 
-        <ul className="space-y-3 md:hidden">
-          {rows.map((row) => (
-            <li key={`${row.kind}-${row.id}`}>
-              <button
-                type="button"
-                className="w-full cursor-pointer rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm"
-                onClick={() => setSelected(row)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold">
-                      {row.orderNumber ? `#${row.orderNumber}` : t(`kinds.${row.kind}`)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatReportDateTime(row.paidAt ?? row.createdAt, locale)}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {methodLabel(row)} · {row.provider} · {row.caja}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold tabular-nums">
-                      {formatMoney(row.total)}
-                    </p>
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {t("colTip")}: {formatMoney(row.tip)}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3">{statusBadge(row)}</div>
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <LoadMore
-          hasNextPage={Boolean(query.hasNextPage)}
-          isFetching={query.isFetchingNextPage}
-          onLoadMore={() => void query.fetchNextPage()}
-        />
-      </div>
-
-      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-2xl">
-          {selected ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>
-                  {t("detailPaymentTitle", { kind: t(`kinds.${selected.kind}`) })}
-                </DialogTitle>
-                <DialogDescription>
-                  {formatReportDateTime(selected.paidAt ?? selected.createdAt, locale)}
-                </DialogDescription>
-              </DialogHeader>
-              <DetailGrid
-                items={[
-                  [t("colOrder"), selected.orderNumber ? `#${selected.orderNumber}` : "—"],
-                  [t("colTable"), selected.table ?? "—"],
-                  [t("colMethod"), methodLabel(selected)],
-                  [t("colProvider"), selected.provider],
-                  [t("colReference"), selected.providerReference ?? "—"],
-                  [t("colStatus"), statusLabel(selected.status)],
-                  [t("colProviderStatus"), selected.providerStatus ?? "—"],
-                  [t("colProviderDetail"), selected.providerStatusDetail ?? "—"],
-                  [t("colFailureReason"), selected.failureReason ?? "—"],
-                  [t("colAmount"), formatMoney(selected.amount)],
-                  [t("colTip"), formatMoney(selected.tip)],
-                  [t("colCharged"), formatMoney(selected.total)],
-                  [t("colCaja"), selected.caja],
-                  [t("colCashier"), selected.cashier ?? "—"],
-                  [t("colSource"), sourceLabel(selected)],
-                  [t("colRefunded"), formatMoney(selected.refunded)],
-                ]}
-              />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </ReportQueryState>
+        <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+          <DialogContent className="max-w-2xl">
+            {selected ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {t("detailPaymentTitle", { kind: t(`kinds.${selected.kind}`) })}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {formatReportDateTime(selected.paidAt ?? selected.createdAt, locale)}
+                  </DialogDescription>
+                </DialogHeader>
+                <DetailGrid
+                  items={[
+                    [t("colOrder"), selected.orderNumber ? `#${selected.orderNumber}` : "—"],
+                    [t("colTable"), selected.table ?? "—"],
+                    [t("colMethod"), methodLabel(selected)],
+                    [t("colProvider"), selected.provider],
+                    [t("colReference"), selected.providerReference ?? "—"],
+                    [t("colStatus"), statusLabel(selected.status)],
+                    [t("colProviderStatus"), selected.providerStatus ?? "—"],
+                    [t("colProviderDetail"), selected.providerStatusDetail ?? "—"],
+                    [t("colFailureReason"), selected.failureReason ?? "—"],
+                    [t("colAmount"), formatMoney(selected.amount)],
+                    [t("colTip"), formatMoney(selected.tip)],
+                    [t("colCharged"), formatMoney(selected.total)],
+                    [t("colCaja"), selected.caja],
+                    [t("colCashier"), selected.cashier ?? "—"],
+                    [t("colSource"), sourceLabel(selected)],
+                    [t("colRefunded"), formatMoney(selected.refunded)],
+                  ]}
+                />
+                {selected.billId ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      openDetail(selected);
+                      setSelected(null);
+                    }}
+                  >
+                    {t("orderDetail.openFull")}
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      </ReportQueryState>
+      <OrderDetailDialog
+        token={token}
+        branchId={branchId}
+        billId={detail?.id ?? null}
+        orderNumber={detail?.number ?? null}
+        onClose={() => setDetail(null)}
+      />
+    </>
   );
 }
 

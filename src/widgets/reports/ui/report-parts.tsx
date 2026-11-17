@@ -12,6 +12,9 @@ type ReportQueryStateProps = {
   isLoading: boolean;
   isError: boolean;
   isEmpty: boolean;
+  isRefreshing?: boolean;
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
   onRetry: () => void;
   children: ReactNode;
 };
@@ -20,6 +23,9 @@ export function ReportQueryState({
   isLoading,
   isError,
   isEmpty,
+  isRefreshing = false,
+  isFiltered = false,
+  onClearFilters,
   onRetry,
   children,
 }: ReportQueryStateProps) {
@@ -61,14 +67,30 @@ export function ReportQueryState({
           <Inbox className="size-6" />
         </span>
         <div>
-          <p className="font-semibold">{t("emptyTitle")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("emptyDescription")}</p>
+          <p className="font-semibold">
+            {isFiltered ? t("emptyFilteredTitle") : t("emptyTitle")}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isFiltered ? t("emptyFilteredDescription") : t("emptyDescription")}
+          </p>
         </div>
+        {isFiltered && onClearFilters ? (
+          <Button variant="outline" className="rounded-full" onClick={onClearFilters}>
+            {t("filters.clearAll")}
+          </Button>
+        ) : null}
       </div>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <div
+      aria-busy={isRefreshing}
+      className={cn("transition-opacity", isRefreshing && "opacity-60")}
+    >
+      {children}
+    </div>
+  );
 }
 
 type LoadMoreProps = {

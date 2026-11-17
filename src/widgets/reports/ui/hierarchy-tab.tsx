@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, Download } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { reportsApi } from "@/shared/api/reports-api";
+import { reportsApi, retryReportRequest } from "@/shared/api/reports-api";
 import { formatMoney } from "@/shared/lib/format";
 import {
   HIERARCHY_GROUP_BYS,
   type HierarchyGroupBy,
   type HierarchyNode,
+  type ReportFilters,
 } from "@/shared/types/reports";
 import { downloadBlob } from "./download-blob";
 import { ReportQueryState } from "./report-parts";
@@ -27,6 +28,7 @@ type HierarchyScope = {
   token: string;
   branchId: string;
   range: DateRange;
+  filters: ReportFilters;
   groupBy: HierarchyGroupBy;
   includeModifiers: boolean;
   sortBy: SortKey;
@@ -36,7 +38,10 @@ type HierarchyTabProps = {
   accessToken: string | null;
   branchId: string;
   range: DateRange;
+  filters: ReportFilters;
   enabled: boolean;
+  isFiltered: boolean;
+  onClearFilters: () => void;
 };
 
 const INDENT_PX = 16;
@@ -53,14 +58,18 @@ function useHierarchy(
       scope.branchId,
       scope.range.from,
       scope.range.to,
+      scope.filters,
       scope.groupBy,
       scope.includeModifiers,
       parentId ?? "root",
     ],
     enabled,
+    placeholderData: keepPreviousData,
+    retry: retryReportRequest,
     queryFn: () =>
       reportsApi.getSalesByHierarchy(scope.token, scope.branchId, {
         ...scope.range,
+        filters: scope.filters,
         groupBy: scope.groupBy,
         includeModifiers: scope.includeModifiers,
         parentId: parentId ?? undefined,
@@ -234,7 +243,10 @@ export function HierarchyTab({
   accessToken,
   branchId,
   range,
+  filters,
   enabled,
+  isFiltered,
+  onClearFilters,
 }: HierarchyTabProps) {
   const t = useTranslations("Reports");
   const [groupBy, setGroupBy] = useState<HierarchyGroupBy>("category");
@@ -246,6 +258,7 @@ export function HierarchyTab({
     token: accessToken ?? "",
     branchId,
     range,
+    filters,
     groupBy,
     includeModifiers,
     sortBy,
@@ -263,7 +276,7 @@ export function HierarchyTab({
         accessToken!,
         branchId,
         "sales-by-hierarchy",
-        range,
+        { ...range, filters },
         { groupBy, includeModifiers, parentId: parentId ?? undefined }
       );
       downloadBlob(
@@ -391,6 +404,9 @@ export function HierarchyTab({
         isLoading={query.isLoading}
         isError={query.isError}
         isEmpty={nodes.length === 0}
+        isRefreshing={query.isPlaceholderData}
+        isFiltered={isFiltered}
+        onClearFilters={onClearFilters}
         onRetry={() => void query.refetch()}
       >
         <div className="max-h-[65vh] overflow-auto rounded-2xl border border-border/70 bg-card">

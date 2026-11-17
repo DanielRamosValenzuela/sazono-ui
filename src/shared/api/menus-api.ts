@@ -7,6 +7,7 @@ import type {
   CreateModifierGroupRequest,
   CreateModifierOptionRequest,
   CreatePreparationStationRequest,
+  DuplicateMenuRequest,
   MenuCategory,
   MenuDetail,
   MenuSummary,
@@ -14,6 +15,7 @@ import type {
   ModifierGroup,
   ModifierOption,
   PreparationStation,
+  RenameMenuRequest,
   ReorderMenuCategoriesRequest,
   ReorderMenuItemsRequest,
   SetMenuItemModifierGroupsRequest,
@@ -57,6 +59,26 @@ export const menusApi = {
       method: "POST",
       token,
       body: payload,
+    });
+  },
+  duplicateMenu(token: string, menuId: string, payload: DuplicateMenuRequest) {
+    return apiRequest<MenuDetail>(`/menus/${menuId}/duplicate`, {
+      method: "POST",
+      token,
+      body: payload,
+    });
+  },
+  renameMenu(token: string, menuId: string, payload: RenameMenuRequest) {
+    return apiRequest<MenuSummary>(`/menus/${menuId}`, {
+      method: "PATCH",
+      token,
+      body: payload,
+    });
+  },
+  deleteMenu(token: string, menuId: string) {
+    return apiRequest<void>(`/menus/${menuId}`, {
+      method: "DELETE",
+      token,
     });
   },
   getMenuDetail(token: string, menuId: string) {
