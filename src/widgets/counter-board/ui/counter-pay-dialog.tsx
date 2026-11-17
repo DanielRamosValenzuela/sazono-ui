@@ -16,7 +16,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { paymentsApi } from "@/shared/api/payments-api";
 import { formatMoney } from "@/shared/lib/format";
-import { FieldGroup, FieldHint, FieldLabel, TextInput } from "@/shared/ui/form-controls";
+import { MANUAL_PAYMENT_METHODS, type ManualPaymentMethod } from "@/shared/types/reports";
+import { FieldGroup, FieldHint, FieldLabel, SelectInput, TextInput } from "@/shared/ui/form-controls";
 
 type CounterPayDialogProps = {
   accessToken: string;
@@ -34,10 +35,12 @@ export function CounterPayDialog({
   onClose,
 }: CounterPayDialogProps) {
   const t = useTranslations("CounterBoard");
+  const tMethods = useTranslations("Reports.methods");
   const queryClient = useQueryClient();
   const remaining = Math.round(Number(remainingAmount));
   const [amount, setAmount] = useState(String(remaining));
   const [tip, setTip] = useState("");
+  const [method, setMethod] = useState<ManualPaymentMethod>("CASH");
 
   const amountNumber = Number(amount);
   const tipNumber = Number(tip || 0);
@@ -52,6 +55,7 @@ export function CounterPayDialog({
     mutationFn: () =>
       paymentsApi.payBill(accessToken, billId, {
         amount: String(amountNumber),
+        paymentMethod: method,
         ...(tipNumber > 0 ? { tipAmount: String(tipNumber) } : {}),
       }),
     onSuccess: async () => {
@@ -100,6 +104,21 @@ export function CounterPayDialog({
               {t("payFull")}
             </Button>
           ) : null}
+        </FieldGroup>
+
+        <FieldGroup>
+          <FieldLabel htmlFor="counter-pay-method">{t("payMethod")}</FieldLabel>
+          <SelectInput
+            id="counter-pay-method"
+            value={method}
+            onChange={(event) => setMethod(event.target.value as ManualPaymentMethod)}
+          >
+            {MANUAL_PAYMENT_METHODS.map((key) => (
+              <option key={key} value={key}>
+                {tMethods(key)}
+              </option>
+            ))}
+          </SelectInput>
         </FieldGroup>
 
         <FieldGroup>

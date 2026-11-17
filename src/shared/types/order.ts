@@ -4,6 +4,7 @@ import type {
   PreparationStationType,
 } from "@/shared/types/menu";
 import type { CardCheckoutFields } from "@/shared/types/payments";
+import type { ManualPaymentMethod } from "@/shared/types/reports";
 
 export type OrderStatus =
   | "DRAFT"
@@ -123,6 +124,7 @@ export interface PayQrOrderRequest extends CardCheckoutFields {
 export interface PayStaffBillRequest {
   amount: string;
   tipAmount?: string;
+  paymentMethod?: ManualPaymentMethod;
 }
 
 export interface PayQrBillRequest extends CardCheckoutFields {

@@ -3,6 +3,7 @@
 import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
+  BarChart3,
   BookOpenText,
   ChefHat,
   CreditCard,
@@ -16,6 +17,7 @@ import {
   Store,
   UtensilsCrossed,
   Users,
+  Wallet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -193,6 +195,19 @@ export function AdminShell({ children, area }: AdminShellProps) {
                   href: "/staff/kitchen",
                   labelKey: "navKitchen",
                   icon: <Flame className="size-4" />,
+                },
+              ]
+            : []),
+          ...(session.canAccessReports
+            ? [
+                {
+                  href: "/admin/reports",
+                  labelKey: session.canViewFullReports ? "navReports" : "navCashbox",
+                  icon: session.canViewFullReports ? (
+                    <BarChart3 className="size-4" />
+                  ) : (
+                    <Wallet className="size-4" />
+                  ),
                 },
               ]
             : []),

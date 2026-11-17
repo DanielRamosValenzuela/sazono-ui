@@ -7,7 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 
 type RoleGateProps = PropsWithChildren<{
-  allow: "platform" | "restaurantAdmin";
+  allow: "platform" | "restaurantAdmin" | "reports";
 }>;
 
 export function RoleGate({ allow, children }: RoleGateProps) {
@@ -19,7 +19,11 @@ export function RoleGate({ allow, children }: RoleGateProps) {
   }
 
   const isAllowed =
-    allow === "platform" ? session.isPlatformAdmin : session.isRestaurantAdmin;
+    allow === "platform"
+      ? session.isPlatformAdmin
+      : allow === "reports"
+        ? session.canAccessReports
+        : session.isRestaurantAdmin;
 
   if (!isAllowed) {
     return (

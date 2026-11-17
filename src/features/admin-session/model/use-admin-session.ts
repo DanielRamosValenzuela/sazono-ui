@@ -166,6 +166,9 @@ export function useAdminSession() {
     "BAR",
   ]);
 
+  const canViewFullReports = hasAnyRole(["ADMIN", "SUPERVISOR"]);
+  const canAccessReports = canViewFullReports || hasAnyRole(["CASHIER"]);
+
   const refreshUser = async () => {
     if (!accessToken || !hasSessionExpiration) {
       return null;
@@ -208,6 +211,8 @@ export function useAdminSession() {
     canAccessFloor,
     canAccessMenuStudio,
     canAccessKitchen,
+    canViewFullReports,
+    canAccessReports,
     setSession,
     refreshUser,
     logout,
