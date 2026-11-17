@@ -95,6 +95,7 @@ export interface MenuCategoryDetail {
   name: string;
   sortOrder: number;
   status: MenuCategoryStatus;
+  parentId: string | null;
   translations: MenuTranslation[];
   items: MenuItemDetail[];
 }
@@ -117,6 +118,7 @@ export interface MenuCategory {
   name: string;
   sortOrder: number;
   status: MenuCategoryStatus;
+  parentId: string | null;
 }
 
 export interface CreatePreparationStationRequest {
@@ -134,6 +136,7 @@ export interface CreateMenuRequest {
 export interface CreateMenuCategoryRequest {
   name: string;
   sortOrder?: number;
+  parentId?: string;
 }
 
 export interface CreateMenuItemRequest {
@@ -154,6 +157,7 @@ export interface UpdateMenuCategoryRequest {
   name?: string;
   sortOrder?: number;
   status?: MenuCategoryStatus;
+  parentId?: string | null;
 }
 
 export interface UpdateMenuItemRequest {

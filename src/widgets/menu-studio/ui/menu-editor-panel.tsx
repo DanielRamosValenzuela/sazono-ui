@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { CategoryHeading } from "@/shared/ui/category-heading";
 import { useForm } from "react-hook-form";
 import Image from "next/image";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  CornerDownRight,
   Eye,
   GripVertical,
   Image as ImageIcon,
@@ -50,6 +52,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/shared/lib/format";
+import {
+  buildCategoryTree,
+  hasPublishableContent as menuHasPublishableContent,
+  listParentOptions,
+  reorderSiblings,
+  type CategoryNode,
+  type ParentOption,
+} from "@/shared/lib/menu-tree";
 import type {
   CreateMenuCategoryRequest,
   CreatedMenuItem,
@@ -87,6 +97,7 @@ const ITEM_TYPES: MenuItemType[] = [
 
 type CategoryFormValues = {
   name: string;
+  parentId: string;
 };
 
 type ItemFormValues = {
@@ -195,7 +206,7 @@ export function MenuEditorPanel({
   const targetLocale = menu?.defaultLanguage === "en" ? "es" : "en";
 
   const categoryForm = useForm<CategoryFormValues>({
-    defaultValues: { name: "" },
+    defaultValues: { name: "", parentId: "" },
   });
 
   const isDraft = menu?.status === "DRAFT";
@@ -203,35 +214,87 @@ export function MenuEditorPanel({
     (station) => station.status === "ACTIVE",
   );
   const hasPublishableContent = Boolean(
-    menu?.categories.some(
-      (category) => category.status === "ACTIVE" && category.items.length > 0,
-    ),
+    menu && menuHasPublishableContent(menu.categories),
   );
+  const categoryTree = menu ? buildCategoryTree(menu.categories) : [];
+  const createParentOptions = menu
+    ? listParentOptions(menu.categories, null)
+    : [];
 
-  const handleCategoryDragEnd = (event: DragEndEvent) => {
+  const handleSiblingDragEnd = (parentId: string | null) => (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!menu || !over || active.id === over.id) {
       return;
     }
 
-    const oldIndex = menu.categories.findIndex(
-      (category) => category.menuCategoryId === active.id,
-    );
-    const newIndex = menu.categories.findIndex(
-      (category) => category.menuCategoryId === over.id,
+    const ordered = reorderSiblings(
+      menu.categories,
+      parentId,
+      String(active.id),
+      String(over.id),
     );
 
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
+    if (ordered) {
+      onReorderCategories(menu.menuId, ordered);
     }
-
-    const reordered = arrayMove(menu.categories, oldIndex, newIndex);
-    onReorderCategories(
-      menu.menuId,
-      reordered.map((category) => category.menuCategoryId),
-    );
   };
+
+  const renderCategoryTree = (
+    nodes: CategoryNode<MenuCategoryDetail>[],
+    parentId: string | null,
+    depth: number,
+  ): ReactNode => (
+    <DndContext
+      sensors={categorySensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleSiblingDragEnd(parentId)}
+    >
+      <SortableContext
+        items={nodes.map((category) => category.menuCategoryId)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className={depth === 0 ? "space-y-5" : "space-y-4"}>
+          {nodes.map((category) => (
+            <CategorySection
+              key={category.menuCategoryId}
+              branchId={branchId}
+              accessToken={accessToken}
+              category={category}
+              depth={depth}
+              parentOptions={
+                menu ? listParentOptions(menu.categories, category.menuCategoryId) : []
+              }
+              canEdit={isDraft}
+              stations={activeStations}
+              isAddingItem={isAddingItem}
+              isUpdatingCategory={isUpdatingCategory}
+              isUpdatingItem={isUpdatingItem}
+              isReorderingItems={isReorderingItems}
+              isDraggingDisabled={isReorderingCategories}
+              isUploadingItemImage={isUploadingItemImage}
+              isRemovingItemImage={isRemovingItemImage}
+              isUpsertingCategoryTranslation={isUpsertingCategoryTranslation}
+              isUpsertingItemTranslation={isUpsertingItemTranslation}
+              targetLocale={targetLocale}
+              onAddItem={onAddItem}
+              onUpdateCategory={onUpdateCategory}
+              onUpdateItem={onUpdateItem}
+              onReorderItems={onReorderItems}
+              onUploadItemImage={onUploadItemImage}
+              onRemoveItemImage={onRemoveItemImage}
+              onUpsertCategoryTranslation={onUpsertCategoryTranslation}
+              onUpsertItemTranslation={onUpsertItemTranslation}
+            >
+              {category.children.length
+                ? renderCategoryTree(category.children, category.menuCategoryId, depth + 1)
+                : null}
+            </CategorySection>
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
 
   if (isLoading) {
     return (
@@ -310,49 +373,7 @@ export function MenuEditorPanel({
 
       <CardContent className="space-y-6">
         {menu.categories.length ? (
-          <DndContext
-            sensors={categorySensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleCategoryDragEnd}
-          >
-            <SortableContext
-              items={menu.categories.map((category) => category.menuCategoryId)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-5">
-                {menu.categories.map((category) => (
-                  <CategorySection
-                    key={category.menuCategoryId}
-                    branchId={branchId}
-                    accessToken={accessToken}
-                    category={category}
-                    canEdit={isDraft}
-                    stations={activeStations}
-                    isAddingItem={isAddingItem}
-                    isUpdatingCategory={isUpdatingCategory}
-                    isUpdatingItem={isUpdatingItem}
-                    isReorderingItems={isReorderingItems}
-                    isDraggingDisabled={isReorderingCategories}
-                    isUploadingItemImage={isUploadingItemImage}
-                    isRemovingItemImage={isRemovingItemImage}
-                    isUpsertingCategoryTranslation={
-                      isUpsertingCategoryTranslation
-                    }
-                    isUpsertingItemTranslation={isUpsertingItemTranslation}
-                    targetLocale={targetLocale}
-                    onAddItem={onAddItem}
-                    onUpdateCategory={onUpdateCategory}
-                    onUpdateItem={onUpdateItem}
-                    onReorderItems={onReorderItems}
-                    onUploadItemImage={onUploadItemImage}
-                    onRemoveItemImage={onRemoveItemImage}
-                    onUpsertCategoryTranslation={onUpsertCategoryTranslation}
-                    onUpsertItemTranslation={onUpsertItemTranslation}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          renderCategoryTree(categoryTree, null, 0)
         ) : (
           <EmptyHint>{t("categoriesEmpty")}</EmptyHint>
         )}
@@ -363,8 +384,9 @@ export function MenuEditorPanel({
               onAddCategory(menu.menuId, {
                 name: values.name.trim(),
                 sortOrder: menu.categories.length,
+                parentId: values.parentId || undefined,
               });
-              categoryForm.reset({ name: "" });
+              categoryForm.reset({ name: "", parentId: "" });
             })}
             className="flex flex-wrap items-end gap-4 rounded-[1.5rem] border border-border/70 bg-background/50 p-4"
           >
@@ -379,6 +401,24 @@ export function MenuEditorPanel({
                 {...categoryForm.register("name", { required: true })}
               />
             </FieldGroup>
+
+            {createParentOptions.length ? (
+              <FieldGroup className="min-w-48">
+                <FieldLabel htmlFor="category-parent">
+                  {t("categoryParentLabel")}
+                </FieldLabel>
+                <SelectInput
+                  id="category-parent"
+                  disabled={isAddingCategory}
+                  {...categoryForm.register("parentId")}
+                >
+                  <option value="">{t("categoryParentNone")}</option>
+                  {createParentOptions.map((option) => (
+                    <ParentOptionItem key={option.id} option={option} />
+                  ))}
+                </SelectInput>
+              </FieldGroup>
+            ) : null}
 
             <Button
               type="submit"
@@ -414,12 +454,26 @@ type CategoryEditFormValues = {
   name: string;
   status: MenuCategoryStatus;
   translatedName: string;
+  parentId: string;
 };
+
+function ParentOptionItem({ option }: { option: ParentOption }) {
+  return (
+    <option value={option.id}>
+      {"- ".repeat(option.depth - 1) + option.name}
+    </option>
+  );
+}
+
+const HEADING_CLASSES = ["text-xl", "text-lg", "text-base"] as const;
 
 type CategorySectionProps = {
   branchId: string;
   accessToken: string;
-  category: MenuCategoryDetail;
+  category: CategoryNode<MenuCategoryDetail>;
+  depth: number;
+  parentOptions: ParentOption[];
+  children?: ReactNode;
   canEdit: boolean;
   stations: PreparationStation[];
   isAddingItem: boolean;
@@ -467,6 +521,9 @@ function CategorySection({
   branchId,
   accessToken,
   category,
+  depth,
+  parentOptions,
+  children,
   canEdit,
   stations,
   isAddingItem,
@@ -554,6 +611,7 @@ function CategorySection({
       name: category.name,
       status: category.status,
       translatedName: existingCategoryTranslation?.name ?? "",
+      parentId: category.parentId ?? "",
     },
   });
 
@@ -565,7 +623,10 @@ function CategorySection({
         transition,
         opacity: isDragging ? 0.6 : 1,
       }}
-      className="rounded-[1.6rem] border border-border/70 bg-background/55 p-5"
+      className={cn(
+        "border border-border/70 bg-background/55",
+        depth === 0 ? "rounded-[1.6rem] p-5" : "rounded-[1.3rem] border-l-4 border-l-primary/30 p-4",
+      )}
     >
       {isEditingCategory ? (
         <form
@@ -584,6 +645,9 @@ function CategorySection({
               {
                 name: values.name.trim(),
                 status: values.status,
+                ...(values.parentId !== (category.parentId ?? "")
+                  ? { parentId: values.parentId || null }
+                  : {}),
               },
               {
                 onSuccess: () => {
@@ -657,6 +721,25 @@ function CategorySection({
             </FieldGroup>
           </div>
 
+          <FieldGroup>
+            <FieldLabel
+              htmlFor={`category-edit-parent-${category.menuCategoryId}`}
+            >
+              {t("categoryParentLabel")}
+            </FieldLabel>
+            <SelectInput
+              id={`category-edit-parent-${category.menuCategoryId}`}
+              disabled={isUpdatingCategory || !parentOptions.length}
+              {...categoryEditForm.register("parentId")}
+            >
+              <option value="">{t("categoryParentNone")}</option>
+              {parentOptions.map((option) => (
+                <ParentOptionItem key={option.id} option={option} />
+              ))}
+            </SelectInput>
+            <FieldHint>{t("categoryParentHint")}</FieldHint>
+          </FieldGroup>
+
           <div className="flex flex-wrap gap-2">
             <Button
               type="submit"
@@ -679,6 +762,7 @@ function CategorySection({
                   name: category.name,
                   status: category.status,
                   translatedName: existingCategoryTranslation?.name ?? "",
+                  parentId: category.parentId ?? "",
                 });
                 setEditingCategory(false);
               }}
@@ -701,7 +785,18 @@ function CategorySection({
                 <GripVertical className="size-4" />
               </button>
             ) : null}
-            <h3 className="text-xl font-semibold">{category.name}</h3>
+            {depth > 0 ? (
+              <CornerDownRight
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : null}
+            <CategoryHeading
+              depth={depth}
+              className={cn("font-semibold", HEADING_CLASSES[depth])}
+            >
+              {category.name}
+            </CategoryHeading>
             {category.status !== "ACTIVE" ? (
               <Badge variant="secondary" className="gap-1">
                 <EyeOff className="size-3" />
@@ -721,9 +816,18 @@ function CategorySection({
               </Button>
             ) : null}
           </div>
-          <Badge variant="outline">
-            {t("categoryItemsCount", { count: category.items.length })}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            {category.children.length ? (
+              <Badge variant="secondary">
+                {t("categorySubcategoriesCount", {
+                  count: category.children.length,
+                })}
+              </Badge>
+            ) : null}
+            <Badge variant="outline">
+              {t("categoryItemsCount", { count: category.items.length })}
+            </Badge>
+          </div>
         </div>
       )}
 
@@ -965,6 +1069,8 @@ function CategorySection({
           }
         />
       ) : null}
+
+      {children ? <div className="mt-5 border-t border-border/60 pt-4">{children}</div> : null}
     </section>
   );
 }

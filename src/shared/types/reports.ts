@@ -122,3 +122,44 @@ export interface PaymentsReportResponse {
   nextCursor: string | null;
   limit: number;
 }
+
+export const HIERARCHY_GROUP_BYS = ["category", "item", "station"] as const;
+
+export type HierarchyGroupBy = (typeof HIERARCHY_GROUP_BYS)[number];
+
+export interface HierarchyParams extends ReportRangeParams {
+  parentId?: string;
+  groupBy: HierarchyGroupBy;
+  includeModifiers: boolean;
+}
+
+export interface HierarchyNode {
+  id: string;
+  name: string;
+  path: string[];
+  level: number;
+  kind: "category" | "item";
+  hasChildren: boolean;
+  amount: string;
+  quantity: number;
+  share: number;
+  cancelledQuantity: number;
+  averagePrice: string;
+}
+
+export interface HierarchyBreadcrumbEntry {
+  id: string;
+  name: string;
+}
+
+export interface SalesByHierarchyResponse {
+  from: string;
+  to: string;
+  timeZone: string;
+  parentId: string | null;
+  breadcrumb: HierarchyBreadcrumbEntry[];
+  groupBy: HierarchyGroupBy;
+  includeModifiers: boolean;
+  nodes: HierarchyNode[];
+  totals: { amount: string; quantity: number };
+}

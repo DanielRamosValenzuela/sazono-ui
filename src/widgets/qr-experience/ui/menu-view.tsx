@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getCartQuantity, getItemTotalQuantity, type CartLine } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
-import type { MenuDetail, MenuItemDetail } from "@/shared/types/menu";
+import { buildVisibleCategoryTree, type CategoryNode } from "@/shared/lib/menu-tree";
+import type { MenuCategoryDetail, MenuDetail, MenuItemDetail } from "@/shared/types/menu";
 
 type MenuViewProps = {
   menu: MenuDetail;
@@ -19,8 +20,189 @@ type MenuViewProps = {
   readOnly?: boolean;
 };
 
+const HEADING_TAGS = ["h2", "h3", "h4"] as const;
+const ITEM_TAGS = ["h3", "h4", "h5"] as const;
+const HEADING_CLASSES = [
+  "font-heading text-2xl font-bold text-foreground",
+  "font-heading text-lg font-bold text-foreground",
+  "font-heading text-base font-semibold text-foreground",
+] as const;
+
 function categoryAnchorId(menuCategoryId: string) {
   return `qr-category-${menuCategoryId}`;
+}
+
+type MenuItemRowProps = {
+  item: MenuItemDetail;
+  titleTag: "h3" | "h4" | "h5";
+  cart: CartLine[];
+  readOnly: boolean;
+  onSetQuantity?: (item: MenuItemDetail, quantity: number) => void;
+  onCustomize?: (item: MenuItemDetail) => void;
+};
+
+function MenuItemRow({
+  item,
+  titleTag: TitleTag,
+  cart,
+  readOnly,
+  onSetQuantity,
+  onCustomize,
+}: MenuItemRowProps) {
+  const t = useTranslations("QrPage");
+  const hasModifiers = item.modifierGroups.length > 0;
+  const quantity = hasModifiers
+    ? getItemTotalQuantity(cart, item.menuItemId)
+    : getCartQuantity(cart, item.menuItemId);
+
+  return (
+    <li className={cn("py-4", !item.isAvailable && "opacity-55")}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2.5">
+            <TitleTag className="text-[0.95rem] font-medium text-foreground">
+              {item.name}
+            </TitleTag>
+            <span
+              aria-hidden
+              className="min-w-4 flex-1 self-end border-b border-dotted border-border"
+            />
+            <span className="font-heading text-base font-bold text-foreground">
+              {formatMoney(item.price, "CLP")}
+            </span>
+          </div>
+
+          {item.description ? (
+            <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </p>
+          ) : null}
+        </div>
+
+        {item.imageUrl ? (
+          <Image
+            src={item.imageUrl}
+            alt=""
+            width={64}
+            height={64}
+            className="size-16 shrink-0 rounded-xl object-cover"
+          />
+        ) : null}
+      </div>
+
+      <div className="mt-2.5 flex justify-end">
+        {!item.isAvailable ? (
+          <Badge variant="outline">{t("menu_unavailable")}</Badge>
+        ) : readOnly ? null : hasModifiers ? (
+          <div className="flex items-center gap-3">
+            {quantity > 0 ? (
+              <span className="text-xs text-muted-foreground">
+                {t("menu_inCart", { count: quantity })}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              aria-label={t("menu_customize", { name: item.name })}
+              onClick={() => onCustomize?.(item)}
+            >
+              <Plus data-icon="inline-start" />
+              {t("menu_add")}
+            </Button>
+          </div>
+        ) : quantity === 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+            onClick={() => onSetQuantity?.(item, 1)}
+          >
+            <Plus data-icon="inline-start" />
+            {t("menu_add")}
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2 rounded-full border border-primary/40 bg-primary/5 px-1 py-0.5">
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="rounded-full"
+              aria-label={t("menu_removeOne", { name: item.name })}
+              onClick={() => onSetQuantity?.(item, quantity - 1)}
+            >
+              <Minus />
+            </Button>
+            <span className="min-w-4 text-center text-sm font-semibold tabular-nums text-foreground">
+              {quantity}
+            </span>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="rounded-full"
+              aria-label={t("menu_addOne", { name: item.name })}
+              onClick={() => onSetQuantity?.(item, quantity + 1)}
+            >
+              <Plus />
+            </Button>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+type CategoryBlockProps = Omit<MenuItemRowProps, "item" | "titleTag"> & {
+  node: CategoryNode<MenuCategoryDetail>;
+  depth: number;
+};
+
+function CategoryBlock({ node, depth, ...rowProps }: CategoryBlockProps) {
+  const Heading = HEADING_TAGS[depth] ?? "h4";
+  const itemTag = ITEM_TAGS[depth] ?? "h5";
+
+  return (
+    <section
+      id={categoryAnchorId(node.menuCategoryId)}
+      data-category-id={node.menuCategoryId}
+      className={cn("scroll-mt-16", depth > 0 && "mt-6")}
+    >
+      <div className="flex items-center gap-3">
+        <Heading className={HEADING_CLASSES[depth] ?? HEADING_CLASSES[2]}>
+          {node.name}
+        </Heading>
+        <span
+          aria-hidden
+          className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"
+        />
+      </div>
+
+      {node.items.length ? (
+        <ul className="mt-1 divide-y divide-border/60">
+          {node.items.map((item) => (
+            <MenuItemRow
+              key={item.menuItemId}
+              item={item}
+              titleTag={itemTag}
+              {...rowProps}
+            />
+          ))}
+        </ul>
+      ) : null}
+
+      {node.children.map((child) => (
+        <CategoryBlock
+          key={child.menuCategoryId}
+          node={child}
+          depth={depth + 1}
+          {...rowProps}
+        />
+      ))}
+    </section>
+  );
 }
 
 export function MenuView({
@@ -33,12 +215,7 @@ export function MenuView({
   const t = useTranslations("QrPage");
 
   const categories = useMemo(
-    () =>
-      menu.categories
-        .filter(
-          (category) => category.status === "ACTIVE" && category.items.length > 0
-        )
-        .sort((left, right) => left.sortOrder - right.sortOrder),
+    () => buildVisibleCategoryTree(menu.categories),
     [menu.categories]
   );
 
@@ -125,133 +302,15 @@ export function MenuView({
 
       <div className="space-y-8 px-5 pt-6">
         {categories.map((category) => (
-          <section
+          <CategoryBlock
             key={category.menuCategoryId}
-            id={categoryAnchorId(category.menuCategoryId)}
-            data-category-id={category.menuCategoryId}
-            className="scroll-mt-16"
-          >
-            <div className="flex items-center gap-3">
-              <h2 className="font-heading text-2xl font-bold text-foreground">
-                {category.name}
-              </h2>
-              <span
-                aria-hidden
-                className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent"
-              />
-            </div>
-
-            <ul className="mt-1 divide-y divide-border/60">
-              {category.items.map((item) => {
-                const hasModifiers = item.modifierGroups.length > 0;
-                const quantity = hasModifiers
-                  ? getItemTotalQuantity(cart, item.menuItemId)
-                  : getCartQuantity(cart, item.menuItemId);
-
-                return (
-                  <li
-                    key={item.menuItemId}
-                    className={cn("py-4", !item.isAvailable && "opacity-55")}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-2.5">
-                          <h3 className="text-[0.95rem] font-medium text-foreground">
-                            {item.name}
-                          </h3>
-                          <span
-                            aria-hidden
-                            className="min-w-4 flex-1 self-end border-b border-dotted border-border"
-                          />
-                          <span className="font-heading text-base font-bold text-foreground">
-                            {formatMoney(item.price, "CLP")}
-                          </span>
-                        </div>
-
-                        {item.description ? (
-                          <p className="mt-1 max-w-[34ch] text-sm leading-6 text-muted-foreground">
-                            {item.description}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      {item.imageUrl ? (
-                        <Image
-                          src={item.imageUrl}
-                          alt=""
-                          width={64}
-                          height={64}
-                          className="size-16 shrink-0 rounded-xl object-cover"
-                        />
-                      ) : null}
-                    </div>
-
-                    <div className="mt-2.5 flex justify-end">
-                      {!item.isAvailable ? (
-                        <Badge variant="outline">{t("menu_unavailable")}</Badge>
-                      ) : readOnly ? null : hasModifiers ? (
-                        <div className="flex items-center gap-3">
-                          {quantity > 0 ? (
-                            <span className="text-xs text-muted-foreground">
-                              {t("menu_inCart", { count: quantity })}
-                            </span>
-                          ) : null}
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-                            aria-label={t("menu_customize", { name: item.name })}
-                            onClick={() => onCustomize?.(item)}
-                          >
-                            <Plus data-icon="inline-start" />
-                            {t("menu_add")}
-                          </Button>
-                        </div>
-                      ) : quantity === 0 ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-                          onClick={() => onSetQuantity?.(item, 1)}
-                        >
-                          <Plus data-icon="inline-start" />
-                          {t("menu_add")}
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2 rounded-full border border-primary/40 bg-primary/5 px-1 py-0.5">
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="ghost"
-                            className="rounded-full"
-                            aria-label={t("menu_removeOne", { name: item.name })}
-                            onClick={() => onSetQuantity?.(item, quantity - 1)}
-                          >
-                            <Minus />
-                          </Button>
-                          <span className="min-w-4 text-center text-sm font-semibold tabular-nums text-foreground">
-                            {quantity}
-                          </span>
-                          <Button
-                            type="button"
-                            size="icon-xs"
-                            variant="ghost"
-                            className="rounded-full"
-                            aria-label={t("menu_addOne", { name: item.name })}
-                            onClick={() => onSetQuantity?.(item, quantity + 1)}
-                          >
-                            <Plus />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+            node={category}
+            depth={0}
+            cart={cart}
+            readOnly={readOnly}
+            onSetQuantity={onSetQuantity}
+            onCustomize={onCustomize}
+          />
         ))}
       </div>
     </div>

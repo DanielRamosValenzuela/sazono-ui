@@ -8,13 +8,14 @@ type CellProps = {
   children: ReactNode;
 };
 
-export function HeadCell({ align = "left", children }: CellProps) {
+export function HeadCell({ align = "left", className, children }: CellProps) {
   return (
     <th
       scope="col"
       className={cn(
         "sticky top-0 z-10 border-b border-border bg-muted px-3 py-2 text-xs font-semibold whitespace-nowrap text-muted-foreground",
-        align === "right" ? "text-right" : "text-left"
+        align === "right" ? "text-right" : "text-left",
+        className
       )}
     >
       {children}
@@ -36,13 +37,19 @@ export function BodyCell({ align = "left", className, children }: CellProps) {
   );
 }
 
-export function FootCell({ align = "left", colSpan, children }: CellProps) {
+export function FootCell({
+  align = "left",
+  className,
+  colSpan,
+  children,
+}: CellProps) {
   return (
     <td
       colSpan={colSpan}
       className={cn(
         "sticky bottom-0 z-10 border-t border-border bg-muted px-3 py-2 font-semibold whitespace-nowrap",
-        align === "right" ? "text-right" : "text-left"
+        align === "right" ? "text-right" : "text-left",
+        className
       )}
     >
       {children}

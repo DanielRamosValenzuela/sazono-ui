@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { CategoryHeading } from "@/shared/ui/category-heading";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, UtensilsCrossed, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -32,6 +33,10 @@ import {
   type CartLine,
 } from "@/shared/lib/cart";
 import { formatMoney } from "@/shared/lib/format";
+import {
+  buildVisibleCategoryTree,
+  flattenCategoryTree,
+} from "@/shared/lib/menu-tree";
 import type { MenuItemDetail, ModifierGroup } from "@/shared/types/menu";
 import {
   FieldGroup,
@@ -85,22 +90,17 @@ export function AddOrderSheet({
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
   const categories = useMemo(() => {
-    const activeCategories = (menuDetailQuery.data?.categories ?? [])
-      .filter((category) => category.status === "ACTIVE" && category.items.length > 0)
-      .sort((left, right) => left.sortOrder - right.sortOrder);
+    const allCategories = menuDetailQuery.data?.categories ?? [];
+    const searched = normalizedSearch
+      ? allCategories.map((category) => ({
+          ...category,
+          items: category.items.filter((item) =>
+            item.name.toLowerCase().includes(normalizedSearch)
+          ),
+        }))
+      : allCategories;
 
-    if (!normalizedSearch) {
-      return activeCategories;
-    }
-
-    return activeCategories
-      .map((category) => ({
-        ...category,
-        items: category.items.filter((item) =>
-          item.name.toLowerCase().includes(normalizedSearch)
-        ),
-      }))
-      .filter((category) => category.items.length > 0);
+    return flattenCategoryTree(buildVisibleCategoryTree(searched));
   }, [menuDetailQuery.data, normalizedSearch]);
 
   const handleSetQuantity = (item: MenuItemDetail, quantity: number) => {
@@ -222,10 +222,20 @@ export function AddOrderSheet({
             <div className="space-y-5">
               {categories.map((category) => (
                 <div key={category.menuCategoryId}>
-                  <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <CategoryHeading
+                    depth={category.depth}
+                    className={cn(
+                      "px-1 text-sm font-semibold tracking-wide text-muted-foreground",
+                      category.depth === 0 && "uppercase"
+                    )}
+                    style={{ paddingLeft: category.depth * 14 + 4 }}
+                  >
                     {category.name}
-                  </h3>
-                  <ul className="mt-1 divide-y divide-border/50">
+                  </CategoryHeading>
+                  <ul
+                    className="mt-1 divide-y divide-border/50"
+                    style={{ marginLeft: category.depth * 14 }}
+                  >
                     {category.items.map((item) => {
                       const hasModifiers = item.modifierGroups.length > 0;
                       const quantity = hasModifiers

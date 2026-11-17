@@ -10,13 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { reportsApi, type ReportKind } from "@/shared/api/reports-api";
+import { reportsApi } from "@/shared/api/reports-api";
 import { formatMoney } from "@/shared/lib/format";
 import { getBranchAccessList, hasBranchPermission } from "@/shared/lib/branch-access";
 import { SelectInput, TextInput } from "@/shared/ui/form-controls";
 import { StatCard } from "@/shared/ui/stat-card";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
+import { downloadBlob } from "./download-blob";
+import { HierarchyTab } from "./hierarchy-tab";
 import { PaymentsTab } from "./payments-tab";
 import {
   RANGE_PRESETS,
@@ -32,12 +34,13 @@ const DAY_MS = 86_400_000;
 const REPORT_ROLES = ["ADMIN", "SUPERVISOR", "CASHIER"] as const;
 const FULL_ROLES = ["ADMIN", "SUPERVISOR"] as const;
 
-type ReportTab = "sales" | "payments";
+type ReportTab = "sales" | "payments" | "hierarchy";
 
-const TAB_KINDS: Record<ReportTab, ReportKind> = {
-  sales: "sales-by-order",
-  payments: "payments",
-};
+const TAB_LABELS = {
+  sales: "tabSales",
+  payments: "tabPayments",
+  hierarchy: "tabHierarchy",
+} as const;
 
 export function ReportsPanel() {
   return (
@@ -67,7 +70,16 @@ function ReportsContent() {
   const branchId = branch?.branchId ?? null;
   const fullAccess = hasBranchPermission(branch, [...FULL_ROLES]);
 
-  const tab: ReportTab = searchParams.get("tab") === "payments" ? "payments" : "sales";
+  const tabParam = searchParams.get("tab");
+  const tab: ReportTab =
+    tabParam === "payments"
+      ? "payments"
+      : tabParam === "hierarchy" && fullAccess
+        ? "hierarchy"
+        : "sales";
+  const tabs: ReportTab[] = fullAccess
+    ? ["sales", "payments", "hierarchy"]
+    : ["sales", "payments"];
   const presetParam = searchParams.get("preset");
   const preset: RangePreset =
     fullAccess && isRangePreset(presetParam) ? presetParam : "today";
@@ -128,7 +140,7 @@ function ReportsContent() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const kind = TAB_KINDS[tab];
+      const kind = tab === "payments" ? "payments" : "sales-by-order";
       const blob = await reportsApi.downloadCsv(
         session.accessToken!,
         branchId!,
@@ -136,14 +148,7 @@ function ReportsContent() {
         range
       );
       const fileName = `${kind === "payments" ? "pagos" : "cierre-ventas"}_${branchId}_${range.from}_${range.to}.csv`;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, fileName);
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("exportError"));
@@ -240,15 +245,17 @@ function ReportsContent() {
             </>
           ) : null}
 
-          <Button
-            variant="outline"
-            className="ml-auto rounded-full"
-            disabled={!enabled || exportMutation.isPending}
-            onClick={() => exportMutation.mutate()}
-          >
-            {exportMutation.isPending ? <Spinner /> : <Download />}
-            {t("exportCsv")}
-          </Button>
+          {tab === "hierarchy" ? null : (
+            <Button
+              variant="outline"
+              className="ml-auto rounded-full"
+              disabled={!enabled || exportMutation.isPending}
+              onClick={() => exportMutation.mutate()}
+            >
+              {exportMutation.isPending ? <Spinner /> : <Download />}
+              {t("exportCsv")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -283,7 +290,7 @@ function ReportsContent() {
       </section>
 
       <div role="group" aria-label={t("tabsLabel")} className="flex gap-1 border-b border-border">
-        {(["sales", "payments"] as const).map((entry) => (
+        {tabs.map((entry) => (
           <button
             key={entry}
             type="button"
@@ -296,7 +303,7 @@ function ReportsContent() {
             )}
             onClick={() => updateParams({ tab: entry })}
           >
-            {entry === "sales" ? t("tabSales") : t("tabPayments")}
+            {t(TAB_LABELS[entry])}
           </button>
         ))}
       </div>
@@ -307,6 +314,14 @@ function ReportsContent() {
         </div>
       ) : tab === "sales" ? (
         <SalesTab query={salesQuery} />
+      ) : tab === "hierarchy" ? (
+        <HierarchyTab
+          key={branch.branchId}
+          accessToken={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          enabled={enabled}
+        />
       ) : (
         <PaymentsTab query={paymentsQuery} />
       )}

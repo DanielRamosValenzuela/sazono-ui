@@ -1,12 +1,33 @@
 import { apiRequest, ApiError } from "@/shared/api/http-client";
 import { publicEnv } from "@/shared/config/public-env";
 import type {
+  HierarchyParams,
   PaymentsReportResponse,
   ReportRangeParams,
+  SalesByHierarchyResponse,
   SalesByOrderResponse,
 } from "@/shared/types/reports";
 
-export type ReportKind = "sales-by-order" | "payments";
+export type ReportKind = "sales-by-order" | "payments" | "sales-by-hierarchy";
+
+function buildHierarchyQuery(params: HierarchyParams, format?: "csv") {
+  const query = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    groupBy: params.groupBy,
+    includeModifiers: String(params.includeModifiers),
+  });
+
+  if (params.parentId) {
+    query.set("parentId", params.parentId);
+  }
+
+  if (format) {
+    query.set("format", format);
+  }
+
+  return query.toString();
+}
 
 function buildQuery(params: ReportRangeParams & { format?: "csv" }) {
   const query = new URLSearchParams({ from: params.from, to: params.to });
@@ -39,17 +60,27 @@ export const reportsApi = {
       { token }
     );
   },
+  getSalesByHierarchy(token: string, branchId: string, params: HierarchyParams) {
+    return apiRequest<SalesByHierarchyResponse>(
+      `/reports/branches/${branchId}/sales-by-hierarchy?${buildHierarchyQuery(params)}`,
+      { token }
+    );
+  },
   async downloadCsv(
     token: string,
     branchId: string,
     kind: ReportKind,
-    params: ReportRangeParams
+    params: ReportRangeParams,
+    hierarchy?: Omit<HierarchyParams, keyof ReportRangeParams>
   ) {
     let response: Response;
+    const query = hierarchy
+      ? buildHierarchyQuery({ ...params, ...hierarchy }, "csv")
+      : buildQuery({ ...params, format: "csv" });
 
     try {
       response = await fetch(
-        `${publicEnv.apiBaseUrl}/reports/branches/${branchId}/${kind}?${buildQuery({ ...params, format: "csv" })}`,
+        `${publicEnv.apiBaseUrl}/reports/branches/${branchId}/${kind}?${query}`,
         { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
       );
     } catch (error) {
