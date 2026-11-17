@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { InfiniteData, UseInfiniteQueryResult } from "@tanstack/react-query";
+import type {
+  InfiniteData,
+  UseInfiniteQueryResult,
+} from "@tanstack/react-query";
 import { Columns3 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +40,12 @@ function amountOf(methods: ReportMethodAmount[], key: ReportMethodKey) {
   return methods.find((entry) => entry.method === key)?.amount ?? "0";
 }
 
+const ALWAYS_VISIBLE_METHODS: ReportMethodKey[] = [
+  "CASH",
+  "CREDIT_CARD",
+  "DEBIT_CARD",
+];
+
 function isZero(amount: string) {
   return Number(amount) === 0;
 }
@@ -44,23 +53,26 @@ function isZero(amount: string) {
 export function SalesTab({ query }: SalesTabProps) {
   const t = useTranslations("Reports");
   const locale = useLocale();
-  const [hiddenMethods, setHiddenMethods] = useState<ReportMethodKey[]>([]);
+  const [methodOverrides, setMethodOverrides] = useState<
+    Partial<Record<ReportMethodKey, boolean>>
+  >({});
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [selected, setSelected] = useState<SalesByOrderRow | null>(null);
 
   const pages = query.data?.pages ?? [];
   const rows = pages.flatMap((page) => page.rows);
   const totals = pages[0]?.totals;
-  const visibleMethods = REPORT_METHOD_KEYS.filter(
-    (key) => !hiddenMethods.includes(key)
-  );
+  const isMethodVisible = (key: ReportMethodKey) =>
+    methodOverrides[key] ??
+    (ALWAYS_VISIBLE_METHODS.includes(key) ||
+      !isZero(amountOf(totals?.methods ?? [], key)));
+  const visibleMethods = REPORT_METHOD_KEYS.filter(isMethodVisible);
 
   const toggleMethod = (key: ReportMethodKey) =>
-    setHiddenMethods((current) =>
-      current.includes(key)
-        ? current.filter((entry) => entry !== key)
-        : [...current, key]
-    );
+    setMethodOverrides((current) => ({
+      ...current,
+      [key]: !isMethodVisible(key),
+    }));
 
   const statusLabel = (row: SalesByOrderRow) =>
     t(`salesStatus.${STATUS_KEYS[row.paymentStatus]}`);
@@ -92,7 +104,7 @@ export function SalesTab({ query }: SalesTabProps) {
               <CheckboxRow key={key} className="w-auto py-1.5">
                 <input
                   type="checkbox"
-                  checked={!hiddenMethods.includes(key)}
+                  checked={isMethodVisible(key)}
                   onChange={() => toggleMethod(key)}
                 />
                 {t(`methods.${key}`)}
@@ -121,13 +133,24 @@ export function SalesTab({ query }: SalesTabProps) {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <SelectableRow key={row.billId} onSelect={() => setSelected(row)}>
-                  <BodyCell>{formatReportDateTime(row.closedAt, locale)}</BodyCell>
-                  <BodyCell className="font-medium">#{row.orderNumber}</BodyCell>
+                <SelectableRow
+                  key={row.billId}
+                  onSelect={() => setSelected(row)}
+                >
+                  <BodyCell>
+                    {formatReportDateTime(row.closedAt, locale)}
+                  </BodyCell>
+                  <BodyCell className="font-medium">
+                    #{row.orderNumber}
+                  </BodyCell>
                   <BodyCell>{row.caja}</BodyCell>
                   <BodyCell>{row.table ?? "—"}</BodyCell>
                   <BodyCell>
-                    <Badge variant={row.paymentStatus === "Mixto" ? "secondary" : "outline"}>
+                    <Badge
+                      variant={
+                        row.paymentStatus === "Mixto" ? "secondary" : "outline"
+                      }
+                    >
                       {statusLabel(row)}
                     </Badge>
                   </BodyCell>
@@ -141,7 +164,9 @@ export function SalesTab({ query }: SalesTabProps) {
                       <BodyCell
                         key={key}
                         align="right"
-                        className={cn(isZero(amount) && "text-muted-foreground/50")}
+                        className={cn(
+                          isZero(amount) && "text-muted-foreground/50",
+                        )}
                       >
                         {isZero(amount) ? "—" : formatMoney(amount)}
                       </BodyCell>
@@ -153,8 +178,12 @@ export function SalesTab({ query }: SalesTabProps) {
             {totals ? (
               <tfoot>
                 <tr>
-                  <FootCell colSpan={5}>{t("totalsRow", { count: totals.bills })}</FootCell>
-                  <FootCell align="right">{formatMoney(totals.payable)}</FootCell>
+                  <FootCell colSpan={5}>
+                    {t("totalsRow", { count: totals.bills })}
+                  </FootCell>
+                  <FootCell align="right">
+                    {formatMoney(totals.payable)}
+                  </FootCell>
                   <FootCell align="right">{formatMoney(totals.tip)}</FootCell>
                   {visibleMethods.map((key) => (
                     <FootCell key={key} align="right">
@@ -196,14 +225,23 @@ export function SalesTab({ query }: SalesTabProps) {
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge variant={row.paymentStatus === "Mixto" ? "secondary" : "outline"}>
+                  <Badge
+                    variant={
+                      row.paymentStatus === "Mixto" ? "secondary" : "outline"
+                    }
+                  >
                     {statusLabel(row)}
                   </Badge>
                   {row.methods
                     .filter((entry) => !isZero(entry.amount))
                     .map((entry) => (
-                      <Badge key={entry.method} variant="secondary" className="tabular-nums">
-                        {t(`methods.${entry.method}`)} {formatMoney(entry.amount)}
+                      <Badge
+                        key={entry.method}
+                        variant="secondary"
+                        className="tabular-nums"
+                      >
+                        {t(`methods.${entry.method}`)}{" "}
+                        {formatMoney(entry.amount)}
                       </Badge>
                     ))}
                 </div>
@@ -212,7 +250,9 @@ export function SalesTab({ query }: SalesTabProps) {
           ))}
           {totals ? (
             <li className="rounded-2xl border border-border bg-muted p-4">
-              <p className="text-sm font-semibold">{t("totalsRow", { count: totals.bills })}</p>
+              <p className="text-sm font-semibold">
+                {t("totalsRow", { count: totals.bills })}
+              </p>
               <p className="mt-1 text-lg font-semibold tabular-nums">
                 {formatMoney(totals.payable)}
               </p>
@@ -223,7 +263,11 @@ export function SalesTab({ query }: SalesTabProps) {
                 {totals.methods
                   .filter((entry) => !isZero(entry.amount))
                   .map((entry) => (
-                    <Badge key={entry.method} variant="secondary" className="tabular-nums">
+                    <Badge
+                      key={entry.method}
+                      variant="secondary"
+                      className="tabular-nums"
+                    >
                       {t(`methods.${entry.method}`)} {formatMoney(entry.amount)}
                     </Badge>
                   ))}
@@ -239,12 +283,17 @@ export function SalesTab({ query }: SalesTabProps) {
         />
       </div>
 
-      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      >
         <DialogContent className="max-w-2xl">
           {selected ? (
             <>
               <DialogHeader>
-                <DialogTitle>{t("detailOrderTitle", { order: selected.orderNumber })}</DialogTitle>
+                <DialogTitle>
+                  {t("detailOrderTitle", { order: selected.orderNumber })}
+                </DialogTitle>
                 <DialogDescription>
                   {formatReportDateTime(selected.closedAt, locale)}
                 </DialogDescription>
@@ -254,7 +303,9 @@ export function SalesTab({ query }: SalesTabProps) {
                   [t("colCaja"), selected.caja],
                   [
                     t("colTable"),
-                    [selected.table, selected.zone].filter(Boolean).join(" · ") || "—",
+                    [selected.table, selected.zone]
+                      .filter(Boolean)
+                      .join(" · ") || "—",
                   ],
                   [t("colWaiter"), selected.waiter ?? "—"],
                   [t("colCashier"), selected.cashier ?? "—"],
@@ -269,7 +320,9 @@ export function SalesTab({ query }: SalesTabProps) {
                 ]}
               />
               <div>
-                <p className="mb-2 text-sm font-semibold">{t("detailMethods")}</p>
+                <p className="mb-2 text-sm font-semibold">
+                  {t("detailMethods")}
+                </p>
                 <ul className="divide-y divide-border/70 rounded-2xl border border-border/70">
                   {selected.methods
                     .filter((entry) => !isZero(entry.amount))
