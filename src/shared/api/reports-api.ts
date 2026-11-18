@@ -4,6 +4,7 @@ import type { RefundsReportResponse } from "@/shared/types/refunds";
 import {
   DEFAULT_REPORT_SORT,
   REPORT_FILTER_SUPPORT,
+  type DailyZResponse,
   type HierarchyParams,
   type OpenTabKind,
   type OpenTabsResponse,
@@ -190,6 +191,12 @@ export const reportsApi = {
   ) {
     return apiRequest<SummaryKpisResponse>(
       `/reports/branches/${branchId}/summary-kpis?${buildQuery("summary-kpis", params, { compare: compare ? "previous" : undefined })}`,
+      { token }
+    );
+  },
+  getDailyZ(token: string, branchId: string, date: string) {
+    return apiRequest<DailyZResponse>(
+      `/reports/branches/${branchId}/daily-z?${new URLSearchParams({ date }).toString()}`,
       { token }
     );
   },

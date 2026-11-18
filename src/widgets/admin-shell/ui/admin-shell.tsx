@@ -13,6 +13,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  Receipt,
   X,
   Store,
   UtensilsCrossed,
@@ -139,6 +140,11 @@ export function AdminShell({ children, area }: AdminShellProps) {
           href: "/admin/leads",
           labelKey: "navLeads",
           icon: <Inbox className="size-4" />,
+        },
+        {
+          href: "/admin/billing",
+          labelKey: "navBilling",
+          icon: <Receipt className="size-4" />,
         },
       ]
     : session.isRestaurantAdmin

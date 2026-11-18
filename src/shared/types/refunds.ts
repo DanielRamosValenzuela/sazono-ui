@@ -35,6 +35,7 @@ export interface CreateRefundRequest {
   reasonCode: RefundReasonCode;
   reasonText: string;
   refundTip: boolean;
+  registerAsManual?: boolean;
   approverStaffUserId?: string;
   approverPin?: string;
 }
@@ -58,6 +59,7 @@ export interface RefundRecord {
   method: RefundMethod;
   reasonCode: RefundReasonCode;
   reasonText: string;
+  failureReason: string | null;
   requestedBy: {
     staffUserId: string;
     name: string;
@@ -94,6 +96,9 @@ export interface PaymentRefunds {
     status: string;
     consumptionAmount: string;
     paidAt: string | null;
+    disputed: boolean;
+    installments: number | null;
+    gatewayRefundSupported: boolean;
   };
   settings: {
     cashierRefundLimit: string | null;
@@ -104,6 +109,7 @@ export interface PaymentRefunds {
     method: RefundMethod | null;
     deniedCode: string | null;
     deniedMessage: string | null;
+    canManageGateway: boolean;
   };
   refunds: RefundRecord[];
 }

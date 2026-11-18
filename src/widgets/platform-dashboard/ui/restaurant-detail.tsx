@@ -39,6 +39,9 @@ const TIMEZONE_OPTIONS = [
 type EditFormValues = {
   name: string;
   legalName: string;
+  taxId: string;
+  businessActivity: string;
+  legalAddress: string;
   slug: string;
   branchQuota: number;
   defaultLanguage: string;
@@ -74,6 +77,9 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
     defaultValues: {
       name: "",
       legalName: "",
+      taxId: "",
+      businessActivity: "",
+      legalAddress: "",
       slug: "",
       branchQuota: 1,
       defaultLanguage: "es",
@@ -88,6 +94,9 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
       reset({
         name: restaurant.name,
         legalName: restaurant.legalName ?? "",
+        taxId: restaurant.taxId ?? "",
+        businessActivity: restaurant.businessActivity ?? "",
+        legalAddress: restaurant.legalAddress ?? "",
         slug: restaurant.slug,
         branchQuota: restaurant.branchQuota,
         defaultLanguage: restaurant.defaultLanguage,
@@ -204,6 +213,9 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
             updateMutation.mutate({
               name: values.name,
               legalName: values.legalName || null,
+              taxId: values.taxId.trim() || null,
+              businessActivity: values.businessActivity.trim() || null,
+              legalAddress: values.legalAddress.trim() || null,
               slug: values.slug,
               branchQuota: Number(values.branchQuota),
               defaultLanguage: values.defaultLanguage,
@@ -229,6 +241,35 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
                 {tBootstrap("legalName")}
               </FieldLabel>
               <TextInput id="detail-legal-name" {...form.register("legalName")} />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-tax-id">{t("taxId")}</FieldLabel>
+              <TextInput
+                id="detail-tax-id"
+                placeholder="12.345.678-5"
+                {...form.register("taxId")}
+              />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-business-activity">
+                {t("businessActivity")}
+              </FieldLabel>
+              <TextInput
+                id="detail-business-activity"
+                {...form.register("businessActivity")}
+              />
+            </FieldGroup>
+
+            <FieldGroup className="md:col-span-2">
+              <FieldLabel htmlFor="detail-legal-address">
+                {t("legalAddress")}
+              </FieldLabel>
+              <TextInput
+                id="detail-legal-address"
+                {...form.register("legalAddress")}
+              />
             </FieldGroup>
 
             <FieldGroup>

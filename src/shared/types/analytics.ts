@@ -39,6 +39,9 @@ export type RestaurantDetail = {
   restaurantId: string;
   name: string;
   legalName: string | null;
+  taxId?: string | null;
+  businessActivity?: string | null;
+  legalAddress?: string | null;
   slug: string;
   branchQuota: number;
   status: RestaurantStatus;
@@ -53,6 +56,9 @@ export type RestaurantDetail = {
 export type UpdateRestaurantRequest = {
   name?: string;
   legalName?: string | null;
+  taxId?: string | null;
+  businessActivity?: string | null;
+  legalAddress?: string | null;
   slug?: string;
   branchQuota?: number;
   defaultLanguage?: string;

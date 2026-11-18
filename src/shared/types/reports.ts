@@ -56,11 +56,15 @@ export interface SalesByOrderRow {
   payable: string;
   tip: string;
   paymentsCount: number;
+  billNumber: string | null;
   receipt: string | null;
   receiptNumber: string | null;
   refunded: string;
   tipRefunded: string;
   net: string;
+  netAmount: string;
+  exemptAmount: string;
+  vatAmount: string;
   refundStatus: RefundLevel;
   methods: ReportMethodAmount[];
 }
@@ -75,6 +79,9 @@ export interface SalesByOrderTotals {
   refunded: string;
   tipRefunded: string;
   net: string;
+  netAmount: string;
+  exemptAmount: string;
+  vatAmount: string;
   methods: ReportMethodAmount[];
   otherPeriod: {
     included: boolean;
@@ -470,7 +477,8 @@ export type ReportTab =
   | "salesBy"
   | "tips"
   | "openTabs"
-  | "refunds";
+  | "refunds"
+  | "dailyZ";
 
 export interface SalesByMethodRow {
   method: ReportMethodKey;
@@ -687,4 +695,74 @@ export interface SummaryKpisResponse {
   previousRange: { from: string; to: string } | null;
   previous: KpiBlock | null;
   delta: Record<KpiKey, KpiDelta | null> | null;
+}
+
+export interface DailyZMethodRow {
+  method: ReportMethodKey;
+  label: string;
+  count: number;
+  amount: string;
+  tip: string;
+  collected: string;
+}
+
+export interface DailyZCategoryRow {
+  category: string;
+  amount: string;
+  quantity: number;
+  share: number;
+}
+
+export interface DailyZCashRow {
+  staffUserId: string | null;
+  name: string | null;
+  cashSales: string;
+  cashIn: string;
+  cashOut: string;
+  refundOut: string;
+  otherMovements: string;
+  expectedCash: string;
+}
+
+export interface DailyZSales {
+  documents: {
+    count: number;
+    firstNumber: number | null;
+    lastNumber: number | null;
+  };
+  netAmount: string;
+  exemptAmount: string;
+  vatAmount: string;
+  total: string;
+  tipAmount: string;
+  collected: string;
+  discounts: string;
+}
+
+export interface DailyZRefunds {
+  count: number;
+  amount: string;
+  tipAmount: string;
+  consumption: string;
+  netAmount: string;
+  vatAmount: string;
+  pendingCreditNotes: number;
+}
+
+export interface DailyZResponse {
+  branchId: string;
+  date: string;
+  timeZone: string;
+  cashierScoped: boolean;
+  sales: DailyZSales | null;
+  refunds: DailyZRefunds | null;
+  afterRefunds: {
+    netAmount: string;
+    exemptAmount: string;
+    vatAmount: string;
+    tipAmount: string;
+  } | null;
+  byMethod: DailyZMethodRow[];
+  byCategory: DailyZCategoryRow[];
+  cashClosing: { rows: DailyZCashRow[]; expectedCash: string };
 }

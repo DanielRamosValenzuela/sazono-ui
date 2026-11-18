@@ -31,6 +31,7 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { downloadBlob } from "./download-blob";
 import { ReportFilterBar } from "./filter-bar";
+import { DailyZTab } from "./daily-z-tab";
 import { HierarchyTab } from "./hierarchy-tab";
 import { KpiStrip } from "./kpi-strip";
 import { OpenTabsTab } from "./open-tabs-tab";
@@ -346,7 +347,7 @@ function ReportsContent() {
             </div>
           ) : null}
 
-          {fullAccess ? (
+          {tab === "dailyZ" ? null : fullAccess ? (
             <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("rangeLabel")}>
               {RANGE_PRESETS.map((entry) => (
                 <Button
@@ -365,7 +366,7 @@ function ReportsContent() {
             <p className="text-sm font-medium">{t("presets.today")}</p>
           )}
 
-          {fullAccess && preset === "custom" ? (
+          {tab !== "dailyZ" && fullAccess && preset === "custom" ? (
             <>
               <div>
                 <label htmlFor="reports-from" className="sr-only">
@@ -394,6 +395,7 @@ function ReportsContent() {
             </>
           ) : null}
 
+          {tab === "dailyZ" ? null : (
           <ReportFilterBar
             key={branch.branchId}
             branchId={branch.branchId}
@@ -413,8 +415,9 @@ function ReportsContent() {
             onApplyView={applyView}
             onClear={clearFilters}
           />
+          )}
 
-          {tab === "hierarchy" ? null : (
+          {tab === "hierarchy" || tab === "dailyZ" ? null : (
             <Button
               variant="outline"
               className="ml-auto rounded-full"
@@ -428,7 +431,7 @@ function ReportsContent() {
         </div>
       </div>
 
-      {fullAccess ? (
+      {tab === "dailyZ" ? null : fullAccess ? (
         <KpiStrip
           token={session.accessToken ?? null}
           branchId={branch.branchId}
@@ -495,7 +498,15 @@ function ReportsContent() {
         ))}
       </div>
 
-      {!rangeIsValid ? (
+      {tab === "dailyZ" ? (
+        <DailyZTab
+          key={branch.branchId}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          fullAccess={fullAccess}
+          enabled={session.isClientReady && Boolean(session.accessToken)}
+        />
+      ) : !rangeIsValid ? (
         <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
           {rangeIsOrdered ? t("rangeTooLong") : t("invalidRange")}
         </div>

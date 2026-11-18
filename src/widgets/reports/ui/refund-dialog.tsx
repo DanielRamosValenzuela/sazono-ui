@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError } from "@/shared/api/http-client";
@@ -37,7 +38,10 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { RefundStatusPanel } from "./refund-status-panel";
 import { DetailGrid } from "./report-parts";
+
+const POLL_INTERVAL_MS = 3000;
 
 type RefundDialogProps = {
   token: string | null;
@@ -150,6 +154,7 @@ function RefundForm({
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RefundResult | null>(null);
+  const [registerManual, setRegisterManual] = useState(false);
 
   const stateQuery = useQuery({
     queryKey: ["reports", "refund-state", branchId, payment.id],
@@ -157,9 +162,15 @@ function RefundForm({
     staleTime: 0,
     gcTime: 0,
     retry: false,
+    refetchInterval: () => (result?.refund.status === "PENDING" ? POLL_INTERVAL_MS : false),
     queryFn: () => refundsApi.listForPayment(token!, branchId, payment.id),
   });
   const state = stateQuery.data;
+  const liveRefund = result
+    ? (state?.refunds.find((item) => item.refundId === result.refund.refundId) ??
+      result.refund)
+    : null;
+  const liveStatus = liveRefund?.status ?? null;
   const refundable = state?.payment.refundable;
   const tipAvailable = Number(refundable?.tip ?? 0) > 0;
   const tipOn =
@@ -178,7 +189,11 @@ function RefundForm({
       REFUND_REASON_MIN_LENGTH &&
     !CONTROL_PATTERN.test(reasonTrimmed);
   const approvalReady = approval === null || (approverId !== "" && PIN_PATTERN.test(pin));
-  const method = state?.eligibility.method ?? null;
+  const canManage = state?.eligibility.canManageGateway ?? false;
+  const method =
+    registerManual && state?.eligibility.method === "GATEWAY"
+      ? "MANUAL_EXTERNAL"
+      : (state?.eligibility.method ?? null);
   const allowed = state?.eligibility.allowed ?? false;
   const canSubmit =
     allowed &&
@@ -215,6 +230,7 @@ function RefundForm({
         reasonCode: reasonCode as RefundReasonCode,
         reasonText: reasonTrimmed,
         refundTip: tipOn,
+        ...(registerManual ? { registerAsManual: true } : {}),
         ...(approval ? { approverStaffUserId: approverId, approverPin: pin } : {}),
       };
 
@@ -275,6 +291,12 @@ function RefundForm({
   const isPending = mutation.isPending;
 
   useEffect(() => {
+    if (liveStatus && liveStatus !== "PENDING") {
+      void queryClient.invalidateQueries({ queryKey: ["reports"] });
+    }
+  }, [liveStatus, queryClient]);
+
+  useEffect(() => {
     onPendingChange(isPending);
 
     return () => onPendingChange(false);
@@ -295,7 +317,10 @@ function RefundForm({
     mutation.mutate();
   };
 
-  if (result) {
+  if (result && liveRefund) {
+    const gatewayRefund = liveRefund.method === "GATEWAY";
+    const settled = liveRefund.status === "SUCCEEDED";
+
     return (
       <div className="space-y-4">
         <div
@@ -303,11 +328,37 @@ function RefundForm({
           className="space-y-2 rounded-2xl border border-border/70 bg-muted/40 p-4"
         >
           <p className="font-semibold">
-            {t(result.idempotentReplay ? "doneReplay" : "done", {
-              amount: formatMoney(result.refund.amount),
-            })}
+            {settled
+              ? t(result.idempotentReplay ? "doneReplay" : "done", {
+                  amount: formatMoney(result.refund.amount),
+                })
+              : liveRefund.status === "PENDING"
+                ? t("processing", { amount: formatMoney(result.refund.amount) })
+                : t("notDone", { amount: formatMoney(result.refund.amount) })}
           </p>
-          {result.cashToHandOver !== null ? (
+          {gatewayRefund ? (
+            <>
+              {liveRefund.status === "PENDING" ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Spinner /> {t("processingHint")}
+                </p>
+              ) : null}
+              <RefundStatusPanel
+                token={token}
+                refund={liveRefund}
+                canManage={canManage}
+                onSettled={(next) => {
+                  setResult(next);
+                  void stateQuery.refetch();
+                }}
+              />
+              {settled && state?.payment.provider === "TRANSBANK" ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("transbankDelay")}
+                </p>
+              ) : null}
+            </>
+          ) : result.cashToHandOver !== null ? (
             <p className="flex items-center gap-2 text-base font-semibold">
               <Banknote className="size-5 shrink-0" aria-hidden="true" />
               {t("cashToHandOver", {
@@ -393,7 +444,17 @@ function RefundForm({
       <DetailGrid
         className="rounded-2xl border border-border/70 bg-muted/40 p-4"
         items={[
-          [t("summaryMethod"), methodLabel],
+          [
+            t("summaryMethod"),
+            state.payment.disputed ? (
+              <span className="inline-flex items-center gap-2">
+                {methodLabel}
+                <Badge variant="destructive">{t("disputed")}</Badge>
+              </span>
+            ) : (
+              methodLabel
+            ),
+          ],
           [t("summaryCharged"), formatMoney(state.payment.amount)],
           [t("summaryTip"), formatMoney(state.payment.tipAmount)],
           [t("summaryRefunded"), formatMoney(state.payment.refundedAmount)],
@@ -418,6 +479,30 @@ function RefundForm({
         </p>
       ) : nothingLeft ? (
         <p className="text-sm text-muted-foreground">{t("nothingLeft")}</p>
+      ) : method === "GATEWAY" ? (
+        <p
+          role="note"
+          className="flex items-start gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2 text-sm"
+        >
+          <TriangleAlert
+            className="mt-0.5 size-4 shrink-0"
+            aria-hidden="true"
+          />
+          <span>
+            {t("noticeGatewayAuto", { provider: state.payment.provider })}
+            {state.payment.provider === "TRANSBANK" ? (
+              <span className="mt-1 block">{t("transbankDelay")}</span>
+            ) : null}
+            {state.payment.provider === "TRANSBANK" &&
+            (state.payment.installments ?? 0) > 1 ? (
+              <span className="mt-1 block font-medium">
+                {t("transbankInstallments", {
+                  count: state.payment.installments ?? 0,
+                })}
+              </span>
+            ) : null}
+          </span>
+        </p>
       ) : method === "MANUAL_EXTERNAL" ? (
         <p
           role="note"
@@ -433,6 +518,24 @@ function RefundForm({
               : t("noticeExternal")}
           </span>
         </p>
+      ) : null}
+
+      {canManage && allowed && state.eligibility.method === "GATEWAY" ? (
+        <CheckboxRow>
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={registerManual}
+            disabled={mutation.isPending}
+            onChange={(event) => setRegisterManual(event.target.checked)}
+          />
+          <span>
+            {t("registerManual")}
+            <span className="block text-xs text-muted-foreground">
+              {t("registerManualHint")}
+            </span>
+          </span>
+        </CheckboxRow>
       ) : null}
 
       <FieldGroup>
@@ -610,6 +713,33 @@ function RefundForm({
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {error}
         </p>
+      ) : null}
+
+      {state.refunds.some((item) => item.method === "GATEWAY") ? (
+        <section className="space-y-2" aria-label={t("historyTitle")}>
+          <h3 className="text-sm font-semibold">{t("historyTitle")}</h3>
+          {state.refunds
+            .filter((item) => item.method === "GATEWAY")
+            .map((item) => (
+              <div
+                key={item.refundId}
+                className="space-y-1 rounded-xl border border-border/70 p-3 text-sm"
+              >
+                <p className="font-medium tabular-nums">
+                  {formatMoney(item.amount)}
+                </p>
+                <RefundStatusPanel
+                  token={token}
+                  refund={item}
+                  canManage={canManage}
+                  onSettled={(next) => {
+                    setResult(next);
+                    void stateQuery.refetch();
+                  }}
+                />
+              </div>
+            ))}
+        </section>
       ) : null}
 
       <DialogFooter>

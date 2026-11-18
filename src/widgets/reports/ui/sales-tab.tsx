@@ -144,6 +144,10 @@ export function SalesTab({
                   <HeadCell align="right">{t("colTip")}</HeadCell>
                   <HeadCell align="right">{t("colRefunded")}</HeadCell>
                   <HeadCell align="right">{t("colNet")}</HeadCell>
+                  <HeadCell align="right">{t("colNetAmount")}</HeadCell>
+                  <HeadCell align="right">{t("colVat")}</HeadCell>
+                  <HeadCell>{t("colReceipt")}</HeadCell>
+                  <HeadCell>{t("colBillNumber")}</HeadCell>
                   {visibleMethods.map((key) => (
                     <HeadCell key={key} align="right">
                       {t(`methods.${key}`)}
@@ -196,6 +200,16 @@ export function SalesTab({
                     >
                       {formatMoney(row.net)}
                     </BodyCell>
+                    <BodyCell align="right">
+                      {formatMoney(row.netAmount)}
+                    </BodyCell>
+                    <BodyCell align="right">{formatMoney(row.vatAmount)}</BodyCell>
+                    <BodyCell className="text-muted-foreground">
+                      {row.receipt
+                        ? `${row.receipt}${row.receiptNumber ? ` #${row.receiptNumber}` : ""}`
+                        : "—"}
+                    </BodyCell>
+                    <BodyCell>{row.billNumber ? `#${row.billNumber}` : "—"}</BodyCell>
                     {visibleMethods.map((key) => {
                       const amount = amountOf(row.methods, key);
                       return (
@@ -229,6 +243,13 @@ export function SalesTab({
                     <FootCell align="right" className={negativeClass(totals.net)}>
                       {formatMoney(totals.net)}
                     </FootCell>
+                    <FootCell align="right">
+                      {formatMoney(totals.netAmount)}
+                    </FootCell>
+                    <FootCell align="right">
+                      {formatMoney(totals.vatAmount)}
+                    </FootCell>
+                    <FootCell colSpan={2}>{null}</FootCell>
                     {visibleMethods.map((key) => (
                       <FootCell key={key} align="right">
                         {formatMoney(amountOf(totals.methods, key))}
@@ -320,6 +341,10 @@ export function SalesTab({
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t("colRefunded")}: {formatMoney(totals.refunded)} ·{" "}
                   {t("colNet")}: {formatMoney(totals.net)}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {t("colNetAmount")}: {formatMoney(totals.netAmount)} ·{" "}
+                  {t("colVat")}: {formatMoney(totals.vatAmount)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {totals.methods

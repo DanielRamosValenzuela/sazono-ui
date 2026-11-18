@@ -12,6 +12,18 @@ export const refundsApi = {
       { token }
     );
   },
+  retry(token: string, refundId: string) {
+    return apiRequest<RefundResult>(`/refunds/${refundId}/retry`, {
+      method: "POST",
+      token,
+    });
+  },
+  markManual(token: string, refundId: string) {
+    return apiRequest<RefundResult>(`/refunds/${refundId}/mark-manual`, {
+      method: "POST",
+      token,
+    });
+  },
   create(
     token: string,
     branchId: string,

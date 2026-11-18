@@ -23,6 +23,7 @@ const FULL_TABS: ReportTab[] = [
   "tips",
   "openTabs",
   "hierarchy",
+  "dailyZ",
 ];
 
 const CASHIER_TABS: ReportTab[] = [
@@ -31,6 +32,7 @@ const CASHIER_TABS: ReportTab[] = [
   "refunds",
   "salesBy",
   "tips",
+  "dailyZ",
 ];
 
 export const TAB_LABELS: Record<ReportTab, string> = {
@@ -41,6 +43,7 @@ export const TAB_LABELS: Record<ReportTab, string> = {
   salesBy: "tabSalesBy",
   tips: "tabTips",
   openTabs: "tabOpenTabs",
+  dailyZ: "tabDailyZ",
 };
 
 export function visibleTabs(fullAccess: boolean): ReportTab[] {
