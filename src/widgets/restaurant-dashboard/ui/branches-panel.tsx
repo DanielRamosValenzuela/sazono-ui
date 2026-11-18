@@ -494,6 +494,25 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
   const [refundTipDefault, setRefundTipDefault] = useState(
     branch.settings?.refundTipDefault ?? false
   );
+  const [requireOpenCashSession, setRequireOpenCashSession] = useState(
+    branch.settings?.requireOpenCashSession ?? false
+  );
+  const [discountPercent, setDiscountPercent] = useState(
+    branch.settings
+      ? (branch.settings.discountApprovalPercent ?? "")
+      : "10"
+  );
+  const [discountAmount, setDiscountAmount] = useState(
+    branch.settings?.discountApprovalAmount ?? ""
+  );
+  const discountPercentValid =
+    discountPercent === "" ||
+    (/^\d{1,3}(\.\d{1,2})?$/.test(discountPercent) &&
+      Number(discountPercent) <= 100);
+  const discountAmountValid =
+    discountAmount === "" ||
+    (REFUND_LIMIT_PATTERN.test(discountAmount) &&
+      Number(discountAmount) <= MAX_REFUND_LIMIT);
   const refundLimitValid =
     !refundLimitEnabled ||
     (REFUND_LIMIT_PATTERN.test(refundLimit) &&
@@ -680,12 +699,70 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
           <span>{t("refundTipDefault")}</span>
         </CheckboxRow>
         <FieldHint className="sm:col-span-2">{t("refundTipDefaultHint")}</FieldHint>
+        <FieldGroup>
+          <FieldLabel htmlFor={`branch-edit-discount-percent-${branch.branchId}`}>
+            {t("discountPercentLabel")}
+          </FieldLabel>
+          <TextInput
+            id={`branch-edit-discount-percent-${branch.branchId}`}
+            inputMode="decimal"
+            value={discountPercent}
+            aria-invalid={!discountPercentValid}
+            onChange={(event) =>
+              setDiscountPercent(event.target.value.replace(/[^\d.]/g, "").slice(0, 6))
+            }
+          />
+        </FieldGroup>
+        <FieldGroup>
+          <FieldLabel htmlFor={`branch-edit-discount-amount-${branch.branchId}`}>
+            {t("discountAmountLabel")}
+          </FieldLabel>
+          <TextInput
+            id={`branch-edit-discount-amount-${branch.branchId}`}
+            inputMode="numeric"
+            value={discountAmount}
+            aria-invalid={!discountAmountValid}
+            onChange={(event) =>
+              setDiscountAmount(event.target.value.replace(/\D/g, "").slice(0, 10))
+            }
+          />
+        </FieldGroup>
+        <FieldHint
+          className={
+            discountPercentValid && discountAmountValid
+              ? "sm:col-span-2"
+              : "text-destructive sm:col-span-2"
+          }
+        >
+          {discountPercentValid && discountAmountValid
+            ? t("discountApprovalHint")
+            : t("discountApprovalInvalid")}
+        </FieldHint>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CheckboxRow className="sm:col-span-2">
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={requireOpenCashSession}
+            onChange={(event) => setRequireOpenCashSession(event.target.checked)}
+          />
+          <span>{t("requireOpenCashSession")}</span>
+        </CheckboxRow>
+        <FieldHint className="sm:col-span-2">{t("requireOpenCashSessionHint")}</FieldHint>
       </div>
 
       <Button
         type="button"
         className="w-full rounded-full sm:w-auto"
-        disabled={isSaving || !name.trim() || !refundLimitValid}
+        disabled={
+          isSaving ||
+          !name.trim() ||
+          !refundLimitValid ||
+          !discountPercentValid ||
+          !discountAmountValid
+        }
         onClick={() =>
           onSave({
             name: name.trim(),
@@ -700,6 +777,11 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
               tableAssignmentEnabled,
               cashierRefundLimit: refundLimitEnabled ? Number(refundLimit) : null,
               refundTipDefault,
+              requireOpenCashSession,
+              discountApprovalPercent:
+                discountPercent === "" ? null : Number(discountPercent),
+              discountApprovalAmount:
+                discountAmount === "" ? null : Number(discountAmount),
             },
           })
         }

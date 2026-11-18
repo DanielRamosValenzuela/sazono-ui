@@ -218,3 +218,34 @@ export function DetailGrid({ items, className }: DetailGridProps) {
     </dl>
   );
 }
+
+export function RefundedItemsList({
+  items,
+  wasteLabel,
+}: {
+  items: Array<{
+    billItemId: string;
+    name: string;
+    quantity: number;
+    amount: string;
+    kitchenWaste: boolean;
+  }>;
+  wasteLabel: string;
+}) {
+  return (
+    <ul className="space-y-0.5 text-xs text-muted-foreground">
+      {items.map((item) => (
+        <li
+          key={item.billItemId}
+          className="flex flex-wrap items-baseline justify-between gap-x-3 break-words"
+        >
+          <span className="min-w-0">
+            {item.quantity} x {item.name}
+            {item.kitchenWaste ? ` · ${wasteLabel}` : ""}
+          </span>
+          <span className="tabular-nums">{formatMoney(item.amount)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}

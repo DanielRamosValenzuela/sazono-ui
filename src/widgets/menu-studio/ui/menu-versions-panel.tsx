@@ -340,6 +340,7 @@ export function MenuVersionsPanel({
               type="button"
               variant="ghost"
               size="icon-sm"
+              className="size-10 sm:size-8"
               title={t("versionActionDuplicate")}
               aria-label={t("versionActionDuplicate")}
               disabled={isBusy}
@@ -351,6 +352,7 @@ export function MenuVersionsPanel({
               type="button"
               variant="ghost"
               size="icon-sm"
+              className="size-10 sm:size-8"
               title={t("versionActionRename")}
               aria-label={t("versionActionRename")}
               disabled={isBusy}
@@ -363,7 +365,7 @@ export function MenuVersionsPanel({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="text-destructive hover:text-destructive"
+                className="size-10 text-destructive hover:text-destructive sm:size-8"
                 title={t("versionActionDelete")}
                 aria-label={t("versionActionDelete")}
                 disabled={isBusy}

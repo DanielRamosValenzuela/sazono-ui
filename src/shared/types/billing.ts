@@ -12,6 +12,8 @@ export interface CurrentBill {
   status: BillStatus;
   subtotalAmount: string;
   taxAmount: string;
+  discountAmount?: string;
+  consumptionAmount?: string;
   tipAmount: string;
   totalAmount: string;
   remainingAmount: string;
@@ -80,6 +82,7 @@ export interface BranchOpenBill {
   sessionStatus: string;
   sessionOpenedAt: string;
   billId: string;
+  discountAmount?: string;
   totalAmount: string;
   remainingAmount: string;
   isCounter: boolean;

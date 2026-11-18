@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCheck, Plus, Wallet } from "lucide-react";
+import { CheckCheck, Plus, Tag, Wallet } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +19,12 @@ import type { CounterReadiness, CounterSessionListItem } from "@/shared/types/fl
 import { TextInput } from "@/shared/ui/form-controls";
 import { AbandonSessionDialog } from "@/widgets/floor-console/ui/abandon-session-dialog";
 import { AddOrderSheet } from "@/widgets/floor-console/ui/add-order-sheet";
+import { BillDiscountDialog } from "@/widgets/bill-discount";
 import { CounterPayDialog } from "./counter-pay-dialog";
 import {
   COUNTER_ABANDON_ROLES,
   COUNTER_CLOSE_ROLES,
+  COUNTER_DISCOUNT_ROLES,
   COUNTER_DELIVER_ROLES,
   COUNTER_PAY_ROLES,
   COUNTER_ROLES,
@@ -103,12 +105,14 @@ export function CounterBoard({ accessToken, branchId, branchAccess }: CounterBoa
   const [announcement, setAnnouncement] = useState("");
   const [addOrderSessionId, setAddOrderSessionId] = useState<{ id: string; ticket: number } | null>(null);
   const [payTarget, setPayTarget] = useState<CounterSessionListItem | null>(null);
+  const [discountTarget, setDiscountTarget] = useState<CounterSessionListItem | null>(null);
   const [abandonSessionId, setAbandonSessionId] = useState<string | null>(null);
   const previousReadyRef = useRef<{ key: string; ids: Set<string> } | null>(null);
   const announceToggleRef = useRef(false);
 
   const canUse = hasBranchPermission(branchAccess, COUNTER_ROLES);
   const canPay = hasBranchPermission(branchAccess, COUNTER_PAY_ROLES);
+  const canDiscount = hasBranchPermission(branchAccess, COUNTER_DISCOUNT_ROLES);
   const canClose = hasBranchPermission(branchAccess, COUNTER_CLOSE_ROLES);
   const canAbandon = hasBranchPermission(branchAccess, COUNTER_ABANDON_ROLES);
   const canDeliver = hasBranchPermission(branchAccess, COUNTER_DELIVER_ROLES);
@@ -256,6 +260,7 @@ export function CounterBoard({ accessToken, branchId, branchAccess }: CounterBoa
             key={item.tableSessionId}
             item={item}
             canPay={canPay}
+            canDiscount={canDiscount}
             canClose={canClose}
             canAbandon={canAbandon}
             canDeliver={canDeliver}
@@ -268,6 +273,7 @@ export function CounterBoard({ accessToken, branchId, branchAccess }: CounterBoa
             }
             onAddOrder={() => setAddOrderSessionId({ id: item.tableSessionId, ticket: item.ticketNumber })}
             onPay={() => setPayTarget(item)}
+            onDiscount={() => setDiscountTarget(item)}
             onDeliver={() =>
               deliverMutation.mutate({
                 sessionId: item.tableSessionId,
@@ -305,6 +311,16 @@ export function CounterBoard({ accessToken, branchId, branchAccess }: CounterBoa
         />
       ) : null}
 
+      {discountTarget?.billId ? (
+        <BillDiscountDialog
+          accessToken={accessToken}
+          branchId={branchId}
+          billId={discountTarget.billId}
+          title={t("discountTitle", { ticket: discountTarget.ticketNumber })}
+          onClose={() => setDiscountTarget(null)}
+        />
+      ) : null}
+
       {payTarget?.billId ? (
         <CounterPayDialog
           accessToken={accessToken}
@@ -329,6 +345,7 @@ export function CounterBoard({ accessToken, branchId, branchAccess }: CounterBoa
 type CounterCardProps = {
   item: CounterSessionListItem;
   canPay: boolean;
+  canDiscount: boolean;
   canClose: boolean;
   canAbandon: boolean;
   canDeliver: boolean;
@@ -337,6 +354,7 @@ type CounterCardProps = {
   onRename: (label: string) => void;
   onAddOrder: () => void;
   onPay: () => void;
+  onDiscount: () => void;
   onDeliver: () => void;
   onClose: () => void;
   onAbandon: () => void;
@@ -345,6 +363,7 @@ type CounterCardProps = {
 function CounterCard({
   item,
   canPay,
+  canDiscount,
   canClose,
   canAbandon,
   canDeliver,
@@ -353,6 +372,7 @@ function CounterCard({
   onRename,
   onAddOrder,
   onPay,
+  onDiscount,
   onDeliver,
   onClose,
   onAbandon,
@@ -434,6 +454,15 @@ function CounterCard({
           </span>
         </div>
 
+        {Number(item.bill.discount ?? 0) > 0 ? (
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">{t("discount")}</span>
+            <span className="font-semibold tabular-nums">
+              - {formatMoney(item.bill.discount ?? 0, "CLP")}
+            </span>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
@@ -449,6 +478,17 @@ function CounterCard({
             <Button type="button" className="min-h-11 rounded-full" onClick={onPay}>
               <Wallet className="size-4" />
               {t("charge")}
+            </Button>
+          ) : null}
+          {canDiscount && item.billId && item.bill.status !== "PAID" ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full"
+              onClick={onDiscount}
+            >
+              <Tag className="size-4" />
+              {t("discountAction")}
             </Button>
           ) : null}
           {canDeliver && hasReadyOrders ? (

@@ -16,6 +16,7 @@ import {
   Plus,
   QrCode,
   RefreshCcw,
+  Tag,
   Wallet,
   Sparkles,
   UserCheck,
@@ -77,6 +78,7 @@ import { AbandonSessionDialog } from "./abandon-session-dialog";
 import { AddOrderSheet } from "./add-order-sheet";
 import { ManageTableZonesDialog } from "./manage-table-zones-dialog";
 import { OpenTableDialog } from "./open-table-dialog";
+import { BillDiscountDialog } from "@/widgets/bill-discount";
 import { SplitBillDialog } from "./split-bill-dialog";
 
 interface CreateTableFormValues {
@@ -102,6 +104,7 @@ const FLOOR_CREATE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_MULTI_SOURCE_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR"];
 const FLOOR_ORDER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER", "KITCHEN"];
 const FLOOR_SPLIT_BILL_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
+const DISCOUNT_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_ABANDON_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER"];
 const FLOOR_DELIVER_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "CASHIER", "WAITER", "KITCHEN"];
 const FLOOR_ASSIGN_ROLES: BranchRole[] = ["ADMIN", "SUPERVISOR", "WAITER", "CASHIER"];
@@ -278,6 +281,7 @@ export function FloorConsole() {
   const [addOrderOpen, setAddOrderOpen] = useState(false);
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const [openTableDialogOpen, setOpenTableDialogOpen] = useState(false);
   const [manageZonesOpen, setManageZonesOpen] = useState(false);
   const [serviceView, setServiceView] = useState<ServiceView>("floor");
@@ -1137,6 +1141,7 @@ export function FloorConsole() {
           billError={currentBillError}
           canAbandon={hasBranchPermission(selectedBranch, FLOOR_ABANDON_ROLES)}
           canSplitBill={canSplitBill && isSplitBillEnabled}
+          canDiscount={hasBranchPermission(selectedBranch, DISCOUNT_ROLES)}
           canManageQr={canCreateTables}
           isTableAssignmentEnabled={isTableAssignmentEnabled}
           canReassignAnyone={canReassignAnyone}
@@ -1158,6 +1163,7 @@ export function FloorConsole() {
           locale={locale}
           onAbandonClick={() => setAbandonOpen(true)}
           onSplitBillClick={() => setSplitBillOpen(true)}
+          onDiscountClick={() => setDiscountOpen(true)}
           onCloseSubmit={(values) => {
             if (!activeSessionId) {
               return;
@@ -1188,6 +1194,15 @@ export function FloorConsole() {
           accessToken={accessToken!}
           tableSessionId={activeSessionId}
           onClose={() => setAbandonOpen(false)}
+        />
+      ) : null}
+
+      {discountOpen && currentBill ? (
+        <BillDiscountDialog
+          accessToken={accessToken!}
+          branchId={selectedBranchId}
+          billId={currentBill.billId}
+          onClose={() => setDiscountOpen(false)}
         />
       ) : null}
 
@@ -1504,6 +1519,7 @@ interface BillAndCloseCardProps {
   billError: unknown;
   canAbandon: boolean;
   canSplitBill: boolean;
+  canDiscount: boolean;
   closeForm: ReturnType<typeof useForm<CloseSessionFormValues>>;
   hasActiveSession: boolean;
   isClosing: boolean;
@@ -1512,6 +1528,7 @@ interface BillAndCloseCardProps {
   locale: string;
   onAbandonClick: () => void;
   onSplitBillClick: () => void;
+  onDiscountClick: () => void;
   onSubmit: (values: CloseSessionFormValues) => void;
   t: ReturnType<typeof useTranslations<"FloorConsole">>;
 }
@@ -1521,6 +1538,7 @@ function BillAndCloseCard({
   billError,
   canAbandon,
   canSplitBill,
+  canDiscount,
   closeForm,
   hasActiveSession,
   isClosing,
@@ -1529,6 +1547,7 @@ function BillAndCloseCard({
   locale,
   onAbandonClick,
   onSplitBillClick,
+  onDiscountClick,
   onSubmit,
   t,
 }: BillAndCloseCardProps) {
@@ -1563,6 +1582,12 @@ function BillAndCloseCard({
             label={t("billRemaining")}
             value={formatMoney(bill.remainingAmount, "CLP")}
           />
+          {Number(bill.discountAmount ?? 0) > 0 ? (
+            <SessionDetailRow
+              label={t("billDiscount")}
+              value={`- ${formatMoney(bill.discountAmount ?? 0, "CLP")}`}
+            />
+          ) : null}
           <SessionDetailRow
             label={t("billTotal")}
             value={formatMoney(bill.totalAmount, "CLP")}
@@ -1583,6 +1608,18 @@ function BillAndCloseCard({
               : t("billingErrorDescription")
           }
         />
+      ) : null}
+
+      {bill && canDiscount && bill.status !== "PAID" ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 w-full rounded-full"
+          onClick={onDiscountClick}
+        >
+          <Tag className="size-4" />
+          {t("discountAction")}
+        </Button>
       ) : null}
 
       {bill && canSplitBill && Number(bill.remainingAmount) > 0 ? (
@@ -1679,6 +1716,7 @@ interface TableDetailSheetProps {
   billError: unknown;
   canAbandon: boolean;
   canSplitBill: boolean;
+  canDiscount: boolean;
   canManageQr: boolean;
   isTableAssignmentEnabled: boolean;
   canReassignAnyone: boolean;
@@ -1695,6 +1733,7 @@ interface TableDetailSheetProps {
   locale: string;
   onAbandonClick: () => void;
   onSplitBillClick: () => void;
+  onDiscountClick: () => void;
   onCloseSubmit: (values: CloseSessionFormValues) => void;
   onRefresh: () => void;
   onClose: () => void;
@@ -1723,6 +1762,7 @@ function TableDetailSheet({
   billError,
   canAbandon,
   canSplitBill,
+  canDiscount,
   canManageQr,
   isTableAssignmentEnabled,
   canReassignAnyone,
@@ -1739,6 +1779,7 @@ function TableDetailSheet({
   locale,
   onAbandonClick,
   onSplitBillClick,
+  onDiscountClick,
   onCloseSubmit,
   onRefresh,
   onClose,
@@ -1971,6 +2012,7 @@ function TableDetailSheet({
             billError={billError}
             canAbandon={canAbandon}
             canSplitBill={canSplitBill}
+            canDiscount={canDiscount}
             closeForm={closeForm}
             hasActiveSession={hasActiveSession}
             isClosing={isClosing}
@@ -1979,6 +2021,7 @@ function TableDetailSheet({
             locale={locale}
             onAbandonClick={onAbandonClick}
             onSplitBillClick={onSplitBillClick}
+            onDiscountClick={onDiscountClick}
             onSubmit={onCloseSubmit}
             t={t}
           />

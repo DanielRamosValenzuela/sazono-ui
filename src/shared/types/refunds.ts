@@ -67,8 +67,60 @@ export interface RefundRecord {
   } | null;
   approvedBy: { staffUserId: string; name: string } | null;
   creditNoteStatus: string;
+  items?: RefundItemRecord[];
   completedAt: string | null;
   createdAt: string;
+}
+
+export interface RefundItemRecord {
+  billItemId: string;
+  name: string;
+  quantity: number;
+  amount: string;
+  kitchenWaste: boolean;
+}
+
+export interface RefundableBillItem {
+  billItemId: string;
+  name: string;
+  quantity: number;
+  refundedQuantity: number;
+  availableQuantity: number;
+  unitRefundAmount: string;
+  netAmount: string;
+  refundedAmount: string;
+}
+
+export interface RefundItemSelection {
+  billItemId: string;
+  quantity: number;
+  kitchenWaste?: boolean;
+}
+
+export interface CreateRefundItemsRequest {
+  paymentId: string;
+  items: RefundItemSelection[];
+  reasonCode: RefundReasonCode;
+  reasonText: string;
+  refundTip: boolean;
+  registerAsManual?: boolean;
+  approverStaffUserId?: string;
+  approverPin?: string;
+}
+
+export interface RefundItemsPreview {
+  paymentId: string;
+  lines: Array<{
+    billItemId: string;
+    name: string;
+    quantity: number;
+    amount: string;
+    availableQuantity: number;
+  }>;
+  consumptionAmount: string;
+  tipAmount: string;
+  total: string;
+  payment: RefundPaymentState;
 }
 
 export interface RefundPaymentState {
@@ -152,6 +204,7 @@ export interface RefundsReportRow {
   creditNoteStatus: string;
   creditNoteFolio: string | null;
   billHasActiveOrders: boolean;
+  items?: RefundItemRecord[];
 }
 
 export interface RefundsReportResponse {

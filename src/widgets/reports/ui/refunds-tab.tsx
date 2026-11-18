@@ -16,7 +16,7 @@ import {
 import type { ReportFilters, ReportSort } from "@/shared/types/reports";
 import { DataList, type DataColumn } from "./data-list";
 import { OrderDetailDialog } from "./order-detail-dialog";
-import { LoadMore, ReportQueryState } from "./report-parts";
+import { LoadMore, RefundedItemsList, ReportQueryState } from "./report-parts";
 import { formatReportDateTime, type DateRange } from "./report-range";
 import {
   refundChipExtra,
@@ -135,6 +135,16 @@ export function RefundsTab({
     },
     { id: "table", label: t("colTable"), cell: (row) => row.table ?? "—" },
     {
+      id: "products",
+      label: t("colRefundProducts"),
+      cell: (row) =>
+        row.items && row.items.length > 0 ? (
+          <RefundedItemsList items={row.items} wasteLabel={t("refundItemWaste")} />
+        ) : (
+          "—"
+        ),
+    },
+    {
       id: "method",
       label: t("colMethod"),
       cell: (row) => methodLabel(row.paymentMethod),
@@ -143,7 +153,7 @@ export function RefundsTab({
       id: "reason",
       label: t("colReason"),
       cell: (row) => (
-        <span className="inline-block max-w-56 truncate align-bottom" title={row.reasonText}>
+        <span className="block max-w-full min-w-0 truncate md:inline-block md:max-w-56 md:align-bottom" title={row.reasonText}>
           {reasonLabel(row.reasonCode)}
           {row.reasonText ? ` · ${row.reasonText}` : ""}
         </span>
@@ -362,7 +372,7 @@ function ChipGroup({
             key={value}
             size="sm"
             variant={active.includes(value) ? "default" : "outline"}
-            className="rounded-full"
+            className="min-h-10 rounded-full sm:min-h-0"
             aria-pressed={active.includes(value)}
             onClick={() => onToggle(value)}
           >

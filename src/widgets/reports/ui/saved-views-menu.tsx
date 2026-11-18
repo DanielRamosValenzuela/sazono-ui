@@ -91,7 +91,7 @@ export function SavedViewsMenu({
     <Popover.Root open={open} onOpenChange={handleOpenChange}>
       <Popover.Trigger
         render={
-          <Button variant="outline" className="rounded-full">
+          <Button variant="outline" className="h-10 rounded-full sm:h-9">
             <Bookmark />
             {t("views.title")}
           </Button>

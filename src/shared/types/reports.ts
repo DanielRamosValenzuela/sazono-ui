@@ -352,10 +352,27 @@ export interface OrderDetailItem {
   modifiers: Array<{ name: string; priceDelta: string }>;
   modifiersTotal: string;
   lineTotal: string;
+  discount?: string;
   notes: string | null;
   status: string;
   cancelled: boolean;
   counted: boolean;
+}
+
+export interface OrderDetailDiscount {
+  id: string;
+  billItemId: string | null;
+  itemName: string | null;
+  type: string;
+  value: string;
+  amount: string;
+  reasonCode: string;
+  reasonText: string;
+  appliedBy: string | null;
+  approvedBy: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  createdAt: string;
 }
 
 export interface OrderDetailOrder {
@@ -403,6 +420,13 @@ export interface OrderDetailRefund {
   approvedBy: string | null;
   completedAt: string | null;
   creditNoteStatus: string;
+  items: Array<{
+    billItemId: string;
+    name: string;
+    quantity: number;
+    amount: string;
+    kitchenWaste: boolean;
+  }>;
 }
 
 export interface OrderDetailResponse {
@@ -428,9 +452,12 @@ export interface OrderDetailResponse {
   items: OrderDetailItem[];
   payments: OrderDetailPayment[];
   refunds: OrderDetailRefund[];
+  discounts?: OrderDetailDiscount[];
   totals: {
     itemsCount: number;
     itemsTotal: string;
+    discount?: string;
+    consumption?: string;
     excludedItemsTotal: string;
     billTotal: string;
     remaining: string;
@@ -737,6 +764,14 @@ export interface DailyZSales {
   tipAmount: string;
   collected: string;
   discounts: string;
+  discountCount: number;
+  discountsByReason: Array<{ reasonCode: string; count: number; amount: string }>;
+  discountsByApprover: Array<{
+    staffUserId: string | null;
+    name: string | null;
+    count: number;
+    amount: string;
+  }>;
 }
 
 export interface DailyZRefunds {

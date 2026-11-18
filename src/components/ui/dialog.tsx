@@ -51,7 +51,7 @@ function DialogContent({
       >
         {children}
         {showCloseButton ? (
-          <DialogClose className="absolute top-4 right-4 cursor-pointer rounded-lg p-1 text-muted-foreground opacity-70 transition-opacity outline-none hover:bg-muted hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50">
+          <DialogClose className="absolute top-1 right-1 flex size-10 cursor-pointer items-center justify-center rounded-lg text-muted-foreground opacity-70 transition-opacity outline-none hover:bg-muted hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50">
             <XIcon className="size-4" />
             <span className="sr-only">Cerrar</span>
           </DialogClose>

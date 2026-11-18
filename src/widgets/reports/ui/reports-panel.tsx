@@ -326,7 +326,7 @@ function ReportsContent() {
         </p>
       </header>
 
-      <div className="sticky top-[4.25rem] z-10 -mx-1 space-y-3 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur">
+      <div className="md:sticky md:top-[4.25rem] z-10 -mx-1 space-y-3 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-end gap-3">
           {branches.length > 1 ? (
             <div className="w-full sm:w-56">
@@ -354,7 +354,7 @@ function ReportsContent() {
                   key={entry}
                   size="sm"
                   variant={preset === entry ? "default" : "outline"}
-                  className="rounded-full"
+                  className="h-10 rounded-full sm:h-8"
                   aria-pressed={preset === entry}
                   onClick={() => selectPreset(entry)}
                 >
@@ -420,7 +420,7 @@ function ReportsContent() {
           {tab === "hierarchy" || tab === "dailyZ" ? null : (
             <Button
               variant="outline"
-              className="ml-auto rounded-full"
+              className="ml-auto h-10 rounded-full sm:h-9"
               disabled={!enabled || exportMutation.isPending}
               onClick={() => exportMutation.mutate()}
             >

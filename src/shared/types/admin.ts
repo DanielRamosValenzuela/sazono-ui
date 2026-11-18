@@ -40,10 +40,19 @@ export type BranchSettings = {
   tableAssignmentEnabled: boolean;
   cashierRefundLimit: string | null;
   refundTipDefault: boolean;
+  discountApprovalPercent?: string | null;
+  discountApprovalAmount?: string | null;
+  requireOpenCashSession?: boolean;
 };
 
-export type BranchSettingsInput = Omit<BranchSettings, "cashierRefundLimit"> & {
+export type BranchSettingsInput = Omit<
+  BranchSettings,
+  "cashierRefundLimit" | "discountApprovalPercent" | "discountApprovalAmount"
+> & {
   cashierRefundLimit: number | null;
+  discountApprovalPercent?: number | null;
+  discountApprovalAmount?: number | null;
+  requireOpenCashSession?: boolean;
 };
 
 export type CreateBranchRequest = {

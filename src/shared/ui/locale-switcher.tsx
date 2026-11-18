@@ -25,7 +25,7 @@ export function LocaleSwitcher() {
           href={pathname}
           locale={nextLocale}
           className={cn(
-            "rounded-full px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] transition",
+            "inline-flex min-h-10 items-center rounded-full px-3 py-1.5 text-xs sm:min-h-0 font-medium uppercase tracking-[0.18em] transition",
             locale === nextLocale
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"

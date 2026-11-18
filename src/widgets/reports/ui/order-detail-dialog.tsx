@@ -26,7 +26,7 @@ import type {
 } from "@/shared/types/reports";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { RefundDialog } from "./refund-dialog";
-import { DetailGrid } from "./report-parts";
+import { DetailGrid, RefundedItemsList } from "./report-parts";
 import { formatReportDateTime } from "./report-range";
 
 type OrderDetailDialogProps = {
@@ -333,6 +333,13 @@ export function OrderDetailDialog({
                               >
                                 {formatMoney(item.lineTotal)}
                               </p>
+                              {Number(item.discount ?? 0) > 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {t("orderDetail.itemDiscount", {
+                                    amount: formatMoney(item.discount ?? 0),
+                                  })}
+                                </p>
+                              ) : null}
                               {item.quantity > 1 ? (
                                 <p className="text-xs text-muted-foreground">
                                   {t("orderDetail.unitPrice", {
@@ -424,7 +431,7 @@ export function OrderDetailDialog({
                             <Button
                               size="sm"
                               variant="outline"
-                              className="ml-auto rounded-full"
+                              className="ml-auto h-10 rounded-full sm:h-8"
                               onClick={() => setRefundPayment(payment)}
                             >
                               <Undo2 />
@@ -468,6 +475,12 @@ export function OrderDetailDialog({
                             ) : null}
                           </div>
                         </div>
+                        {refund.items && refund.items.length > 0 ? (
+                          <RefundedItemsList
+                            items={refund.items}
+                            wasteLabel={t("refundItemWaste")}
+                          />
+                        ) : null}
                         <p className="break-words">
                           {tRefunds.has(`reasons.${refund.reasonCode}`)
                             ? tRefunds(`reasons.${refund.reasonCode}`)
@@ -519,6 +532,14 @@ export function OrderDetailDialog({
                       t("orderDetail.excludedTotal"),
                       formatMoney(detail.totals.excludedItemsTotal),
                     ],
+                    ...(Number(detail.totals.discount ?? 0) > 0
+                      ? ([
+                          [
+                            t("orderDetail.discount"),
+                            `- ${formatMoney(detail.totals.discount ?? 0)}`,
+                          ],
+                        ] as Array<[string, string]>)
+                      : []),
                     [t("orderDetail.billTotal"), formatMoney(detail.totals.billTotal)],
                     [t("orderDetail.paid"), formatMoney(detail.totals.paid)],
                     [t("colTip"), formatMoney(detail.totals.tip)],

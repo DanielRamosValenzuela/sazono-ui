@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { CashStatusCard } from "@/widgets/cash-register";
 import { FloorConsole } from "@/widgets/floor-console";
 
 export function StaffDashboardPage() {
@@ -14,6 +15,8 @@ export function StaffDashboardPage() {
           {t("description")}
         </p>
       </header>
+
+      <CashStatusCard />
 
       <FloorConsole />
     </div>

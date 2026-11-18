@@ -207,6 +207,15 @@ export function AdminShell({ children, area }: AdminShellProps) {
           ...(session.canAccessReports
             ? [
                 {
+                  href: "/staff/caja",
+                  labelKey: "navCash",
+                  icon: <Wallet className="size-4" />,
+                },
+              ]
+            : []),
+          ...(session.canAccessReports
+            ? [
+                {
                   href: "/admin/reports",
                   labelKey: session.canViewFullReports ? "navReports" : "navCashbox",
                   icon: session.canViewFullReports ? (

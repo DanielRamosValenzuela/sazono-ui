@@ -138,6 +138,7 @@ export interface CounterSessionListItem {
   openedAt: string;
   bill: {
     status: string;
+    discount?: string;
     total: string;
     paid: string;
     remaining: string;

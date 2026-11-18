@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Banknote, CircleAlert, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +26,7 @@ import {
   REFUND_REASON_CODES,
   REFUND_REASON_MAX_LENGTH,
   REFUND_REASON_MIN_LENGTH,
+  type CreateRefundItemsRequest,
   type CreateRefundRequest,
   type RefundApprovalRequirement,
   type RefundReasonCode,
@@ -38,6 +40,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { RefundItemsPicker } from "./refund-items-picker";
 import { RefundStatusPanel } from "./refund-status-panel";
 import { DetailGrid } from "./report-parts";
 
@@ -148,13 +151,16 @@ function RefundForm({
   const [reasonText, setReasonText] = useState("");
   const [tipChoice, setTipChoice] = useState<boolean | null>(null);
   const [approval, setApproval] = useState<RefundApprovalRequirement | null>(
-    null
+    null,
   );
   const [approverId, setApproverId] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RefundResult | null>(null);
   const [registerManual, setRegisterManual] = useState(false);
+  const [mode, setMode] = useState<"amount" | "items">("amount");
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [waste, setWaste] = useState<Record<string, boolean>>({});
 
   const stateQuery = useQuery({
     queryKey: ["reports", "refund-state", branchId, payment.id],
@@ -162,21 +168,66 @@ function RefundForm({
     staleTime: 0,
     gcTime: 0,
     retry: false,
-    refetchInterval: () => (result?.refund.status === "PENDING" ? POLL_INTERVAL_MS : false),
+    refetchInterval: () =>
+      result?.refund.status === "PENDING" ? POLL_INTERVAL_MS : false,
     queryFn: () => refundsApi.listForPayment(token!, branchId, payment.id),
   });
   const state = stateQuery.data;
+  const billId = state?.payment.billId ?? null;
+  const itemsMode = mode === "items";
+  const linesQuery = useQuery({
+    queryKey: ["reports", "refund-items", branchId, billId],
+    enabled: Boolean(token) && itemsMode && billId !== null,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    queryFn: () => refundsApi.listItems(token!, branchId, billId!),
+  });
+  const selection = Object.entries(quantities)
+    .filter(([, quantity]) => quantity > 0)
+    .map(([billItemId, quantity]) => ({
+      billItemId,
+      quantity,
+      kitchenWaste: waste[billItemId] ?? false,
+    }));
   const liveRefund = result
-    ? (state?.refunds.find((item) => item.refundId === result.refund.refundId) ??
-      result.refund)
+    ? (state?.refunds.find(
+        (item) => item.refundId === result.refund.refundId,
+      ) ?? result.refund)
     : null;
   const liveStatus = liveRefund?.status ?? null;
   const refundable = state?.payment.refundable;
   const tipAvailable = Number(refundable?.tip ?? 0) > 0;
   const tipOn =
     tipAvailable && (tipChoice ?? state?.settings.refundTipDefault ?? false);
+  const previewQuery = useQuery({
+    queryKey: [
+      "reports",
+      "refund-items-preview",
+      branchId,
+      payment.id,
+      tipOn,
+      selection.map((item) => `${item.billItemId}:${item.quantity}`).join(","),
+    ],
+    enabled:
+      Boolean(token) && itemsMode && billId !== null && selection.length > 0,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    queryFn: () =>
+      refundsApi.previewItems(token!, branchId, billId!, {
+        paymentId: payment.id,
+        items: selection.map(({ billItemId, quantity }) => ({
+          billItemId,
+          quantity,
+        })),
+        refundTip: tipOn,
+      }),
+  });
+  const preview = selection.length > 0 ? previewQuery.data : undefined;
+  const previewTotal = preview ? Number(preview.total) : null;
   const maxAmount = Number(
-    (tipOn ? refundable?.total : refundable?.consumption) ?? 0
+    (tipOn ? refundable?.total : refundable?.consumption) ?? 0,
   );
   const amountValue = AMOUNT_PATTERN.test(amount) ? Number(amount) : null;
   const amountError =
@@ -188,20 +239,19 @@ function RefundForm({
     reasonTrimmed.replace(INVISIBLE_PATTERN, "").length >=
       REFUND_REASON_MIN_LENGTH &&
     !CONTROL_PATTERN.test(reasonTrimmed);
-  const approvalReady = approval === null || (approverId !== "" && PIN_PATTERN.test(pin));
+  const approvalReady =
+    approval === null || (approverId !== "" && PIN_PATTERN.test(pin));
   const canManage = state?.eligibility.canManageGateway ?? false;
   const method =
     registerManual && state?.eligibility.method === "GATEWAY"
       ? "MANUAL_EXTERNAL"
       : (state?.eligibility.method ?? null);
   const allowed = state?.eligibility.allowed ?? false;
+  const amountReady = itemsMode
+    ? previewTotal !== null && previewTotal > 0 && !previewQuery.isFetching
+    : amountValue !== null && amountValue <= maxAmount;
   const canSubmit =
-    allowed &&
-    amountValue !== null &&
-    amountValue <= maxAmount &&
-    reasonCode !== "" &&
-    reasonValid &&
-    approvalReady;
+    allowed && amountReady && reasonCode !== "" && reasonValid && approvalReady;
 
   const errorMessage = (code: string | null, status: number) => {
     if (code && t.has(`errors.${code}`)) {
@@ -225,13 +275,37 @@ function RefundForm({
 
   const mutation = useMutation({
     mutationFn: () => {
+      if (itemsMode) {
+        const itemsBody: CreateRefundItemsRequest = {
+          paymentId: payment.id,
+          items: selection,
+          reasonCode: reasonCode as RefundReasonCode,
+          reasonText: reasonTrimmed,
+          refundTip: tipOn,
+          ...(registerManual ? { registerAsManual: true } : {}),
+          ...(approval
+            ? { approverStaffUserId: approverId, approverPin: pin }
+            : {}),
+        };
+
+        return refundsApi.createItems(
+          token!,
+          branchId,
+          billId!,
+          idempotencyKey,
+          itemsBody,
+        );
+      }
+
       const body: CreateRefundRequest = {
         amount,
         reasonCode: reasonCode as RefundReasonCode,
         reasonText: reasonTrimmed,
         refundTip: tipOn,
         ...(registerManual ? { registerAsManual: true } : {}),
-        ...(approval ? { approverStaffUserId: approverId, approverPin: pin } : {}),
+        ...(approval
+          ? { approverStaffUserId: approverId, approverPin: pin }
+          : {}),
       };
 
       return refundsApi.create(
@@ -239,17 +313,16 @@ function RefundForm({
         branchId,
         payment.id,
         idempotencyKey,
-        body
+        body,
       );
     },
     onSuccess: (data) => {
       setResult(data);
       setError(null);
       toast.success(
-        t(
-          data.idempotentReplay ? "toastReplay" : "toastSuccess",
-          { amount: formatMoney(data.refund.amount) }
-        )
+        t(data.idempotentReplay ? "toastReplay" : "toastSuccess", {
+          amount: formatMoney(data.refund.amount),
+        }),
       );
       void queryClient.invalidateQueries({ queryKey: ["reports"] });
       void queryClient.invalidateQueries({
@@ -282,6 +355,7 @@ function RefundForm({
 
       if (status === 400 || status === 409) {
         void stateQuery.refetch();
+        void linesQuery.refetch();
       }
 
       setError(errorMessage(code, status));
@@ -366,9 +440,7 @@ function RefundForm({
               })}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("externalDone")}
-            </p>
+            <p className="text-sm text-muted-foreground">{t("externalDone")}</p>
           )}
           {result.billActiveOrders > 0 ? (
             <p className="flex items-start gap-2 text-sm text-destructive">
@@ -442,7 +514,7 @@ function RefundForm({
       }}
     >
       <DetailGrid
-        className="rounded-2xl border border-border/70 bg-muted/40 p-4"
+        className="grid-cols-2 rounded-2xl border border-border/70 bg-muted/40 p-4"
         items={[
           [
             t("summaryMethod"),
@@ -521,10 +593,10 @@ function RefundForm({
       ) : null}
 
       {canManage && allowed && state.eligibility.method === "GATEWAY" ? (
-        <CheckboxRow>
+        <CheckboxRow className="py-3 sm:py-2.5">
           <input
             type="checkbox"
-            className="cursor-pointer"
+            className="size-5 cursor-pointer sm:size-4"
             checked={registerManual}
             disabled={mutation.isPending}
             onChange={(event) => setRegisterManual(event.target.checked)}
@@ -538,50 +610,129 @@ function RefundForm({
         </CheckboxRow>
       ) : null}
 
-      <FieldGroup>
-        <FieldLabel htmlFor="refund-amount">{t("amountLabel")}</FieldLabel>
-        <div className="flex gap-2">
-          <TextInput
-            id="refund-amount"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="0"
-            value={amount}
-            disabled={fieldsDisabled}
-            aria-invalid={amountError}
-            aria-describedby="refund-amount-hint"
-            onChange={(event) => {
-              setAmount(event.target.value.replace(/\D/g, "").slice(0, 10));
-              resetApproval();
-            }}
-          />
+      <div
+        role="group"
+        aria-label={t("title")}
+        className="grid grid-cols-2 gap-1 rounded-full border border-border/70 p-1"
+      >
+        {(["amount", "items"] as const).map((option) => (
           <Button
+            key={option}
             type="button"
-            variant="outline"
-            className="shrink-0 rounded-xl"
-            disabled={fieldsDisabled || maxAmount <= 0}
+            variant={mode === option ? "default" : "ghost"}
+            className="h-10 rounded-full"
+            aria-pressed={mode === option}
+            disabled={mutation.isPending}
             onClick={() => {
-              setAmount(String(maxAmount));
+              setMode(option);
               resetApproval();
             }}
           >
-            {t("fillMaxShort")}
+            {t(option === "amount" ? "modeAmount" : "modeItems")}
           </Button>
-        </div>
-        <FieldHint
-          id="refund-amount-hint"
-          className={amountError ? "text-destructive" : undefined}
-        >
-          {amountError ? t("amountError", { max: formatMoney(maxAmount) }) : fullLabel}
-        </FieldHint>
-      </FieldGroup>
+        ))}
+      </div>
+
+      {itemsMode ? (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">{t("itemsTitle")}</h3>
+          {linesQuery.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : linesQuery.isError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {t("errors.generic")}
+            </p>
+          ) : (
+            <RefundItemsPicker
+              lines={linesQuery.data?.items ?? []}
+              quantities={quantities}
+              waste={waste}
+              disabled={fieldsDisabled}
+              onQuantity={(id, quantity) => {
+                setQuantities((current) => ({ ...current, [id]: quantity }));
+                resetApproval();
+              }}
+              onWaste={(id, value) =>
+                setWaste((current) => ({ ...current, [id]: value }))
+              }
+            />
+          )}
+          <div
+            role="status"
+            className="rounded-xl border border-border/70 bg-muted/40 px-3 py-2 text-sm"
+          >
+            {selection.length === 0 ? (
+              <p className="text-muted-foreground">{t("itemsPick")}</p>
+            ) : previewQuery.isError ? (
+              <p className="text-destructive">{t("itemsPreviewError")}</p>
+            ) : preview ? (
+              <>
+                <p className="text-base font-semibold tabular-nums">
+                  {t("itemsTotal")}: {formatMoney(preview.total)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t("itemsTotalDetail", {
+                    consumption: formatMoney(preview.consumptionAmount),
+                    tip: formatMoney(preview.tipAmount),
+                  })}
+                </p>
+              </>
+            ) : (
+              <Spinner />
+            )}
+          </div>
+        </section>
+      ) : (
+        <FieldGroup>
+          <FieldLabel htmlFor="refund-amount">{t("amountLabel")}</FieldLabel>
+          <div className="flex gap-2">
+            <TextInput
+              id="refund-amount"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="0"
+              value={amount}
+              disabled={fieldsDisabled}
+              aria-invalid={amountError}
+              aria-describedby="refund-amount-hint"
+              onChange={(event) => {
+                setAmount(event.target.value.replace(/\D/g, "").slice(0, 10));
+                resetApproval();
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 shrink-0 rounded-xl sm:h-9"
+              disabled={fieldsDisabled || maxAmount <= 0}
+              onClick={() => {
+                setAmount(String(maxAmount));
+                resetApproval();
+              }}
+            >
+              {t("fillMaxShort")}
+            </Button>
+          </div>
+          <FieldHint
+            id="refund-amount-hint"
+            className={amountError ? "text-destructive" : undefined}
+          >
+            {amountError
+              ? t("amountError", { max: formatMoney(maxAmount) })
+              : fullLabel}
+          </FieldHint>
+        </FieldGroup>
+      )}
 
       <CheckboxRow
-        className={tipAvailable ? undefined : "cursor-not-allowed opacity-60"}
+        className={cn(
+          "py-3 sm:py-2.5",
+          !tipAvailable && "cursor-not-allowed opacity-60",
+        )}
       >
         <input
           type="checkbox"
-          className="cursor-pointer"
+          className="size-5 cursor-pointer sm:size-4"
           checked={tipOn}
           disabled={fieldsDisabled || !tipAvailable}
           onChange={(event) => {
@@ -655,7 +806,9 @@ function RefundForm({
             })}
           </p>
           {approval.approvers.length === 0 ? (
-            <p className="text-sm text-destructive">{t("approvalNoApprovers")}</p>
+            <p className="text-sm text-destructive">
+              {t("approvalNoApprovers")}
+            </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <FieldGroup>
@@ -672,7 +825,10 @@ function RefundForm({
                     {t("approverPlaceholder")}
                   </option>
                   {approval.approvers.map((approver) => (
-                    <option key={approver.staffUserId} value={approver.staffUserId}>
+                    <option
+                      key={approver.staffUserId}
+                      value={approver.staffUserId}
+                    >
                       {approver.name}
                     </option>
                   ))}
@@ -698,10 +854,15 @@ function RefundForm({
         </fieldset>
       ) : null}
 
-      {method === "CASH_MANUAL" && amountValue !== null && !amountError ? (
+      {method === "CASH_MANUAL" &&
+      (itemsMode
+        ? previewTotal !== null && previewTotal > 0
+        : amountValue !== null && !amountError) ? (
         <p className="flex items-center gap-2 text-sm font-semibold">
           <Banknote className="size-4 shrink-0" aria-hidden="true" />
-          {t("cashToHandOver", { amount: formatMoney(amountValue) })}
+          {t("cashToHandOver", {
+            amount: formatMoney(itemsMode ? previewTotal! : amountValue!),
+          })}
         </p>
       ) : null}
 
@@ -746,7 +907,7 @@ function RefundForm({
         <Button
           type="button"
           variant="outline"
-          className="rounded-full"
+          className="h-10 rounded-full sm:h-9"
           disabled={mutation.isPending}
           onClick={onClose}
         >
@@ -754,7 +915,7 @@ function RefundForm({
         </Button>
         <Button
           type="submit"
-          className="rounded-full"
+          className="h-10 rounded-full sm:h-9"
           disabled={!canSubmit || mutation.isPending}
         >
           {mutation.isPending ? <Spinner /> : null}

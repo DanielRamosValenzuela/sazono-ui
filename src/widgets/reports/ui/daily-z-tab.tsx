@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { reportsApi, retryReportRequest } from "@/shared/api/reports-api";
 import { formatMoney } from "@/shared/lib/format";
@@ -45,6 +46,7 @@ export function buildDailyZCsv(data: DailyZResponse, t: Translate): string {
     push(t("zTotal"), Number(data.sales.total));
     push(t("zTips"), Number(data.sales.tipAmount));
     push(t("zCollected"), Number(data.sales.collected));
+    push(t("zDiscounts"), data.sales.discountCount, Number(data.sales.discounts));
     push(t("zRefunds"), data.refunds.count, Number(data.refunds.amount));
     push(t("zRefundNet"), Number(data.refunds.netAmount));
     push(t("zRefundVat"), Number(data.refunds.vatAmount));
@@ -97,27 +99,76 @@ export function buildDailyZCsv(data: DailyZResponse, t: Translate): string {
   return `﻿${lines.map((line) => line.map(escape).join(";")).join("\r\n")}`;
 }
 
+type CardRow = {
+  key: string;
+  name: string;
+  fields: Array<[label: string, value: string, strong?: boolean]>;
+};
+
 function SectionTable({
   title,
   children,
+  cards,
+  cardsFoot,
 }: {
   title: string;
   children: React.ReactNode;
+  cards?: CardRow[];
+  cardsFoot?: [label: string, value: string];
 }) {
   return (
     <section className="space-y-2 break-inside-avoid">
       <h2 className="font-heading text-lg font-semibold">{title}</h2>
-      <div className="overflow-x-auto rounded-2xl border border-border/70 bg-card">
+      <div
+        className={cn(
+          "overflow-x-auto rounded-2xl border border-border/70 bg-card",
+          cards && "hidden sm:block print:block"
+        )}
+      >
         <table className="w-full border-separate border-spacing-0 text-sm tabular-nums">
           {children}
         </table>
       </div>
+      {cards ? (
+        <ul className="space-y-3 sm:hidden print:hidden">
+          {cards.map((card) => (
+            <li
+              key={card.key}
+              className="rounded-2xl border border-border/70 bg-card p-4"
+            >
+              <p className="text-base font-semibold break-words">{card.name}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                {card.fields.map(([label, value, strong]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd
+                      className={cn(
+                        "text-sm tabular-nums break-words",
+                        strong ? "font-bold" : "font-medium"
+                      )}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+          {cardsFoot ? (
+            <li className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted p-4 text-sm font-bold tabular-nums">
+              <span>{cardsFoot[0]}</span>
+              <span>{cardsFoot[1]}</span>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
     </section>
   );
 }
 
 export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabProps) {
   const t = useTranslations("Reports");
+  const tDiscounts = useTranslations("Discounts");
   const [date, setDate] = useState(todayKey);
   const validDate = DATE_PATTERN.test(date);
 
@@ -164,11 +215,11 @@ export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabPro
           <p className="text-sm font-medium">{t("zTodayOnly")}</p>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
-          <Button variant="outline" className="rounded-full" disabled={!data} onClick={exportCsv}>
+          <Button variant="outline" className="min-h-10 rounded-full sm:min-h-0" disabled={!data} onClick={exportCsv}>
             <Download />
             {t("exportCsv")}
           </Button>
-          <Button variant="outline" className="rounded-full" disabled={!data} onClick={() => window.print()}>
+          <Button variant="outline" className="min-h-10 rounded-full sm:min-h-0" disabled={!data} onClick={() => window.print()}>
             <Printer />
             {t("zPrint")}
           </Button>
@@ -222,6 +273,11 @@ export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabPro
                   value={formatMoney(data.sales.collected)}
                 />
                 <StatCard
+                  label={t("zDiscounts")}
+                  value={formatMoney(data.sales.discounts)}
+                  hint={t("zDiscountsHint", { count: data.sales.discountCount })}
+                />
+                <StatCard
                   label={t("zRefunds")}
                   value={formatMoney(data.refunds.amount)}
                   hint={t("zRefundsHint", {
@@ -239,7 +295,19 @@ export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabPro
                 })}
               </p>
 
-              <SectionTable title={t("zByMethod")}>
+              <SectionTable
+                title={t("zByMethod")}
+                cards={data.byMethod.map((row) => ({
+                  key: row.method,
+                  name: t(`methods.${row.method}`),
+                  fields: [
+                    [t("zCount"), String(row.count)],
+                    [t("zAmount"), formatMoney(row.amount)],
+                    [t("zTips"), formatMoney(row.tip)],
+                    [t("zCollected"), formatMoney(row.collected), true],
+                  ],
+                }))}
+              >
                 <thead>
                   <tr>
                     <HeadCell>{t("zMethod")}</HeadCell>
@@ -273,6 +341,74 @@ export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabPro
                 </tbody>
               </SectionTable>
 
+              {data.sales.discountCount > 0 ? (
+                <>
+                  <SectionTable
+                    title={t("zDiscountsByReason")}
+                    cards={data.sales.discountsByReason.map((row) => ({
+                      key: row.reasonCode,
+                      name: tDiscounts.has(`reasons.${row.reasonCode}`)
+                        ? tDiscounts(`reasons.${row.reasonCode}`)
+                        : row.reasonCode,
+                      fields: [
+                        [t("zCount"), String(row.count)],
+                        [t("zAmount"), formatMoney(row.amount), true],
+                      ],
+                    }))}
+                  >
+                    <thead>
+                      <tr>
+                        <HeadCell>{t("zReason")}</HeadCell>
+                        <HeadCell align="right">{t("zDiscountCount")}</HeadCell>
+                        <HeadCell align="right">{t("zAmount")}</HeadCell>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.sales.discountsByReason.map((row) => (
+                        <tr key={row.reasonCode}>
+                          <BodyCell>
+                            {tDiscounts.has(`reasons.${row.reasonCode}`)
+                              ? tDiscounts(`reasons.${row.reasonCode}`)
+                              : row.reasonCode}
+                          </BodyCell>
+                          <BodyCell align="right">{row.count}</BodyCell>
+                          <BodyCell align="right">{formatMoney(row.amount)}</BodyCell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </SectionTable>
+
+                  <SectionTable
+                    title={t("zDiscountsByApprover")}
+                    cards={data.sales.discountsByApprover.map((row) => ({
+                      key: row.staffUserId ?? "none",
+                      name: row.name ?? t("zNoApprover"),
+                      fields: [
+                        [t("zCount"), String(row.count)],
+                        [t("zAmount"), formatMoney(row.amount), true],
+                      ],
+                    }))}
+                  >
+                    <thead>
+                      <tr>
+                        <HeadCell>{t("zApprover")}</HeadCell>
+                        <HeadCell align="right">{t("zDiscountCount")}</HeadCell>
+                        <HeadCell align="right">{t("zAmount")}</HeadCell>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.sales.discountsByApprover.map((row) => (
+                        <tr key={row.staffUserId ?? "none"}>
+                          <BodyCell>{row.name ?? t("zNoApprover")}</BodyCell>
+                          <BodyCell align="right">{row.count}</BodyCell>
+                          <BodyCell align="right">{formatMoney(row.amount)}</BodyCell>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </SectionTable>
+                </>
+              ) : null}
+
               <SectionTable title={t("zByCategory")}>
                 <thead>
                   <tr>
@@ -304,7 +440,22 @@ export function DailyZTab({ token, branchId, fullAccess, enabled }: DailyZTabPro
             </>
           ) : null}
 
-          <SectionTable title={fullAccess ? t("zCashClosing") : t("zMyCash")}>
+          <SectionTable
+            title={fullAccess ? t("zCashClosing") : t("zMyCash")}
+            cards={data.cashClosing.rows.map((row) => ({
+              key: row.staffUserId ?? "none",
+              name: row.name ?? t("zUnassigned"),
+              fields: [
+                [t("zCashSales"), formatMoney(row.cashSales)],
+                [t("zCashIn"), formatMoney(row.cashIn)],
+                [t("zCashOut"), formatMoney(row.cashOut)],
+                [t("zRefundOut"), formatMoney(row.refundOut)],
+                [t("zOtherMovements"), formatMoney(row.otherMovements)],
+                [t("zExpected"), formatMoney(row.expectedCash), true],
+              ],
+            }))}
+            cardsFoot={[t("zExpectedTotal"), formatMoney(data.cashClosing.expectedCash)]}
+          >
             <thead>
               <tr>
                 <HeadCell>{t("zCashier")}</HeadCell>
