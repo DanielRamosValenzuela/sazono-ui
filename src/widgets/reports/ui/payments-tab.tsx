@@ -16,7 +16,13 @@ import { formatMoney } from "@/shared/lib/format";
 import type { PaymentsReportResponse, PaymentsReportRow } from "@/shared/types/reports";
 import { formatReportDateTime } from "./report-range";
 import { OrderDetailDialog } from "./order-detail-dialog";
-import { DetailGrid, LoadMore, ReportQueryState } from "./report-parts";
+import {
+  DetailGrid,
+  LoadMore,
+  RefundBadge,
+  ReportQueryState,
+} from "./report-parts";
+import { negativeClass } from "./report-format";
 import { BodyCell, HeadCell, SelectableRow } from "./report-table";
 
 type PaymentsTabProps = {
@@ -110,9 +116,20 @@ export function PaymentsTab({
                   label: t(`methods.${entry.method}`),
                   count: entry.count,
                   amount: entry.amount,
+                  refunded: entry.refunded,
+                  net: entry.net,
                 }))}
               />
             </div>
+          ) : null}
+          {totals?.otherPeriod.included &&
+          (Number(totals.otherPeriod.refunded) !== 0 ||
+            Number(totals.otherPeriod.tipRefunded) !== 0) ? (
+            <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground tabular-nums">
+              {t("otherPeriodRefunds", {
+                amount: formatMoney(totals.otherPeriod.refunded),
+              })}
+            </p>
           ) : null}
 
           <div className="hidden max-h-[65vh] overflow-auto rounded-2xl border border-border/70 bg-card md:block">
@@ -129,6 +146,7 @@ export function PaymentsTab({
                   <HeadCell align="right">{t("colAmount")}</HeadCell>
                   <HeadCell align="right">{t("colTip")}</HeadCell>
                   <HeadCell align="right">{t("colCharged")}</HeadCell>
+                  <HeadCell align="right">{t("colRefunded")}</HeadCell>
                   <HeadCell>{t("colCaja")}</HeadCell>
                 </tr>
               </thead>
@@ -162,11 +180,24 @@ export function PaymentsTab({
                     <BodyCell>{row.table ?? "—"}</BodyCell>
                     <BodyCell>{methodLabel(row)}</BodyCell>
                     <BodyCell>{row.provider}</BodyCell>
-                    <BodyCell>{statusBadge(row)}</BodyCell>
+                    <BodyCell>
+                      <div className="flex items-center gap-1.5">
+                        {statusBadge(row)}
+                        <RefundBadge
+                          status={row.refundStatus}
+                          refunded={Number(row.refunded) + Number(row.refundedTip)}
+                        />
+                      </div>
+                    </BodyCell>
                     <BodyCell align="right">{formatMoney(row.amount)}</BodyCell>
                     <BodyCell align="right">{formatMoney(row.tip)}</BodyCell>
                     <BodyCell align="right" className="font-medium">
                       {formatMoney(row.total)}
+                    </BodyCell>
+                    <BodyCell align="right">
+                      {Number(row.refunded) + Number(row.refundedTip) === 0
+                        ? "—"
+                        : formatMoney(Number(row.refunded) + Number(row.refundedTip))}
                     </BodyCell>
                     <BodyCell>{row.caja}</BodyCell>
                   </SelectableRow>
@@ -204,7 +235,13 @@ export function PaymentsTab({
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3">{statusBadge(row)}</div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {statusBadge(row)}
+                    <RefundBadge
+                      status={row.refundStatus}
+                      refunded={Number(row.refunded) + Number(row.refundedTip)}
+                    />
+                  </div>
                 </button>
               </li>
             ))}
@@ -247,6 +284,7 @@ export function PaymentsTab({
                     [t("colCashier"), selected.cashier ?? "—"],
                     [t("colSource"), sourceLabel(selected)],
                     [t("colRefunded"), formatMoney(selected.refunded)],
+                    [t("colRefundedTip"), formatMoney(selected.refundedTip)],
                   ]}
                 />
                 {selected.billId ? (
@@ -279,10 +317,19 @@ export function PaymentsTab({
 
 type SummaryListProps = {
   title: string;
-  items: Array<{ key: string; label: string; count: number; amount: string }>;
+  items: Array<{
+    key: string;
+    label: string;
+    count: number;
+    amount: string;
+    refunded?: string;
+    net?: string;
+  }>;
 };
 
 function SummaryList({ title, items }: SummaryListProps) {
+  const t = useTranslations("Reports");
+
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-4">
       <h3 className="text-sm font-semibold">{title}</h3>
@@ -294,6 +341,15 @@ function SummaryList({ title, items }: SummaryListProps) {
           >
             <span className="font-medium">{item.label}</span> · {item.count} ·{" "}
             {formatMoney(item.amount)}
+            {item.refunded !== undefined &&
+            item.net !== undefined &&
+            Number(item.refunded) !== 0 ? (
+              <span className={negativeClass(item.net)}>
+                {" "}
+                · {t("summaryRefunded", { refunded: formatMoney(item.refunded) })}{" "}
+                · {t("colNet")} {formatMoney(item.net)}
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>

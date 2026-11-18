@@ -38,12 +38,18 @@ export type BranchSettings = {
   partialDeliveryEnabled: boolean;
   autoDeliverAfterMinutes: number | null;
   tableAssignmentEnabled: boolean;
+  cashierRefundLimit: string | null;
+  refundTipDefault: boolean;
+};
+
+export type BranchSettingsInput = Omit<BranchSettings, "cashierRefundLimit"> & {
+  cashierRefundLimit: number | null;
 };
 
 export type CreateBranchRequest = {
   name: string;
   address?: string;
-  settings?: Partial<BranchSettings>;
+  settings?: Partial<BranchSettingsInput>;
 };
 
 export type BranchSummary = {
@@ -59,7 +65,7 @@ export type UpdateBranchRequest = {
   name?: string;
   address?: string | null;
   status?: "ACTIVE" | "INACTIVE";
-  settings?: Partial<BranchSettings>;
+  settings?: Partial<BranchSettingsInput>;
 };
 
 export type CreateBranchResponse = {

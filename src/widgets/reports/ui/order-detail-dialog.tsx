@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Undo2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,11 +17,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/shared/api/http-client";
 import { reportsApi, retryReportRequest } from "@/shared/api/reports-api";
+import { getBranchAccessList, hasBranchPermission } from "@/shared/lib/branch-access";
 import { formatMoney } from "@/shared/lib/format";
 import type {
   OrderDetailItem,
+  OrderDetailPayment,
   OrderDetailResponse,
 } from "@/shared/types/reports";
+import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
+import { RefundDialog } from "./refund-dialog";
 import { DetailGrid } from "./report-parts";
 import { formatReportDateTime } from "./report-range";
 
@@ -33,6 +38,11 @@ type OrderDetailDialogProps = {
 };
 
 const DETAIL_STALE_TIME_MS = 60_000;
+const REFUND_ROLES = ["ADMIN", "CASHIER"] as const;
+
+function paymentRefundTotal(payment: OrderDetailPayment) {
+  return Number(payment.refunded) + Number(payment.refundedTip);
+}
 
 type FlagBadge = {
   key: string;
@@ -106,7 +116,19 @@ export function OrderDetailDialog({
   onClose,
 }: OrderDetailDialogProps) {
   const t = useTranslations("Reports");
+  const tRefunds = useTranslations("Refunds");
   const locale = useLocale();
+  const session = useAdminSession();
+  const [refundPayment, setRefundPayment] = useState<OrderDetailPayment | null>(
+    null
+  );
+  const access =
+    session.user?.profileType === "staff"
+      ? (getBranchAccessList(session.user).find(
+          (entry) => entry.branchId === branchId
+        ) ?? null)
+      : null;
+  const canRefund = hasBranchPermission(access, [...REFUND_ROLES]);
   const query = useQuery({
     queryKey: ["reports", "order-detail", branchId, billId],
     enabled: Boolean(token) && Boolean(billId),
@@ -122,6 +144,7 @@ export function OrderDetailDialog({
     value && t.has(`${prefix}.${value}`) ? t(`${prefix}.${value}`) : value || "—";
 
   return (
+    <>
     <Dialog open={billId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border bg-card px-4 py-4 pr-12 sm:px-6">
@@ -371,6 +394,23 @@ export function OrderDetailDialog({
                           >
                             {labelOf("paymentStatus", payment.status)}
                           </Badge>
+                          {paymentRefundTotal(payment) > 0 ? (
+                            <Badge variant="destructive" className="tabular-nums">
+                              {Number(payment.refundable.total) > 0
+                                ? t("orderDetail.refundPartial")
+                                : t("orderDetail.refundFull", {
+                                    amount: formatMoney(paymentRefundTotal(payment)),
+                                  })}
+                            </Badge>
+                          ) : null}
+                          {paymentRefundTotal(payment) > 0 &&
+                          Number(payment.refundable.total) > 0 ? (
+                            <span className="tabular-nums">
+                              {t("orderDetail.refundedAmount", {
+                                amount: formatMoney(paymentRefundTotal(payment)),
+                              })}
+                            </span>
+                          ) : null}
                           <span>{payment.cashier ?? payment.caja}</span>
                           <span>
                             {payment.source ? labelOf("sources", payment.source) : "—"}
@@ -378,12 +418,83 @@ export function OrderDetailDialog({
                           <span>
                             {dateTime(payment.paidAt ?? payment.createdAt)}
                           </span>
+                          {canRefund &&
+                          payment.status === "PAID" &&
+                          Number(payment.refundable.total) > 0 ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-auto rounded-full"
+                              onClick={() => setRefundPayment(payment)}
+                            >
+                              <Undo2 />
+                              {t("orderDetail.refundAction")}
+                            </Button>
+                          ) : null}
                         </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </section>
+
+              {detail.refunds.length > 0 ? (
+                <section aria-labelledby="order-detail-refunds" className="space-y-3">
+                  <h3 id="order-detail-refunds" className="text-sm font-semibold">
+                    {t("orderDetail.refunds")}
+                  </h3>
+                  <ul className="divide-y divide-border/60 rounded-2xl border border-border/70">
+                    {detail.refunds.map((refund) => (
+                      <li key={refund.id} className="space-y-1 px-4 py-3 text-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium">
+                              {labelOf("orderDetail.refundMethods", refund.method)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {dateTime(refund.completedAt)}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right tabular-nums">
+                            <p className="font-semibold">
+                              {formatMoney(refund.amount)}
+                            </p>
+                            {Number(refund.tip) > 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                {t("orderDetail.refundTipIncluded", {
+                                  tip: formatMoney(refund.tip),
+                                })}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className="break-words">
+                          {tRefunds.has(`reasons.${refund.reasonCode}`)
+                            ? tRefunds(`reasons.${refund.reasonCode}`)
+                            : refund.reasonCode}
+                          {" · "}
+                          {refund.reasonText}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {[
+                            refund.requestedBy
+                              ? t("orderDetail.refundBy", { name: refund.requestedBy })
+                              : null,
+                            refund.approvedBy
+                              ? t("orderDetail.refundApprovedBy", {
+                                  name: refund.approvedBy,
+                                })
+                              : null,
+                            labelOf("orderDetail.creditNote", refund.creditNoteStatus),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
               <section aria-labelledby="order-detail-totals" className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -415,6 +526,11 @@ export function OrderDetailDialog({
                     [t("orderDetail.remaining"), formatMoney(detail.totals.remaining)],
                     [t("orderDetail.difference"), formatMoney(detail.totals.difference)],
                     [t("colRefunded"), formatMoney(detail.totals.refunded)],
+                    [
+                      t("orderDetail.refundedTip"),
+                      formatMoney(detail.totals.refundedTip),
+                    ],
+                    [t("colNet"), formatMoney(detail.totals.net)],
                   ]}
                 />
               </section>
@@ -423,5 +539,13 @@ export function OrderDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+    <RefundDialog
+      token={token}
+      branchId={branchId}
+      payment={refundPayment}
+      orderNumber={number ?? null}
+      onClose={() => setRefundPayment(null)}
+    />
+    </>
   );
 }

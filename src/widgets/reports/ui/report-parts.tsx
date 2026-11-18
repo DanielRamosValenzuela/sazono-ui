@@ -2,11 +2,58 @@
 
 import type { ReactNode } from "react";
 import { CircleAlert, Inbox } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/shared/lib/format";
+
+export function ShareCell({ share }: { share: number }) {
+  const locale = useLocale();
+  const label = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(share / 100);
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <div
+        className="h-1.5 w-20 overflow-hidden rounded-full bg-muted"
+        aria-hidden="true"
+      >
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${Math.min(100, Math.max(0, share))}%` }}
+        />
+      </div>
+      <span className="w-14 text-right">{label}</span>
+    </div>
+  );
+}
+
+export function RefundBadge({
+  status,
+  refunded,
+}: {
+  status: "NONE" | "PARTIAL" | "FULL";
+  refunded: string | number;
+}) {
+  const t = useTranslations("Reports");
+
+  if (status === "NONE") {
+    return null;
+  }
+
+  return (
+    <Badge variant="destructive" className="tabular-nums">
+      {status === "PARTIAL"
+        ? t("refundBadgePartial")
+        : t("refundBadgeFull", { amount: formatMoney(refunded) })}
+    </Badge>
+  );
+}
 
 type ReportQueryStateProps = {
   isLoading: boolean;
@@ -89,6 +136,37 @@ export function ReportQueryState({
       className={cn("transition-opacity", isRefreshing && "opacity-60")}
     >
       {children}
+    </div>
+  );
+}
+
+type ToggleGroupProps<T extends string> = {
+  label: string;
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+};
+
+export function ToggleGroup<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: ToggleGroupProps<T>) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          size="sm"
+          variant={value === option.value ? "default" : "outline"}
+          className="rounded-full"
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </Button>
+      ))}
     </div>
   );
 }

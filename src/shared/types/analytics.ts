@@ -91,6 +91,7 @@ export type DailyPaymentsPoint = {
   date: string;
   amount: string;
   count: number;
+  refunded?: string;
 };
 
 export type OrdersByStatusPoint = {
@@ -110,6 +111,7 @@ export type BranchAnalyticsSummary = {
   occupiedTables: number;
   openSessions: number;
   todayRevenue: string;
+  todayRefunded?: string;
   todayPaymentsCount: number;
   averageTicket: string;
   dailySeries: DailyPaymentsPoint[];

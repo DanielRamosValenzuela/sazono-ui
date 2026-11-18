@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/shared/lib/format";
+import { negativeClass } from "./report-format";
 import { CheckboxRow } from "@/shared/ui/form-controls";
 import {
   REPORT_METHOD_KEYS,
@@ -21,7 +22,7 @@ import {
 } from "@/shared/types/reports";
 import { formatReportDateTime } from "./report-range";
 import { OrderDetailDialog } from "./order-detail-dialog";
-import { LoadMore, ReportQueryState } from "./report-parts";
+import { LoadMore, RefundBadge, ReportQueryState } from "./report-parts";
 import { BodyCell, FootCell, HeadCell, SelectableRow } from "./report-table";
 
 type SalesTabProps = {
@@ -93,6 +94,15 @@ export function SalesTab({
         onRetry={() => void query.refetch()}
       >
         <div className="space-y-3">
+          {totals?.otherPeriod.included &&
+          (Number(totals.otherPeriod.refunded) !== 0 ||
+            Number(totals.otherPeriod.tipRefunded) !== 0) ? (
+            <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground tabular-nums">
+              {t("otherPeriodRefunds", {
+                amount: formatMoney(totals.otherPeriod.refunded),
+              })}
+            </p>
+          ) : null}
           <div className="hidden justify-end md:flex">
             <Button
               variant="outline"
@@ -132,6 +142,8 @@ export function SalesTab({
                   <HeadCell>{t("colStatus")}</HeadCell>
                   <HeadCell align="right">{t("colTotal")}</HeadCell>
                   <HeadCell align="right">{t("colTip")}</HeadCell>
+                  <HeadCell align="right">{t("colRefunded")}</HeadCell>
+                  <HeadCell align="right">{t("colNet")}</HeadCell>
                   {visibleMethods.map((key) => (
                     <HeadCell key={key} align="right">
                       {t(`methods.${key}`)}
@@ -154,18 +166,36 @@ export function SalesTab({
                     <BodyCell>{row.caja}</BodyCell>
                     <BodyCell>{row.table ?? "—"}</BodyCell>
                     <BodyCell>
-                      <Badge
-                        variant={
-                          row.paymentStatus === "Mixto" ? "secondary" : "outline"
-                        }
-                      >
-                        {statusLabel(row)}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant={
+                            row.paymentStatus === "Mixto" ? "secondary" : "outline"
+                          }
+                        >
+                          {statusLabel(row)}
+                        </Badge>
+                        <RefundBadge
+                          status={row.refundStatus}
+                          refunded={Number(row.refunded) + Number(row.tipRefunded)}
+                        />
+                      </div>
                     </BodyCell>
                     <BodyCell align="right" className="font-medium">
                       {formatMoney(row.total)}
                     </BodyCell>
                     <BodyCell align="right">{formatMoney(row.tip)}</BodyCell>
+                    <BodyCell
+                      align="right"
+                      className={cn(isZero(row.refunded) && "text-muted-foreground/50")}
+                    >
+                      {isZero(row.refunded) ? "—" : formatMoney(row.refunded)}
+                    </BodyCell>
+                    <BodyCell
+                      align="right"
+                      className={cn("font-medium", negativeClass(row.net))}
+                    >
+                      {formatMoney(row.net)}
+                    </BodyCell>
                     {visibleMethods.map((key) => {
                       const amount = amountOf(row.methods, key);
                       return (
@@ -193,6 +223,12 @@ export function SalesTab({
                       {formatMoney(totals.payable)}
                     </FootCell>
                     <FootCell align="right">{formatMoney(totals.tip)}</FootCell>
+                    <FootCell align="right">
+                      {formatMoney(totals.refunded)}
+                    </FootCell>
+                    <FootCell align="right" className={negativeClass(totals.net)}>
+                      {formatMoney(totals.net)}
+                    </FootCell>
                     {visibleMethods.map((key) => (
                       <FootCell key={key} align="right">
                         {formatMoney(amountOf(totals.methods, key))}
@@ -230,6 +266,16 @@ export function SalesTab({
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {t("colTip")}: {formatMoney(row.tip)}
                       </p>
+                      {row.refundStatus !== "NONE" ? (
+                        <p
+                          className={cn(
+                            "text-xs tabular-nums",
+                            negativeClass(row.net) ?? "text-muted-foreground"
+                          )}
+                        >
+                          {t("colNet")}: {formatMoney(row.net)}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
@@ -240,6 +286,10 @@ export function SalesTab({
                     >
                       {statusLabel(row)}
                     </Badge>
+                    <RefundBadge
+                      status={row.refundStatus}
+                      refunded={Number(row.refunded) + Number(row.tipRefunded)}
+                    />
                     {row.methods
                       .filter((entry) => !isZero(entry.amount))
                       .map((entry) => (
@@ -266,6 +316,10 @@ export function SalesTab({
                 </p>
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t("colTip")}: {formatMoney(totals.tip)}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {t("colRefunded")}: {formatMoney(totals.refunded)} ·{" "}
+                  {t("colNet")}: {formatMoney(totals.net)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {totals.methods

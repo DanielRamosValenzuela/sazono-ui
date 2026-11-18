@@ -14,6 +14,8 @@ async function forwardRequest(request: NextRequest, context: RouteContext) {
 
   const contentType = request.headers.get("content-type");
   const authorization = request.headers.get("authorization");
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const userAgent = request.headers.get("user-agent");
 
   let response: Response;
 
@@ -23,6 +25,8 @@ async function forwardRequest(request: NextRequest, context: RouteContext) {
       headers: {
         ...(contentType ? { "Content-Type": contentType } : {}),
         ...(authorization ? { Authorization: authorization } : {}),
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+        ...(userAgent ? { "User-Agent": userAgent } : {}),
       },
       ...(request.method === "GET" || request.method === "HEAD"
         ? {}

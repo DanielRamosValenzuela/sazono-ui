@@ -181,9 +181,12 @@ export function FilterFields({
   const t = useTranslations("Reports");
   const has = (key: ReportFilterKey) => supported.includes(key);
   const fieldId = (name: string) => `${idPrefix}-${name}`;
-  const showSort = kind !== "sales-by-hierarchy";
-  const sortFields = REPORT_SORT_FIELDS.filter(
-    (field) => field !== "order" || kind === "sales-by-order"
+  const showSort =
+    kind === "sales-by-order" || kind === "payments" || kind === "refunds";
+  const sortFields = REPORT_SORT_FIELDS.filter((field) =>
+    kind === "refunds"
+      ? field === "date" || field === "total"
+      : field !== "order" || kind === "sales-by-order"
   );
   const hasTip = filters.hasTip ?? "";
 

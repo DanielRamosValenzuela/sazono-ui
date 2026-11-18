@@ -17,11 +17,12 @@ type RequestOptions = {
   body?: unknown;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   signal?: AbortSignal;
+  headers?: Record<string, string>;
 };
 
 export async function apiRequest<T>(
   path: string,
-  { token, body, method = "GET", signal }: RequestOptions = {}
+  { token, body, method = "GET", signal, headers }: RequestOptions = {}
 ): Promise<T> {
   const isFormData = body instanceof FormData;
 
@@ -33,6 +34,7 @@ export async function apiRequest<T>(
       headers: {
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
       ...(body ? { body: isFormData ? body : JSON.stringify(body) } : {}),
       cache: "no-store",

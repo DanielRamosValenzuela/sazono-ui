@@ -21,6 +21,7 @@ import {
   type ReportFilters,
   type ReportKindKey,
   type ReportSort,
+  type ReportTab,
 } from "@/shared/types/reports";
 import { formatMoney } from "@/shared/lib/format";
 import { getBranchAccessList, hasBranchPermission } from "@/shared/lib/branch-access";
@@ -31,7 +32,10 @@ import { useAdminSession } from "@/features/admin-session/model/use-admin-sessio
 import { downloadBlob } from "./download-blob";
 import { ReportFilterBar } from "./filter-bar";
 import { HierarchyTab } from "./hierarchy-tab";
+import { KpiStrip } from "./kpi-strip";
+import { OpenTabsTab } from "./open-tabs-tab";
 import { PaymentsTab } from "./payments-tab";
+import { RefundsTab } from "./refunds-tab";
 import {
   applyPatch,
   effectiveFilters,
@@ -50,7 +54,22 @@ import {
   resolveRange,
   type RangePreset,
 } from "./report-range";
+import { SalesByTab } from "./sales-by-tab";
 import { SalesTab } from "./sales-tab";
+import {
+  REFUND_CHIP_PARAMS,
+  TAB_LABELS,
+  exportTarget,
+  parseBucket,
+  parseOpenKind,
+  parseRefundChips,
+  parseSalesByView,
+  parseTab,
+  tabKind,
+  visibleTabs,
+  type RefundChips,
+} from "./report-tabs";
+import { TipsTab } from "./tips-tab";
 import { useReportFilterOptions } from "./use-report-filter-options";
 
 const PAGE_SIZE = 50;
@@ -58,20 +77,6 @@ const MAX_RANGE_DAYS = 366;
 const DAY_MS = 86_400_000;
 const REPORT_ROLES = ["ADMIN", "SUPERVISOR", "CASHIER"] as const;
 const FULL_ROLES = ["ADMIN", "SUPERVISOR"] as const;
-
-type ReportTab = "sales" | "payments" | "hierarchy";
-
-const TAB_KINDS: Record<ReportTab, ReportKindKey> = {
-  sales: "sales-by-order",
-  payments: "payments",
-  hierarchy: "sales-by-hierarchy",
-};
-
-const TAB_LABELS = {
-  sales: "tabSales",
-  payments: "tabPayments",
-  hierarchy: "tabHierarchy",
-} as const;
 
 export function ReportsPanel() {
   return (
@@ -101,16 +106,11 @@ function ReportsContent() {
   const branchId = branch?.branchId ?? null;
   const fullAccess = hasBranchPermission(branch, [...FULL_ROLES]);
 
-  const tabParam = searchParams.get("tab");
-  const tab: ReportTab =
-    tabParam === "payments"
-      ? "payments"
-      : tabParam === "hierarchy" && fullAccess
-        ? "hierarchy"
-        : "sales";
-  const tabs: ReportTab[] = fullAccess
-    ? ["sales", "payments", "hierarchy"]
-    : ["sales", "payments"];
+  const tab: ReportTab = parseTab(searchParams.get("tab"), fullAccess);
+  const salesByView = parseSalesByView(searchParams.get("by"), fullAccess);
+  const bucket = parseBucket(searchParams.get("bucket"));
+  const openKind = parseOpenKind(searchParams.get("openKind"));
+  const tabs = visibleTabs(fullAccess);
   const presetParam = searchParams.get("preset");
   const preset: RangePreset =
     fullAccess && isRangePreset(presetParam) ? presetParam : "today";
@@ -126,7 +126,15 @@ function ReportsContent() {
 
   const filters = parseFilters(searchParams);
   const sort = parseSort(searchParams);
-  const kind = TAB_KINDS[tab];
+  const refundChips = parseRefundChips((name) => searchParams.get(name));
+  const tabView = {
+    tab,
+    salesBy: salesByView,
+    bucket,
+    openKind,
+    refundChips,
+  };
+  const kind: ReportKindKey = tabKind(tabView);
   const tabFilters = effectiveFilters(kind, filters, fullAccess);
   const tabSort = effectiveSort(kind, sort);
   const filterCount = Object.keys(tabFilters).length;
@@ -161,10 +169,25 @@ function ReportsContent() {
 
   const changeSort = (next: ReportSort) => updateParams(sortToParams(next));
 
+  const changeRefundChips = (patch: Partial<RefundChips>) =>
+    updateParams(
+      Object.fromEntries(
+        Object.entries(patch).map(([key, value]) => [
+          REFUND_CHIP_PARAMS[key as keyof RefundChips],
+          value,
+        ])
+      )
+    );
+
   const replaceFilters = (next: ReportFilters, nextSort: ReportSort) =>
     updateParams({ ...filtersToParams(next), ...sortToParams(nextSort) });
 
-  const clearFilters = () => updateParams(filtersToParams({}));
+  const clearChipParams = Object.fromEntries(
+    Object.values(REFUND_CHIP_PARAMS).map((param) => [param, ""])
+  );
+
+  const clearFilters = () =>
+    updateParams({ ...filtersToParams({}), ...clearChipParams });
 
   const applyView = (view: SavedView) => {
     const supportsAll = (target: ReportKindKey) =>
@@ -187,7 +210,11 @@ function ReportsContent() {
     );
 
   const selectBranch = (nextBranch: string) =>
-    updateParams({ branch: nextBranch, ...filtersToParams({}) });
+    updateParams({
+      branch: nextBranch,
+      ...filtersToParams({}),
+      ...clearChipParams,
+    });
 
   const enabled =
     session.isClientReady &&
@@ -212,7 +239,7 @@ function ReportsContent() {
       tabFilters,
       tab === "sales" ? tabSort : DEFAULT_REPORT_SORT,
     ],
-    enabled,
+    enabled: enabled && (tab === "sales" || !fullAccess),
     placeholderData: keepPreviousData,
     retry: retryReportRequest,
     initialPageParam: undefined as string | undefined,
@@ -254,15 +281,23 @@ function ReportsContent() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const exportKind = tab === "payments" ? "payments" : "sales-by-order";
+      const target = exportTarget(tabView);
+      const sorted =
+        target.kind === "sales-by-order" ||
+        target.kind === "payments" ||
+        target.kind === "refunds";
       const blob = await reportsApi.downloadCsv(
         session.accessToken!,
         branchId!,
-        exportKind,
-        { ...range, filters: tabFilters, sort: tabSort }
+        target.kind,
+        { ...range, filters: tabFilters, sort: sorted ? tabSort : undefined },
+        undefined,
+        target.extra
       );
-      const fileName = `${exportKind === "payments" ? "pagos" : "cierre-ventas"}_${branchId}_${range.from}_${range.to}.csv`;
-      downloadBlob(blob, fileName);
+      downloadBlob(
+        blob,
+        `${target.file}_${branchId}_${range.from}_${range.to}.csv`
+      );
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("exportError"));
@@ -275,8 +310,8 @@ function ReportsContent() {
 
   const totals = salesQuery.data?.pages[0]?.totals;
   const billsCount = totals?.bills ?? 0;
-  const netSales = Number(totals?.payable ?? 0);
-  const averageTicket = billsCount > 0 ? Math.round(netSales / billsCount) : 0;
+  const netSales = Number(totals?.net ?? 0);
+  const averageTicket = billsCount > 0 ? Math.round(Math.max(0, netSales) / billsCount) : 0;
   const cardsFailed = salesQuery.isError;
 
   return (
@@ -393,6 +428,15 @@ function ReportsContent() {
         </div>
       </div>
 
+      {fullAccess ? (
+        <KpiStrip
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          filters={tabFilters}
+          enabled={enabled}
+        />
+      ) : (
       <section
         aria-label={t("statsAria")}
         aria-busy={salesQuery.isPlaceholderData}
@@ -426,15 +470,20 @@ function ReportsContent() {
           isLoading={salesQuery.isLoading}
         />
       </section>
+      )}
 
-      <div role="group" aria-label={t("tabsLabel")} className="flex gap-1 border-b border-border">
+      <div
+        role="group"
+        aria-label={t("tabsLabel")}
+        className="flex gap-1 overflow-x-auto border-b border-border"
+      >
         {tabs.map((entry) => (
           <button
             key={entry}
             type="button"
             aria-pressed={tab === entry}
             className={cn(
-              "min-h-11 cursor-pointer border-b-2 px-4 text-sm font-medium transition-colors",
+              "min-h-11 shrink-0 cursor-pointer border-b-2 px-4 text-sm font-medium whitespace-nowrap transition-colors",
               tab === entry
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -457,6 +506,60 @@ function ReportsContent() {
           branchId={branch.branchId}
           isFiltered={filterCount > 0}
           onClearFilters={clearFilters}
+        />
+      ) : tab === "salesBy" ? (
+        <SalesByTab
+          key={branch.branchId}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          filters={tabFilters}
+          enabled={enabled}
+          fullAccess={fullAccess}
+          view={salesByView}
+          bucket={bucket}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+          onViewChange={(next) => updateParams({ by: next })}
+          onBucketChange={(next) => updateParams({ bucket: next })}
+        />
+      ) : tab === "refunds" ? (
+        <RefundsTab
+          key={branch.branchId}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          filters={tabFilters}
+          sort={tabSort}
+          chips={refundChips}
+          enabled={enabled}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+          onChipsChange={changeRefundChips}
+        />
+      ) : tab === "tips" ? (
+        <TipsTab
+          key={branch.branchId}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          filters={tabFilters}
+          enabled={enabled}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+        />
+      ) : tab === "openTabs" ? (
+        <OpenTabsTab
+          key={branch.branchId}
+          token={session.accessToken ?? null}
+          branchId={branch.branchId}
+          range={range}
+          filters={tabFilters}
+          enabled={enabled}
+          kind={openKind}
+          isFiltered={filterCount > 0}
+          onClearFilters={clearFilters}
+          onKindChange={(next) => updateParams({ openKind: next })}
         />
       ) : tab === "hierarchy" ? (
         <HierarchyTab

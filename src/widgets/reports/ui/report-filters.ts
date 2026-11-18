@@ -128,11 +128,15 @@ export function sortToParams(sort: ReportSort): Record<string, string> {
 }
 
 export function effectiveSort(kind: ReportKindKey, sort: ReportSort): ReportSort {
-  if (kind === "sales-by-hierarchy") {
+  if (kind !== "sales-by-order" && kind !== "payments" && kind !== "refunds") {
     return DEFAULT_REPORT_SORT;
   }
 
-  return kind === "payments" && sort.field === "order"
+  if (kind === "payments" && sort.field === "order") {
+    return { ...sort, field: "date" };
+  }
+
+  return kind === "refunds" && (sort.field === "order" || sort.field === "tip")
     ? { ...sort, field: "date" }
     : sort;
 }

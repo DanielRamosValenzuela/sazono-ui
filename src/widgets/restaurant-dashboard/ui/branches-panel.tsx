@@ -29,6 +29,8 @@ import {
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 
 const QR_PAYMENT_MODES = ["prepaid_order", "postpaid_bill"] as const;
+const MAX_REFUND_LIMIT = 9_999_999_999;
+const REFUND_LIMIT_PATTERN = /^\d{1,10}$/;
 
 type BranchFormValues = {
   name: string;
@@ -483,6 +485,19 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
   const [tableAssignmentEnabled, setTableAssignmentEnabled] = useState(
     branch.settings?.tableAssignmentEnabled ?? false
   );
+  const [refundLimitEnabled, setRefundLimitEnabled] = useState(
+    (branch.settings?.cashierRefundLimit ?? null) !== null
+  );
+  const [refundLimit, setRefundLimit] = useState(
+    branch.settings?.cashierRefundLimit ?? ""
+  );
+  const [refundTipDefault, setRefundTipDefault] = useState(
+    branch.settings?.refundTipDefault ?? false
+  );
+  const refundLimitValid =
+    !refundLimitEnabled ||
+    (REFUND_LIMIT_PATTERN.test(refundLimit) &&
+      Number(refundLimit) <= MAX_REFUND_LIMIT);
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border/70 bg-background/60 p-4">
@@ -618,10 +633,59 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
         </FieldHint>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CheckboxRow>
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={refundLimitEnabled}
+            onChange={(event) => setRefundLimitEnabled(event.target.checked)}
+          />
+          <span>{t("refundLimitEnabled")}</span>
+        </CheckboxRow>
+        {refundLimitEnabled ? (
+          <FieldGroup>
+            <FieldLabel htmlFor={`branch-edit-refund-limit-${branch.branchId}`}>
+              {t("refundLimitAmount")}
+            </FieldLabel>
+            <TextInput
+              id={`branch-edit-refund-limit-${branch.branchId}`}
+              inputMode="numeric"
+              value={refundLimit}
+              aria-invalid={!refundLimitValid}
+              aria-describedby={`branch-edit-refund-limit-hint-${branch.branchId}`}
+              onChange={(event) =>
+                setRefundLimit(event.target.value.replace(/\D/g, "").slice(0, 10))
+              }
+            />
+          </FieldGroup>
+        ) : (
+          <FieldHint className="self-center">{t("refundLimitOff")}</FieldHint>
+        )}
+        <FieldHint
+          id={`branch-edit-refund-limit-hint-${branch.branchId}`}
+          className={
+            refundLimitValid ? "sm:col-span-2" : "text-destructive sm:col-span-2"
+          }
+        >
+          {refundLimitValid ? t("refundLimitHint") : t("refundLimitInvalid")}
+        </FieldHint>
+        <CheckboxRow className="sm:col-span-2">
+          <input
+            type="checkbox"
+            className="cursor-pointer"
+            checked={refundTipDefault}
+            onChange={(event) => setRefundTipDefault(event.target.checked)}
+          />
+          <span>{t("refundTipDefault")}</span>
+        </CheckboxRow>
+        <FieldHint className="sm:col-span-2">{t("refundTipDefaultHint")}</FieldHint>
+      </div>
+
       <Button
         type="button"
         className="w-full rounded-full sm:w-auto"
-        disabled={isSaving || !name.trim()}
+        disabled={isSaving || !name.trim() || !refundLimitValid}
         onClick={() =>
           onSave({
             name: name.trim(),
@@ -634,6 +698,8 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
               partialDeliveryEnabled,
               autoDeliverAfterMinutes: autoDeliverEnabled ? autoDeliverMinutes : null,
               tableAssignmentEnabled,
+              cashierRefundLimit: refundLimitEnabled ? Number(refundLimit) : null,
+              refundTipDefault,
             },
           })
         }

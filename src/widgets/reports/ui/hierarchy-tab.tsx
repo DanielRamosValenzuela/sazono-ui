@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, Download } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,7 @@ import {
   type ReportFilters,
 } from "@/shared/types/reports";
 import { downloadBlob } from "./download-blob";
-import { ReportQueryState } from "./report-parts";
+import { ReportQueryState, ShareCell } from "./report-parts";
 import type { DateRange } from "./report-range";
 import { BodyCell, FootCell, HeadCell } from "./report-table";
 
@@ -81,29 +81,6 @@ function sortNodes(nodes: HierarchyNode[], sortBy: SortKey) {
   return [...nodes].sort(
     (a, b) =>
       Number(b[sortBy]) - Number(a[sortBy]) || a.name.localeCompare(b.name)
-  );
-}
-
-function ShareCell({ share }: { share: number }) {
-  const locale = useLocale();
-  const label = new Intl.NumberFormat(locale, {
-    style: "percent",
-    maximumFractionDigits: 1,
-  }).format(share / 100);
-
-  return (
-    <div className="flex items-center justify-end gap-2">
-      <div
-        className="h-1.5 w-20 overflow-hidden rounded-full bg-muted"
-        aria-hidden="true"
-      >
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${Math.min(100, Math.max(0, share))}%` }}
-        />
-      </div>
-      <span className="w-14 text-right">{label}</span>
-    </div>
   );
 }
 
@@ -449,6 +426,16 @@ export function HierarchyTab({
             ) : null}
           </table>
         </div>
+        {data && Number(data.refunds.consumption) !== 0 ? (
+          <p className="rounded-xl bg-muted px-3 py-2 text-sm tabular-nums">
+            {t("hierarchyRefunds", {
+              refunded: formatMoney(data.refunds.consumption),
+              net: formatMoney(
+                Number(data.totals.amount) - Number(data.refunds.consumption)
+              ),
+            })}
+          </p>
+        ) : null}
       </ReportQueryState>
     </div>
   );

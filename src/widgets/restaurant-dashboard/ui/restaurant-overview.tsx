@@ -243,7 +243,16 @@ export function RestaurantOverview() {
           value={summary ? formatMoney(summary.todayRevenue) : "—"}
           hint={
             summary
-              ? t("todayPayments", { count: summary.todayPaymentsCount })
+              ? [
+                  t("todayPayments", { count: summary.todayPaymentsCount }),
+                  Number(summary.todayRefunded ?? 0) > 0
+                    ? t("todayRefunded", {
+                        amount: formatMoney(summary.todayRefunded ?? 0),
+                      })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
               : undefined
           }
           icon={<Wallet />}
