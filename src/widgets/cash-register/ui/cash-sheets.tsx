@@ -149,11 +149,12 @@ export function CloseSheet({
       const payload = {
         countedCash: counted,
         closingNote: note.trim() || undefined,
-        denominations: showDenominations
-          ? Object.fromEntries(
-              Object.entries(counts).filter(([, count]) => count > 0),
-            )
-          : undefined,
+        denominations:
+          showDenominations && sumDenominations(counts) > 0
+            ? Object.fromEntries(
+                Object.entries(counts).filter(([, count]) => count > 0),
+              )
+            : undefined,
       };
       return forced
         ? cashApi.forceClose(token, branchId, session.id, payload)
@@ -236,9 +237,15 @@ export function CloseSheet({
             id="cash-counted"
             inputMode="numeric"
             value={counted}
+            readOnly={showDenominations}
             onChange={(event) => setCounted(digitsOnly(event.target.value))}
             placeholder="0"
           />
+          {showDenominations ? (
+            <p className="text-xs text-muted-foreground">
+              {t("countedFromDenominations")}
+            </p>
+          ) : null}
         </FieldGroup>
         <button
           type="button"

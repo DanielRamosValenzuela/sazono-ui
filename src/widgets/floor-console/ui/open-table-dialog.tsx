@@ -84,12 +84,12 @@ export function OpenTableDialog({
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="ghost" className="rounded-full" onClick={onClose}>
+          <Button type="button" variant="ghost" className="min-h-10 rounded-full sm:min-h-0" onClick={onClose}>
             {t("addOrderCancel")}
           </Button>
           <Button
             type="button"
-            className="rounded-full"
+            className="min-h-10 rounded-full sm:min-h-0"
             disabled={openTableMutation.isPending}
             onClick={() => openTableMutation.mutate()}
           >

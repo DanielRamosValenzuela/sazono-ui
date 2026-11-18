@@ -45,6 +45,9 @@ export type PaymentStatus =
 
 export interface OrderItemModifierResponse {
   modifierOptionId: string | null;
+  parentModifierOptionId?: string | null;
+  depth?: number;
+  path?: string[];
   name: string;
   priceDelta: string;
 }

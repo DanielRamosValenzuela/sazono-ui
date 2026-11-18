@@ -104,7 +104,7 @@ function MenuItemRow({
               type="button"
               size="sm"
               variant="outline"
-              className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              className="min-h-10 rounded-full sm:min-h-0 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
               aria-label={t("menu_customize", { name: item.name })}
               onClick={() => onCustomize?.(item)}
             >
@@ -117,7 +117,7 @@ function MenuItemRow({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-full border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+            className="min-h-10 rounded-full sm:min-h-0 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
             onClick={() => onSetQuantity?.(item, 1)}
           >
             <Plus data-icon="inline-start" />
@@ -129,7 +129,7 @@ function MenuItemRow({
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="rounded-full"
+              className="size-10 rounded-full sm:size-7"
               aria-label={t("menu_removeOne", { name: item.name })}
               onClick={() => onSetQuantity?.(item, quantity - 1)}
             >
@@ -142,7 +142,7 @@ function MenuItemRow({
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="rounded-full"
+              className="size-10 rounded-full sm:size-7"
               aria-label={t("menu_addOne", { name: item.name })}
               onClick={() => onSetQuantity?.(item, quantity + 1)}
             >

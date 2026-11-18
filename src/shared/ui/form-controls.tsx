@@ -143,7 +143,7 @@ export function NumberStepper({
         type="button"
         size="icon-xs"
         variant="ghost"
-        className="rounded-full"
+        className="size-10 rounded-full sm:size-7"
         disabled={value <= min}
         onClick={() => onChange(Math.max(min, value - 1))}
       >
@@ -156,7 +156,7 @@ export function NumberStepper({
         type="button"
         size="icon-xs"
         variant="ghost"
-        className="rounded-full"
+        className="size-10 rounded-full sm:size-7"
         disabled={max !== undefined && value >= max}
         onClick={() => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1)}
       >
@@ -174,7 +174,7 @@ export function CheckboxRow({
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-background/65 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/60",
+        "flex min-h-10 cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-background/65 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/60",
         className
       )}
       {...props}

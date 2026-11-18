@@ -109,7 +109,7 @@ export function CartSheet({
                     type="button"
                     size="icon-xs"
                     variant="ghost"
-                    className="rounded-full"
+                    className="size-10 rounded-full sm:size-7"
                     aria-label={t("menu_removeOne", { name: lineLabel })}
                     onClick={() =>
                       onSetQuantity(
@@ -128,7 +128,7 @@ export function CartSheet({
                     type="button"
                     size="icon-xs"
                     variant="ghost"
-                    className="rounded-full"
+                    className="size-10 rounded-full sm:size-7"
                     aria-label={t("menu_addOne", { name: lineLabel })}
                     onClick={() =>
                       onSetQuantity(

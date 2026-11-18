@@ -17,11 +17,18 @@ import { ModifierGroupsPicker } from "@/shared/ui/modifier-groups-picker";
 
 type ModifierSheetProps = {
   item: MenuItemDetail;
-  onConfirm: (item: MenuItemDetail, selectedModifierOptionIds: string[]) => void;
+  onConfirm: (
+    item: MenuItemDetail,
+    selectedModifierOptionIds: string[],
+  ) => void;
   onClose: () => void;
 };
 
-export function ModifierSheet({ item, onConfirm, onClose }: ModifierSheetProps) {
+export function ModifierSheet({
+  item,
+  onConfirm,
+  onClose,
+}: ModifierSheetProps) {
   const t = useTranslations("QrPage");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -44,7 +51,9 @@ export function ModifierSheet({ item, onConfirm, onClose }: ModifierSheetProps) 
       return t("modifier_chooseUpTo", { max });
     }
 
-    return min > 0 ? t("modifier_chooseAtLeast", { min }) : t("modifier_optional");
+    return min > 0
+      ? t("modifier_chooseAtLeast", { min })
+      : t("modifier_optional");
   };
 
   return (
@@ -56,7 +65,9 @@ export function ModifierSheet({ item, onConfirm, onClose }: ModifierSheetProps) 
         {item.name}
       </h2>
       {item.description ? (
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.description}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          {item.description}
+        </p>
       ) : null}
 
       <div className="mt-4 space-y-4">
@@ -64,29 +75,37 @@ export function ModifierSheet({ item, onConfirm, onClose }: ModifierSheetProps) 
           item={item}
           selectedIds={selectedIds}
           onToggle={(group, optionId) =>
-            setSelectedIds((current) => toggleModifierOption(group, current, optionId))
+            setSelectedIds((current) =>
+              toggleModifierOption(group, current, optionId),
+            )
           }
           requiredLabel={t("modifier_required")}
           unavailableLabel={t("modifier_unavailable")}
+          missingLabel={t("modifier_missing")}
           describeGroup={describeGroup}
         />
       </div>
 
-      <Button
-        type="button"
-        size="lg"
-        className="mt-5 w-full rounded-xl"
-        disabled={!canConfirm}
-        onClick={() => onConfirm(item, selectedIds)}
-      >
-        <Plus data-icon="inline-start" />
-        {t("modifier_add", { price: formatMoney(unitPrice, "CLP") })}
-      </Button>
-      {!canConfirm ? (
-        <p role="status" className="mt-2 text-center text-xs text-muted-foreground">
-          {t("modifier_completeRequired")}
-        </p>
-      ) : null}
+      <div className="sticky bottom-0 -mx-5 mt-5 border-t border-border/70 bg-card px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <Button
+          type="button"
+          size="lg"
+          className="w-full rounded-xl"
+          disabled={!canConfirm}
+          onClick={() => onConfirm(item, selectedIds)}
+        >
+          <Plus data-icon="inline-start" />
+          {t("modifier_add", { price: formatMoney(unitPrice, "CLP") })}
+        </Button>
+        {!canConfirm ? (
+          <p
+            role="status"
+            className="mt-2 text-center text-xs text-muted-foreground"
+          >
+            {t("modifier_completeRequired")}
+          </p>
+        ) : null}
+      </div>
     </BottomSheet>
   );
 }

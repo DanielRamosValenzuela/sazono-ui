@@ -10,6 +10,7 @@ import type {
   DuplicateMenuRequest,
   MenuCategory,
   MenuDetail,
+  PublishedMenuDetail,
   MenuSummary,
   MenuTranslation,
   ModifierGroup,
@@ -112,7 +113,7 @@ export const menusApi = {
     );
   },
   publishMenu(token: string, menuId: string) {
-    return apiRequest<MenuDetail>(`/menus/${menuId}/publish`, {
+    return apiRequest<PublishedMenuDetail>(`/menus/${menuId}/publish`, {
       method: "POST",
       token,
     });

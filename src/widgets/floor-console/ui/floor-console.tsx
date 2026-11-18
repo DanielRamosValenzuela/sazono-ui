@@ -1,5 +1,6 @@
 "use client";
 
+import { formatModifierLines } from "@/shared/lib/modifiers";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -980,7 +981,7 @@ export function FloorConsole() {
                     type="button"
                     onClick={() => setTableFilter(filter)}
                     className={cn(
-                      "cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
+                      "min-h-10 cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition sm:min-h-0",
                       tableFilter === filter
                         ? "border-primary/40 bg-primary text-primary-foreground"
                         : "border-border/80 bg-card text-muted-foreground hover:text-foreground"
@@ -1915,12 +1916,12 @@ function TableDetailSheet({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={isSessionFetching} onClick={onRefresh}>
+            <Button type="button" variant="outline" size="sm" className="min-h-10 rounded-full sm:min-h-0" disabled={isSessionFetching} onClick={onRefresh}>
               {isSessionFetching ? <Spinner /> : <RefreshCcw className="size-3.5" />}
               {t("sessionRefresh")}
             </Button>
             {canAddOrder && activeSessionId && bill?.status !== "PAID" ? (
-              <Button type="button" size="sm" className="rounded-full" onClick={onAddOrderClick}>
+              <Button type="button" size="sm" className="min-h-10 rounded-full sm:min-h-0" onClick={onAddOrderClick}>
                 <Plus className="size-3.5" />
                 {t("addOrderAction")}
               </Button>
@@ -1966,7 +1967,7 @@ function TableDetailSheet({
                             {item.name}
                             {item.modifiers.length > 0 ? (
                               <span className="block pl-4 text-xs font-medium text-primary">
-                                {item.modifiers.map((modifier) => modifier.name).join(", ")}
+                                {formatModifierLines(item.modifiers).join(", ")}
                               </span>
                             ) : null}
                           </span>

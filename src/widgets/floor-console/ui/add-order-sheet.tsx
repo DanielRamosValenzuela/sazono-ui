@@ -26,7 +26,9 @@ import {
   getCartTotal,
   getItemTotalQuantity,
   getLineModifierSummary,
+  getFirstMissingGroup,
   getLineUnitPrice,
+  getSelectionUnitPrice,
   isModifierSelectionValid,
   toggleModifierOption as toggleModifierOptionInSelection,
   setCartQuantity,
@@ -280,6 +282,12 @@ export function AddOrderSheet({
                           const canConfirm =
                             !hasModifiers ||
                             isModifierSelectionValid(item, pendingSelection);
+                          const firstMissing = canConfirm
+                            ? null
+                            : getFirstMissingGroup(
+                                item.modifierGroups,
+                                pendingSelection,
+                              );
 
                           return (
                             <li
@@ -311,7 +319,7 @@ export function AddOrderSheet({
                                     type="button"
                                     size="icon-sm"
                                     variant="outline"
-                                    className="rounded-full"
+                                    className="size-10 rounded-full sm:size-8"
                                     aria-label={item.name}
                                     onClick={() =>
                                       isPickerOpen
@@ -326,7 +334,7 @@ export function AddOrderSheet({
                                     type="button"
                                     size="icon-sm"
                                     variant="outline"
-                                    className="rounded-full"
+                                    className="size-10 rounded-full sm:size-8"
                                     aria-label={item.name}
                                     onClick={() => handleSetQuantity(item, 1)}
                                   >
@@ -348,6 +356,7 @@ export function AddOrderSheet({
                                   <ModifierGroupsPicker
                                     item={item}
                                     selectedIds={pendingSelection}
+                                    missingLabel={t("addOrderModifierMissing")}
                                     onToggle={(group, optionId) =>
                                       toggleModifierOption(group, optionId)
                                     }
@@ -358,7 +367,7 @@ export function AddOrderSheet({
                                       type="button"
                                       size="sm"
                                       variant="ghost"
-                                      className="rounded-full"
+                                      className="min-h-10 rounded-full sm:min-h-0"
                                       onClick={closeModifierPicker}
                                     >
                                       {t("addOrderCancel")}
@@ -366,14 +375,26 @@ export function AddOrderSheet({
                                     <Button
                                       type="button"
                                       size="sm"
-                                      className="rounded-full"
+                                      className="min-h-10 rounded-full sm:min-h-0"
                                       disabled={!canConfirm}
                                       onClick={() =>
                                         confirmModifierSelection(item)
                                       }
                                     >
                                       <Plus className="size-3.5" />
-                                      {t("addOrderModifierConfirm")}
+                                      {firstMissing
+                                        ? t("addOrderModifierPending", {
+                                            group: firstMissing.name,
+                                          })
+                                        : t("addOrderModifierConfirm", {
+                                            price: formatMoney(
+                                              getSelectionUnitPrice(
+                                                item,
+                                                pendingSelection,
+                                              ),
+                                              "CLP",
+                                            ),
+                                          })}
                                     </Button>
                                   </div>
                                 </div>
@@ -402,13 +423,13 @@ export function AddOrderSheet({
               />
             </FieldGroup>
 
-            <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+            <div className="min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-4">
               {cartCount === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t("addOrderCartEmpty")}
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="min-w-0 space-y-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {t("addOrderCartTitle")}
                   </p>
@@ -420,9 +441,9 @@ export function AddOrderSheet({
                       return (
                         <li
                           key={`${line.item.menuItemId}-${line.selectedModifierOptionIds.join(",")}`}
-                          className="flex items-center justify-between gap-2 text-sm"
+                          className="flex min-w-0 items-center justify-between gap-2 text-sm"
                         >
-                          <span className="min-w-0 truncate">
+                          <span className="min-w-0 break-words">
                             <span className="font-semibold tabular-nums">
                               {line.quantity}×
                             </span>{" "}
@@ -443,7 +464,7 @@ export function AddOrderSheet({
                               type="button"
                               aria-label={t("addOrderRemoveLine")}
                               onClick={() => removeCartLine(line)}
-                              className="cursor-pointer text-muted-foreground hover:text-destructive"
+                              className="-m-3 flex size-10 cursor-pointer items-center justify-center text-muted-foreground hover:text-destructive sm:m-0 sm:size-auto"
                             >
                               <X className="size-3.5" />
                             </button>

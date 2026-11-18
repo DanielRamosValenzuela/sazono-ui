@@ -386,6 +386,20 @@ export function MenuStudio() {
     onSuccess: (menu) => {
       void invalidateMenus();
       toast.success(t("publishSuccess", { name: menu.name }));
+      if (menu.warnings?.length) {
+        toast.warning(t("publishWarningsTitle"), {
+          description: menu.warnings
+            .map((warning) =>
+              t("publishWarningItem", {
+                option: warning.optionName,
+                group: warning.groupName,
+              }),
+            )
+            .join("\n"),
+          duration: 15000,
+          className: "whitespace-pre-line",
+        });
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("publishError"));

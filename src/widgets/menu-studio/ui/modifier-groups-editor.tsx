@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { ImageIcon, Plus } from "lucide-react";
@@ -14,6 +14,7 @@ import { menusApi } from "@/shared/api/menus-api";
 import { formatMoney } from "@/shared/lib/format";
 import type {
   MenuItemDetail,
+  ModifierGroup,
   ModifierOption,
   ModifierSelectionType,
 } from "@/shared/types/menu";
@@ -34,28 +35,277 @@ type ModifierGroupsEditorProps = {
 const SELECTION_TYPES: ModifierSelectionType[] = ["ONE", "MANY"];
 const OPTION_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const OPTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const MODIFIER_MAX_DEPTH = 3;
+
+type NewGroupValues = {
+  name: string;
+  selectionType: ModifierSelectionType;
+  isRequired: boolean;
+};
+
+function NewGroupForm({
+  idPrefix,
+  pending,
+  onSubmit,
+}: {
+  idPrefix: string;
+  pending: boolean;
+  onSubmit: (values: NewGroupValues) => void;
+}) {
+  const t = useTranslations("MenuStudio");
+  const [name, setName] = useState("");
+  const [selectionType, setSelectionType] =
+    useState<ModifierSelectionType>("ONE");
+  const [isRequired, setIsRequired] = useState(false);
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-2">
+      <FieldGroup>
+        <FieldLabel htmlFor={`${idPrefix}-name`}>
+          {t("modifierGroupNameLabel")}
+        </FieldLabel>
+        <TextInput
+          id={`${idPrefix}-name`}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={t("modifierGroupNamePlaceholder")}
+        />
+      </FieldGroup>
+      <FieldGroup>
+        <FieldLabel htmlFor={`${idPrefix}-type`}>
+          {t("modifierGroupTypeLabel")}
+        </FieldLabel>
+        <SelectInput
+          id={`${idPrefix}-type`}
+          value={selectionType}
+          onChange={(event) =>
+            setSelectionType(event.target.value as ModifierSelectionType)
+          }
+        >
+          {SELECTION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {t(`modifierSelectionType_${type}`)}
+            </option>
+          ))}
+        </SelectInput>
+      </FieldGroup>
+      <CheckboxRow className="sm:col-span-2">
+        <input
+          type="checkbox"
+          className="cursor-pointer"
+          checked={isRequired}
+          onChange={(event) => setIsRequired(event.target.checked)}
+        />
+        <span>{t("modifierGroupRequiredLabel")}</span>
+      </CheckboxRow>
+      <div className="flex gap-2 sm:col-span-2">
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-10 rounded-full"
+          disabled={!name.trim() || pending}
+          onClick={() => {
+            onSubmit({ name: name.trim(), selectionType, isRequired });
+            setName("");
+            setIsRequired(false);
+          }}
+        >
+          {pending ? <Spinner /> : null}
+          {t("modifierGroupCreateSubmit")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ModifierGroupBlock({
+  group,
+  depth,
+  branchId,
+  accessToken,
+  onChanged,
+}: {
+  group: ModifierGroup;
+  depth: number;
+  branchId: string;
+  accessToken: string;
+  onChanged: () => void;
+}) {
+  const t = useTranslations("MenuStudio");
+  const [isAddingOption, setIsAddingOption] = useState(false);
+  const [optionName, setOptionName] = useState("");
+  const [optionPrice, setOptionPrice] = useState("0");
+
+  const createOptionMutation = useMutation({
+    mutationFn: () =>
+      menusApi.createModifierOption(accessToken, group.modifierGroupId, {
+        name: optionName.trim(),
+        priceDelta: optionPrice.trim() || "0",
+      }),
+    onSuccess: () => {
+      setOptionName("");
+      setOptionPrice("0");
+      setIsAddingOption(false);
+      onChanged();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("modifierOptionCreateError"),
+      );
+    },
+  });
+
+  return (
+    <div>
+      {depth > 1 ? (
+        <p className="text-xs font-medium text-foreground">
+          {group.name}{" "}
+          <span className="font-normal text-muted-foreground">
+            ({t(`modifierSelectionType_${group.selectionType}`)},{" "}
+            {group.isRequired
+              ? t("modifierGroupRequiredLabel")
+              : t("modifierOptionalLabel")}
+            )
+          </span>
+        </p>
+      ) : null}
+
+      {group.options.length > 0 ? (
+        <ul className="mt-2 space-y-2">
+          {group.options.map((option) => (
+            <ModifierOptionRow
+              key={option.modifierOptionId}
+              option={option}
+              depth={depth}
+              branchId={branchId}
+              accessToken={accessToken}
+              onChanged={onChanged}
+            />
+          ))}
+        </ul>
+      ) : null}
+
+      {isAddingOption ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <FieldGroup className="min-w-32">
+            <FieldLabel htmlFor={`new-option-name-${group.modifierGroupId}`}>
+              {t("modifierOptionNameLabel")}
+            </FieldLabel>
+            <TextInput
+              id={`new-option-name-${group.modifierGroupId}`}
+              value={optionName}
+              onChange={(event) => setOptionName(event.target.value)}
+            />
+          </FieldGroup>
+          <FieldGroup className="w-24">
+            <FieldLabel htmlFor={`new-option-price-${group.modifierGroupId}`}>
+              {t("modifierOptionPriceLabel")}
+            </FieldLabel>
+            <TextInput
+              id={`new-option-price-${group.modifierGroupId}`}
+              value={optionPrice}
+              onChange={(event) => setOptionPrice(event.target.value)}
+            />
+          </FieldGroup>
+          <Button
+            type="button"
+            size="sm"
+            className="min-h-10 rounded-full"
+            disabled={!optionName.trim() || createOptionMutation.isPending}
+            onClick={() => createOptionMutation.mutate()}
+          >
+            {createOptionMutation.isPending ? <Spinner /> : null}
+            {t("modifierOptionCreateSubmit")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="min-h-10 rounded-full"
+            onClick={() => setIsAddingOption(false)}
+          >
+            {t("itemCancel")}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="mt-1 min-h-10 rounded-full"
+          onClick={() => {
+            setIsAddingOption(true);
+            setOptionName("");
+            setOptionPrice("0");
+          }}
+        >
+          <Plus className="size-3.5" />
+          {t("modifierAddOption")}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 function ModifierOptionRow({
   option,
+  depth,
+  branchId,
   accessToken,
   onChanged,
 }: {
   option: ModifierOption;
+  depth: number;
+  branchId: string;
   accessToken: string;
   onChanged: () => void;
 }) {
   const t = useTranslations("MenuStudio");
   const [failed, setFailed] = useState(false);
+  const [showChildren, setShowChildren] = useState(false);
+  const [showNewChild, setShowNewChild] = useState(false);
+  const panelId = useId();
+  const isSaved = Boolean(option.modifierOptionId);
+  const childGroups = option.childGroups ?? [];
+  const canNest = depth < MODIFIER_MAX_DEPTH;
+
+  const createChildMutation = useMutation({
+    mutationFn: (values: NewGroupValues) =>
+      menusApi.createModifierGroup(accessToken, {
+        branchId,
+        name: values.name,
+        selectionType: values.selectionType,
+        isRequired: values.isRequired,
+        parentOptionId: option.modifierOptionId,
+        ...(values.selectionType === "ONE" ? { maxSelect: 1 } : {}),
+      }),
+    onSuccess: (group) => {
+      setShowNewChild(false);
+      onChanged();
+      toast.success(t("modifierGroupCreateSuccess", { name: group.name }));
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("modifierGroupCreateError"),
+      );
+    },
+  });
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) =>
-      menusApi.uploadModifierOptionImage(accessToken, option.modifierOptionId, file),
+      menusApi.uploadModifierOptionImage(
+        accessToken,
+        option.modifierOptionId,
+        file,
+      ),
     onSuccess: () => {
       setFailed(false);
       onChanged();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("optionImageUploadError"));
+      toast.error(
+        error instanceof Error ? error.message : t("optionImageUploadError"),
+      );
     },
   });
 
@@ -64,7 +314,9 @@ function ModifierOptionRow({
       menusApi.removeModifierOptionImage(accessToken, option.modifierOptionId),
     onSuccess: onChanged,
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("optionImageRemoveError"));
+      toast.error(
+        error instanceof Error ? error.message : t("optionImageRemoveError"),
+      );
     },
   });
 
@@ -87,59 +339,124 @@ function ModifierOptionRow({
   const hasImage = Boolean(option.imageUrl) && !failed;
 
   return (
-    <li className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-background/50">
-        {hasImage ? (
-          <Image
-            src={option.imageUrl as string}
-            alt={option.name}
-            width={40}
-            height={40}
-            loading="lazy"
-            onError={() => setFailed(true)}
-            className="size-10 object-cover"
-          />
-        ) : (
-          <ImageIcon aria-hidden className="size-4" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1 truncate">{option.name}</span>
-      <span>{formatMoney(option.priceDelta, "CLP")}</span>
-      <label
-        className={cn(
-          "cursor-pointer rounded-full border border-border/70 px-2.5 py-1 font-medium text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50",
-          busy && "pointer-events-none opacity-50"
-        )}
-      >
-        {uploadMutation.isPending ? (
-          <Spinner />
-        ) : option.imageUrl ? (
-          t("optionImageReplace")
-        ) : (
-          t("optionImageUpload")
-        )}
-        <input
-          type="file"
-          accept={OPTION_IMAGE_TYPES.join(",")}
-          className="sr-only"
-          disabled={busy}
-          onChange={(event) => {
-            handleFile(event.target.files?.[0]);
-            event.target.value = "";
-          }}
-        />
-      </label>
-      {option.imageUrl ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="rounded-full"
-          disabled={busy}
-          onClick={() => removeMutation.mutate()}
+    <li className="text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-background/50">
+          {hasImage ? (
+            <Image
+              src={option.imageUrl as string}
+              alt={option.name}
+              width={40}
+              height={40}
+              loading="lazy"
+              onError={() => setFailed(true)}
+              className="size-10 object-cover"
+            />
+          ) : (
+            <ImageIcon aria-hidden className="size-4" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{option.name}</span>
+        <span>{formatMoney(option.priceDelta, "CLP")}</span>
+        <label
+          className={cn(
+            "inline-flex min-h-11 cursor-pointer items-center rounded-full border border-border/70 px-3 py-1 font-medium text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50",
+            busy && "pointer-events-none opacity-50",
+          )}
         >
-          {removeMutation.isPending ? <Spinner /> : t("optionImageRemove")}
-        </Button>
+          {uploadMutation.isPending ? (
+            <Spinner />
+          ) : option.imageUrl ? (
+            t("optionImageReplace")
+          ) : (
+            t("optionImageUpload")
+          )}
+          <input
+            type="file"
+            accept={OPTION_IMAGE_TYPES.join(",")}
+            className="sr-only"
+            disabled={busy}
+            onChange={(event) => {
+              handleFile(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+        </label>
+        {option.imageUrl ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="min-h-11 rounded-full"
+            disabled={busy}
+            onClick={() => removeMutation.mutate()}
+          >
+            {removeMutation.isPending ? <Spinner /> : t("optionImageRemove")}
+          </Button>
+        ) : null}
+        {isSaved || childGroups.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-h-11 rounded-full"
+            disabled={!isSaved || (!canNest && childGroups.length === 0)}
+            aria-expanded={showChildren}
+            aria-controls={showChildren ? panelId : undefined}
+            onClick={() => setShowChildren((open) => !open)}
+          >
+            {t("modifierSubChoice")}
+            {childGroups.length > 0
+              ? ` · ${t("modifierSubChoiceCount", { count: childGroups.length })}`
+              : ""}
+          </Button>
+        ) : null}
+      </div>
+      {!canNest ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("modifierMaxDepth")}
+        </p>
+      ) : null}
+      {showChildren ? (
+        <div
+          id={panelId}
+          className="mt-2 ml-3 space-y-3 border-l-2 border-primary/30 pl-2"
+        >
+          <p className="text-xs text-muted-foreground">
+            {t("modifierSubGroupHint", { name: option.name })}{" "}
+            {t("modifierChangesAllMenus")}
+          </p>
+          {childGroups.map((child) => (
+            <ModifierGroupBlock
+              key={child.modifierGroupId}
+              group={child}
+              depth={depth + 1}
+              branchId={branchId}
+              accessToken={accessToken}
+              onChanged={onChanged}
+            />
+          ))}
+          {canNest ? (
+            showNewChild ? (
+              <NewGroupForm
+                idPrefix={`new-child-${option.modifierOptionId}`}
+                pending={createChildMutation.isPending}
+                onSubmit={(values) => createChildMutation.mutate(values)}
+              />
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-10 rounded-full"
+                onClick={() => setShowNewChild(true)}
+              >
+                <Plus className="size-3.5" />
+                {t("modifierCreateGroup")}
+              </Button>
+            )
+          ) : null}
+        </div>
       ) : null}
     </li>
   );
@@ -153,15 +470,6 @@ export function ModifierGroupsEditor({
   const t = useTranslations("MenuStudio");
   const queryClient = useQueryClient();
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupSelectionType, setNewGroupSelectionType] =
-    useState<ModifierSelectionType>("ONE");
-  const [newGroupRequired, setNewGroupRequired] = useState(false);
-  const [addingOptionToGroupId, setAddingOptionToGroupId] = useState<string | null>(
-    null
-  );
-  const [newOptionName, setNewOptionName] = useState("");
-  const [newOptionPriceDelta, setNewOptionPriceDelta] = useState("0");
 
   const groupsQuery = useQuery({
     queryKey: ["menus", "modifier-groups", accessToken, branchId],
@@ -176,14 +484,14 @@ export function ModifierGroupsEditor({
 
   const attachedGroupIds = useMemo(
     () => new Set(item.modifierGroups.map((group) => group.modifierGroupId)),
-    [item.modifierGroups]
+    [item.modifierGroups],
   );
 
   const [optimisticIds, setOptimisticIds] = useState<string[] | null>(null);
   const inflightRef = useRef(0);
   const shownGroupIds = useMemo(
     () => (optimisticIds ? new Set(optimisticIds) : attachedGroupIds),
-    [optimisticIds, attachedGroupIds]
+    [optimisticIds, attachedGroupIds],
   );
 
   const setGroupsMutation = useMutation({
@@ -192,7 +500,9 @@ export function ModifierGroupsEditor({
         modifierGroupIds,
       }),
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("modifierAttachError"));
+      toast.error(
+        error instanceof Error ? error.message : t("modifierAttachError"),
+      );
     },
     onSettled: async () => {
       inflightRef.current -= 1;
@@ -215,17 +525,15 @@ export function ModifierGroupsEditor({
   };
 
   const createGroupMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (values: NewGroupValues) =>
       menusApi.createModifierGroup(accessToken, {
         branchId,
-        name: newGroupName.trim(),
-        selectionType: newGroupSelectionType,
-        isRequired: newGroupRequired,
-        ...(newGroupSelectionType === "ONE" ? { maxSelect: 1 } : {}),
+        name: values.name,
+        selectionType: values.selectionType,
+        isRequired: values.isRequired,
+        ...(values.selectionType === "ONE" ? { maxSelect: 1 } : {}),
       }),
     onSuccess: async (group) => {
-      setNewGroupName("");
-      setNewGroupRequired(false);
       setIsCreatingGroup(false);
       await invalidateAll();
       toggleGroup(group.modifierGroupId, true);
@@ -233,26 +541,7 @@ export function ModifierGroupsEditor({
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error ? error.message : t("modifierGroupCreateError")
-      );
-    },
-  });
-
-  const createOptionMutation = useMutation({
-    mutationFn: (modifierGroupId: string) =>
-      menusApi.createModifierOption(accessToken, modifierGroupId, {
-        name: newOptionName.trim(),
-        priceDelta: newOptionPriceDelta.trim() || "0",
-      }),
-    onSuccess: async () => {
-      setNewOptionName("");
-      setNewOptionPriceDelta("0");
-      setAddingOptionToGroupId(null);
-      await invalidateAll();
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : t("modifierOptionCreateError")
+        error instanceof Error ? error.message : t("modifierGroupCreateError"),
       );
     },
   });
@@ -278,65 +567,24 @@ export function ModifierGroupsEditor({
       </div>
 
       {isCreatingGroup ? (
-        <div className="mt-3 grid gap-3 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-2">
-          <FieldGroup>
-            <FieldLabel htmlFor="new-modifier-group-name">
-              {t("modifierGroupNameLabel")}
-            </FieldLabel>
-            <TextInput
-              id="new-modifier-group-name"
-              value={newGroupName}
-              onChange={(event) => setNewGroupName(event.target.value)}
-              placeholder={t("modifierGroupNamePlaceholder")}
-            />
-          </FieldGroup>
-          <FieldGroup>
-            <FieldLabel htmlFor="new-modifier-group-type">
-              {t("modifierGroupTypeLabel")}
-            </FieldLabel>
-            <SelectInput
-              id="new-modifier-group-type"
-              value={newGroupSelectionType}
-              onChange={(event) =>
-                setNewGroupSelectionType(event.target.value as ModifierSelectionType)
-              }
-            >
-              {SELECTION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`modifierSelectionType_${type}`)}
-                </option>
-              ))}
-            </SelectInput>
-          </FieldGroup>
-          <CheckboxRow className="sm:col-span-2">
-            <input
-              type="checkbox"
-              className="cursor-pointer"
-              checked={newGroupRequired}
-              onChange={(event) => setNewGroupRequired(event.target.checked)}
-            />
-            <span>{t("modifierGroupRequiredLabel")}</span>
-          </CheckboxRow>
-          <div className="flex gap-2 sm:col-span-2">
-            <Button
-              type="button"
-              size="sm"
-              className="rounded-full"
-              disabled={!newGroupName.trim() || createGroupMutation.isPending}
-              onClick={() => createGroupMutation.mutate()}
-            >
-              {createGroupMutation.isPending ? <Spinner /> : null}
-              {t("modifierGroupCreateSubmit")}
-            </Button>
-          </div>
+        <div className="mt-3">
+          <NewGroupForm
+            idPrefix="new-modifier-group"
+            pending={createGroupMutation.isPending}
+            onSubmit={(values) => createGroupMutation.mutate(values)}
+          />
         </div>
       ) : null}
 
       <div className="mt-3 space-y-3">
-        {groupsQuery.isPending ? <Skeleton className="h-10 w-full rounded-xl" /> : null}
+        {groupsQuery.isPending ? (
+          <Skeleton className="h-10 w-full rounded-xl" />
+        ) : null}
 
         {!groupsQuery.isPending && groups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("modifierGroupsEmpty")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("modifierGroupsEmpty")}
+          </p>
         ) : null}
 
         {groups.map((group) => {
@@ -360,82 +608,23 @@ export function ModifierGroupsEditor({
                   <span className="text-sm font-medium">{group.name}</span>{" "}
                   <span className="text-xs text-muted-foreground">
                     ({t(`modifierSelectionType_${group.selectionType}`)}
-                    {group.isRequired ? `, ${t("modifierGroupRequiredLabel")}` : ""})
+                    {group.isRequired
+                      ? `, ${t("modifierGroupRequiredLabel")}`
+                      : ""}
+                    )
                   </span>
                 </span>
               </label>
 
-              {group.options.length > 0 ? (
-                <ul className="mt-2 ml-6 space-y-1">
-                  {group.options.map((option) => (
-                    <ModifierOptionRow
-                      key={option.modifierOptionId}
-                      option={option}
-                      accessToken={accessToken}
-                      onChanged={() => void invalidateAll()}
-                    />
-                  ))}
-                </ul>
-              ) : null}
-
-              {addingOptionToGroupId === group.modifierGroupId ? (
-                <div className="mt-2 ml-6 flex flex-wrap items-end gap-2">
-                  <FieldGroup className="min-w-32">
-                    <FieldLabel htmlFor={`new-option-name-${group.modifierGroupId}`}>
-                      {t("modifierOptionNameLabel")}
-                    </FieldLabel>
-                    <TextInput
-                      id={`new-option-name-${group.modifierGroupId}`}
-                      value={newOptionName}
-                      onChange={(event) => setNewOptionName(event.target.value)}
-                    />
-                  </FieldGroup>
-                  <FieldGroup className="w-24">
-                    <FieldLabel htmlFor={`new-option-price-${group.modifierGroupId}`}>
-                      {t("modifierOptionPriceLabel")}
-                    </FieldLabel>
-                    <TextInput
-                      id={`new-option-price-${group.modifierGroupId}`}
-                      value={newOptionPriceDelta}
-                      onChange={(event) => setNewOptionPriceDelta(event.target.value)}
-                    />
-                  </FieldGroup>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="rounded-full"
-                    disabled={!newOptionName.trim() || createOptionMutation.isPending}
-                    onClick={() => createOptionMutation.mutate(group.modifierGroupId)}
-                  >
-                    {createOptionMutation.isPending ? <Spinner /> : null}
-                    {t("modifierOptionCreateSubmit")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={() => setAddingOptionToGroupId(null)}
-                  >
-                    {t("itemCancel")}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="mt-1 ml-6 rounded-full"
-                  onClick={() => {
-                    setAddingOptionToGroupId(group.modifierGroupId);
-                    setNewOptionName("");
-                    setNewOptionPriceDelta("0");
-                  }}
-                >
-                  <Plus className="size-3.5" />
-                  {t("modifierAddOption")}
-                </Button>
-              )}
+              <div className="mt-2 ml-6">
+                <ModifierGroupBlock
+                  group={group}
+                  depth={1}
+                  branchId={branchId}
+                  accessToken={accessToken}
+                  onChanged={() => void invalidateAll()}
+                />
+              </div>
             </div>
           );
         })}

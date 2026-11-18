@@ -328,7 +328,7 @@ export function KitchenBoard() {
                             <Button
                               type="button"
                               size="sm"
-                              className="flex-1 rounded-full"
+                              className="min-h-10 flex-1 rounded-full sm:min-h-0"
                               disabled={isUpdating}
                               onClick={() =>
                                 updateStatusMutation.mutate({

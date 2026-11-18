@@ -1172,7 +1172,7 @@ function SortableItemCard({
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  className="rounded-full"
+                  className="size-10 rounded-full sm:size-7"
                   aria-label={t("itemEditAction")}
                   onClick={onEdit}
                 >

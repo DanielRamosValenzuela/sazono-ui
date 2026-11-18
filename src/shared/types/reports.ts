@@ -349,7 +349,12 @@ export interface OrderDetailItem {
   quantity: number;
   unitPrice: string;
   baseUnitPrice: string;
-  modifiers: Array<{ name: string; priceDelta: string }>;
+  modifiers: Array<{
+    name: string;
+    priceDelta: string;
+    path?: string[];
+    depth?: number;
+  }>;
   modifiersTotal: string;
   lineTotal: string;
   discount?: string;

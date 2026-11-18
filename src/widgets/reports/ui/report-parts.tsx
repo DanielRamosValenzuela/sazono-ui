@@ -160,7 +160,7 @@ export function ToggleGroup<T extends string>({
           key={option.value}
           size="sm"
           variant={value === option.value ? "default" : "outline"}
-          className="rounded-full"
+          className="min-h-10 rounded-full sm:min-h-0"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
         >

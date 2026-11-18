@@ -61,6 +61,7 @@ export interface ModifierOption {
   isAvailable: boolean;
   sortOrder: number;
   imageUrl: string | null;
+  childGroups?: ModifierGroup[];
 }
 
 export interface ModifierGroup {
@@ -72,6 +73,8 @@ export interface ModifierGroup {
   maxSelect: number | null;
   isRequired: boolean;
   sortOrder: number;
+  parentOptionId?: string | null;
+  depth?: number;
   options: ModifierOption[];
 }
 
@@ -98,6 +101,16 @@ export interface MenuCategoryDetail {
   parentId: string | null;
   translations: MenuTranslation[];
   items: MenuItemDetail[];
+}
+
+export interface MenuPublishWarning {
+  code: "OPTION_REQUIRED_SUBGROUP_UNAVAILABLE";
+  optionName: string;
+  groupName: string;
+}
+
+export interface PublishedMenuDetail extends MenuDetail {
+  warnings: MenuPublishWarning[];
 }
 
 export interface MenuDetail {
@@ -197,6 +210,7 @@ export interface CreateModifierGroupRequest {
   maxSelect?: number;
   isRequired?: boolean;
   sortOrder?: number;
+  parentOptionId?: string;
 }
 
 export interface UpdateModifierGroupRequest {

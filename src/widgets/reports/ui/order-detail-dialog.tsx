@@ -299,8 +299,13 @@ export function OrderDetailDialog({
                                   )}
                                 >
                                   {item.modifiers.map((modifier, modifierIndex) => (
-                                    <li key={`${modifier.name}-${modifierIndex}`}>
-                                      + {modifier.name}
+                                    <li
+                                      key={`${modifier.name}-${modifierIndex}`}
+                                      style={{
+                                        paddingLeft: `${((modifier.depth ?? 1) - 1) * 12}px`,
+                                      }}
+                                    >
+                                      + {modifier.path?.length ? modifier.path.join(" > ") : modifier.name}
                                       {Number(modifier.priceDelta) !== 0
                                         ? ` (${Number(modifier.priceDelta) > 0 ? "+" : ""}${formatMoney(modifier.priceDelta)})`
                                         : ""}
