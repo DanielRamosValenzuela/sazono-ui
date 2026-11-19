@@ -5,6 +5,7 @@
     "locale_en": "Inglés",
     "themeLight": "Cambiar a modo claro",
     "themeDark": "Cambiar a modo oscuro",
+    "close": "Cerrar",
     "showPassword": "Ver contraseña",
     "hidePassword": "Ocultar contraseña",
     "roles": {
@@ -1114,7 +1115,8 @@
     "backToOverview": "Volver al resumen",
     "navReports": "Reportes",
     "navCashbox": "Mi caja",
-    "navCash": "Caja"
+    "navCash": "Caja",
+    "navInvoicing": "Facturación electrónica"
   },
   "PlatformOverview": {
     "title": "Resumen de la plataforma",
@@ -2035,6 +2037,96 @@
       "DISCOUNT_ALREADY_VOIDED": "El descuento ya estaba anulado.",
       "DISCOUNT_VOID_FORBIDDEN": "Solo puedes anular tus propios descuentos sin aprobación. Pide a un supervisor.",
       "DISCOUNT_IDEMPOTENCY_KEY_REUSED": "Esta solicitud ya se usó con otros datos. Cierra e intenta de nuevo."
+    }
+  },
+  "TaxInvoicing": {
+    "pageTitle": "Facturación electrónica",
+    "pageDescription": "Conecta tu cuenta de OpenFactura para emitir boletas electrónicas al cerrar cada cuenta y notas de crédito en los reembolsos. Un fallo del proveedor nunca bloquea los cobros.",
+    "noBranch": "No tienes sucursales con rol de administrador.",
+    "branch": "Sucursal",
+    "providerTitle": "Proveedor OpenFactura",
+    "providerDescription": "Aún no hay una cuenta conectada. Sin ella no se emiten boletas.",
+    "configured": "Configurada",
+    "notConfigured": "No conectada",
+    "environment": {
+      "SANDBOX": "Sandbox (pruebas)",
+      "PRODUCTION": "Producción"
+    },
+    "environmentLabel": "Ambiente",
+    "sandboxHint": "El sandbox emite documentos de prueba sin validez tributaria.",
+    "productionWarning": "Producción requiere que tu empresa esté habilitada como emisor de boletas en el SII y tener contratado el plan con OpenFactura. El RUT de la API key debe coincidir con el RUT del restaurante.",
+    "apiKeyLabel": "API key de OpenFactura",
+    "apiKeyHint": "Se guarda cifrada y no se vuelve a mostrar.",
+    "apiKeySavedPlaceholder": "Pega una nueva key para reemplazarla",
+    "verifyAndSave": "Probar conexión y guardar",
+    "replaceKey": "Probar y reemplazar key",
+    "verifying": "Probando conexión...",
+    "disconnect": "Desactivar",
+    "disconnectConfirm": "Confirmar desactivación",
+    "connectSuccess": "Conexión verificada y guardada.",
+    "disconnectSuccess": "Facturación electrónica desactivada.",
+    "lastVerified": "Última verificación: {date}",
+    "neverVerified": "Sin verificar todavía.",
+    "queueSummary": "Documentos en cola: {pending}. Requieren reintento manual: {stuck}.",
+    "missingFiscal": "Faltan datos del emisor: {fields}. Pídele al administrador de la plataforma que los complete.",
+    "fiscal": {
+      "taxId": "RUT",
+      "legalName": "Razón social",
+      "businessActivity": "Giro",
+      "legalAddress": "Dirección",
+      "legalCommune": "Comuna",
+      "economicActivityCode": "Código de actividad (acteco)"
+    },
+    "errors": {
+      "generic": "No pudimos completar la operación. Intenta de nuevo.",
+      "rateLimited": "Demasiados intentos. Espera un minuto.",
+      "TAX_PROVIDER_INVALID_API_KEY": "La API key no es válida para ese ambiente.",
+      "TAX_PROVIDER_RUT_MISMATCH": "La API key pertenece a otro RUT distinto al del restaurante.",
+      "TAX_FISCAL_DATA_INCOMPLETE": "Faltan datos fiscales del restaurante para producción.",
+      "TAX_PROVIDER_UNAVAILABLE": "OpenFactura no responde. Intenta más tarde.",
+      "TAX_DOCUMENT_NOT_RETRYABLE": "Este documento ya no se puede reintentar.",
+      "TAX_DOCUMENT_STATE_CHANGED": "El documento cambió de estado. Actualiza la lista e intenta de nuevo.",
+      "TAX_DOCUMENT_PDF_NOT_AVAILABLE": "Este documento aún no tiene PDF.",
+      "TAX_PROVIDER_NOT_ACTIVE": "La facturación electrónica no está activa en esta sucursal.",
+      "TAX_DOCUMENT_PDF_UNAVAILABLE": "El PDF no está disponible por ahora. Intenta más tarde.",
+      "TAX_DOCUMENT_NOT_FOUND": "No encontramos el documento.",
+      "TAX_DOCUMENT_NOT_REISSUABLE": "Este documento no se puede volver a emitir."
+    },
+    "loadError": "No pudimos cargar el estado del proveedor.",
+    "listTitle": "Documentos tributarios",
+    "listDescription": "Boletas y notas de crédito de la sucursal.",
+    "filterStatus": "Filtrar por estado",
+    "allStatuses": "Todos los estados",
+    "listEmpty": "No hay documentos.",
+    "listError": "No pudimos cargar los documentos.",
+    "status": {
+      "PENDING": "Pendiente",
+      "ISSUED": "Emitida",
+      "REJECTED": "Rechazada",
+      "NEEDS_RETRY": "Requiere reintento"
+    },
+    "types": {
+      "BOLETA_AFECTA": "Boleta electrónica",
+      "NOTA_CREDITO": "Nota de crédito"
+    },
+    "folio": "Folio {folio}",
+    "viewReceipt": "Ver boleta",
+    "viewCreditNote": "Ver nota de crédito",
+    "retry": "Reintentar",
+    "retrySuccess": "Reintento programado.",
+    "retryError": "No pudimos reintentar el documento.",
+    "reissue": "Volver a emitir",
+    "reissueConfirm": "Confirmar re-emisión",
+    "reissueSuccess": "Boleta re-emitida.",
+    "reissueError": "No pudimos volver a emitir la boleta.",
+    "pdfError": "No pudimos abrir el PDF.",
+    "billSection": "Boleta electrónica",
+    "emitter": {
+      "rutInvalid": "El RUT no es válido: revisa el número y el dígito verificador.",
+      "legalCommune": "Comuna",
+      "legalCity": "Ciudad",
+      "economicActivityCodeInvalid": "El código de actividad debe ser un número entero positivo de hasta 6 dígitos.",
+      "economicActivityCode": "Código de actividad (acteco)"
     }
   }
 }

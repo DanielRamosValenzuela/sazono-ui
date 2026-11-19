@@ -4,13 +4,14 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, MapPin, Power } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { adminApi } from "@/shared/api/admin-api";
+import { isValidRut } from "@/shared/lib/chilean-rut";
 import { ApiError } from "@/shared/api/http-client";
 import type { UpdateRestaurantRequest } from "@/shared/types/analytics";
 import { ConfirmButton } from "@/shared/ui/confirm-button";
@@ -42,6 +43,9 @@ type EditFormValues = {
   taxId: string;
   businessActivity: string;
   legalAddress: string;
+  legalCommune: string;
+  legalCity: string;
+  economicActivityCode: string;
   slug: string;
   branchQuota: number;
   defaultLanguage: string;
@@ -57,6 +61,7 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
   const t = useTranslations("RestaurantDetail");
   const tBootstrap = useTranslations("AdminBootstrap");
   const tDirectory = useTranslations("RestaurantsDirectory");
+  const tTax = useTranslations("TaxInvoicing.emitter");
   const tRoles = useTranslations("Shared.roles");
   const tStaffStatus = useTranslations("Shared.staffStatus");
   const locale = useLocale();
@@ -80,6 +85,9 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
       taxId: "",
       businessActivity: "",
       legalAddress: "",
+      legalCommune: "",
+      legalCity: "",
+      economicActivityCode: "",
       slug: "",
       branchQuota: 1,
       defaultLanguage: "es",
@@ -88,6 +96,14 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
     },
   });
   const { reset } = form;
+  const taxIdValue = useWatch({ control: form.control, name: "taxId" });
+  const actecoValue = useWatch({ control: form.control, name: "economicActivityCode" });
+  const actecoInvalid =
+    actecoValue.trim() !== "" && !/^[1-9][0-9]{0,5}$/.test(actecoValue.trim());
+  const rutInvalid =
+    taxIdValue.trim() !== "" &&
+    taxIdValue.trim() !== (restaurant?.taxId ?? "").trim() &&
+    !isValidRut(taxIdValue);
 
   useEffect(() => {
     if (restaurant) {
@@ -97,6 +113,9 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
         taxId: restaurant.taxId ?? "",
         businessActivity: restaurant.businessActivity ?? "",
         legalAddress: restaurant.legalAddress ?? "",
+        legalCommune: restaurant.legalCommune ?? "",
+        legalCity: restaurant.legalCity ?? "",
+        economicActivityCode: restaurant.economicActivityCode?.toString() ?? "",
         slug: restaurant.slug,
         branchQuota: restaurant.branchQuota,
         defaultLanguage: restaurant.defaultLanguage,
@@ -216,6 +235,11 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
               taxId: values.taxId.trim() || null,
               businessActivity: values.businessActivity.trim() || null,
               legalAddress: values.legalAddress.trim() || null,
+              legalCommune: values.legalCommune.trim() || null,
+              legalCity: values.legalCity.trim() || null,
+              economicActivityCode: values.economicActivityCode.trim()
+                ? Number(values.economicActivityCode)
+                : null,
               slug: values.slug,
               branchQuota: Number(values.branchQuota),
               defaultLanguage: values.defaultLanguage,
@@ -248,8 +272,14 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
               <TextInput
                 id="detail-tax-id"
                 placeholder="12.345.678-5"
+                aria-invalid={rutInvalid}
                 {...form.register("taxId")}
               />
+              {rutInvalid ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {tTax("rutInvalid")}
+                </p>
+              ) : null}
             </FieldGroup>
 
             <FieldGroup>
@@ -270,6 +300,41 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
                 id="detail-legal-address"
                 {...form.register("legalAddress")}
               />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-legal-commune">
+                {tTax("legalCommune")}
+              </FieldLabel>
+              <TextInput
+                id="detail-legal-commune"
+                {...form.register("legalCommune")}
+              />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-legal-city">
+                {tTax("legalCity")}
+              </FieldLabel>
+              <TextInput id="detail-legal-city" {...form.register("legalCity")} />
+            </FieldGroup>
+
+            <FieldGroup>
+              <FieldLabel htmlFor="detail-acteco">
+                {tTax("economicActivityCode")}
+              </FieldLabel>
+              <TextInput
+                id="detail-acteco"
+                inputMode="numeric"
+                placeholder="561000"
+                aria-invalid={actecoInvalid}
+                {...form.register("economicActivityCode")}
+              />
+              {actecoInvalid ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {tTax("economicActivityCodeInvalid")}
+                </p>
+              ) : null}
             </FieldGroup>
 
             <FieldGroup>
@@ -334,7 +399,7 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
             type="submit"
             size="lg"
             className="mt-7 w-full rounded-full sm:w-auto"
-            disabled={updateMutation.isPending}
+            disabled={updateMutation.isPending || rutInvalid || actecoInvalid}
           >
             {updateMutation.isPending ? (
               <>
@@ -359,6 +424,7 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
                 type="button"
                 variant="outline"
                 size="icon-sm"
+                className="size-11 sm:size-8"
                 aria-label={t("copyLoginUrl")}
                 onClick={copyLoginUrl}
               >
@@ -514,7 +580,7 @@ function BackLink({ label }: { label: string }) {
   return (
     <Link
       href="/admin/restaurants"
-      className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm sm:min-h-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="size-4" />
       {label}

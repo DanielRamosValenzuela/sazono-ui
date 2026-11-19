@@ -453,7 +453,7 @@ function RefundForm({
           ) : null}
         </div>
         <DialogFooter>
-          <Button className="rounded-full" onClick={onClose}>
+          <Button className="h-11 rounded-full sm:h-9" onClick={onClose}>
             {t("close")}
           </Button>
         </DialogFooter>
@@ -485,7 +485,7 @@ function RefundForm({
         </p>
         <Button
           variant="outline"
-          className="rounded-full"
+          className="h-11 rounded-full sm:h-9"
           onClick={() => void stateQuery.refetch()}
         >
           {t("retry")}
@@ -620,7 +620,7 @@ function RefundForm({
             key={option}
             type="button"
             variant={mode === option ? "default" : "ghost"}
-            className="h-10 rounded-full"
+            className="h-11 rounded-full sm:h-10"
             aria-pressed={mode === option}
             disabled={mutation.isPending}
             onClick={() => {
@@ -703,7 +703,7 @@ function RefundForm({
             <Button
               type="button"
               variant="outline"
-              className="h-10 shrink-0 rounded-xl sm:h-9"
+              className="h-11 shrink-0 rounded-xl sm:h-9"
               disabled={fieldsDisabled || maxAmount <= 0}
               onClick={() => {
                 setAmount(String(maxAmount));
@@ -907,7 +907,7 @@ function RefundForm({
         <Button
           type="button"
           variant="outline"
-          className="h-10 rounded-full sm:h-9"
+          className="h-11 rounded-full sm:h-9"
           disabled={mutation.isPending}
           onClick={onClose}
         >
@@ -915,7 +915,7 @@ function RefundForm({
         </Button>
         <Button
           type="submit"
-          className="h-10 rounded-full sm:h-9"
+          className="h-11 rounded-full sm:h-9"
           disabled={!canSubmit || mutation.isPending}
         >
           {mutation.isPending ? <Spinner /> : null}

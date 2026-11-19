@@ -354,7 +354,7 @@ function ReportsContent() {
                   key={entry}
                   size="sm"
                   variant={preset === entry ? "default" : "outline"}
-                  className="h-10 rounded-full sm:h-8"
+                  className="h-11 rounded-full sm:h-8"
                   aria-pressed={preset === entry}
                   onClick={() => selectPreset(entry)}
                 >
@@ -420,7 +420,7 @@ function ReportsContent() {
           {tab === "hierarchy" || tab === "dailyZ" ? null : (
             <Button
               variant="outline"
-              className="ml-auto h-10 rounded-full sm:h-9"
+              className="ml-auto h-11 rounded-full sm:h-9"
               disabled={!enabled || exportMutation.isPending}
               onClick={() => exportMutation.mutate()}
             >

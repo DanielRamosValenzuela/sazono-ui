@@ -5,6 +5,7 @@
     "locale_en": "English",
     "themeLight": "Switch to light mode",
     "themeDark": "Switch to dark mode",
+    "close": "Close",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "roles": {
@@ -1114,7 +1115,8 @@
     "backToOverview": "Back to overview",
     "navReports": "Reports",
     "navCashbox": "My register",
-    "navCash": "Cash register"
+    "navCash": "Cash register",
+    "navInvoicing": "Electronic invoicing"
   },
   "PlatformOverview": {
     "title": "Platform overview",
@@ -2035,6 +2037,96 @@
       "DISCOUNT_ALREADY_VOIDED": "The discount was already voided.",
       "DISCOUNT_VOID_FORBIDDEN": "You can only void your own discounts without approval. Ask a supervisor.",
       "DISCOUNT_IDEMPOTENCY_KEY_REUSED": "This request was already used with other data. Close and try again."
+    }
+  },
+  "TaxInvoicing": {
+    "pageTitle": "Electronic invoicing",
+    "pageDescription": "Connect your OpenFactura account to issue electronic receipts when each bill is closed and credit notes on refunds. A provider failure never blocks payments.",
+    "noBranch": "You have no branches with the admin role.",
+    "branch": "Branch",
+    "providerTitle": "OpenFactura provider",
+    "providerDescription": "No account connected yet. Receipts are not issued without one.",
+    "configured": "Configured",
+    "notConfigured": "Not connected",
+    "environment": {
+      "SANDBOX": "Sandbox (testing)",
+      "PRODUCTION": "Production"
+    },
+    "environmentLabel": "Environment",
+    "sandboxHint": "The sandbox issues test documents with no tax validity.",
+    "productionWarning": "Production requires your company to be enabled as a receipt issuer with the SII and to have the OpenFactura plan. The API key's RUT must match the restaurant's RUT.",
+    "apiKeyLabel": "OpenFactura API key",
+    "apiKeyHint": "Stored encrypted and never shown again.",
+    "apiKeySavedPlaceholder": "Paste a new key to replace it",
+    "verifyAndSave": "Test connection and save",
+    "replaceKey": "Test and replace key",
+    "verifying": "Testing connection...",
+    "disconnect": "Disable",
+    "disconnectConfirm": "Confirm disable",
+    "connectSuccess": "Connection verified and saved.",
+    "disconnectSuccess": "Electronic invoicing disabled.",
+    "lastVerified": "Last verified: {date}",
+    "neverVerified": "Not verified yet.",
+    "queueSummary": "Queued documents: {pending}. Needing manual retry: {stuck}.",
+    "missingFiscal": "Missing issuer data: {fields}. Ask the platform administrator to complete it.",
+    "fiscal": {
+      "taxId": "Tax ID (RUT)",
+      "legalName": "Legal name",
+      "businessActivity": "Business activity",
+      "legalAddress": "Address",
+      "legalCommune": "Commune",
+      "economicActivityCode": "Activity code (acteco)"
+    },
+    "errors": {
+      "generic": "We could not complete the operation. Try again.",
+      "rateLimited": "Too many attempts. Wait a minute.",
+      "TAX_PROVIDER_INVALID_API_KEY": "The API key is not valid for that environment.",
+      "TAX_PROVIDER_RUT_MISMATCH": "The API key belongs to a different RUT than the restaurant's.",
+      "TAX_FISCAL_DATA_INCOMPLETE": "The restaurant's tax data is incomplete for production.",
+      "TAX_PROVIDER_UNAVAILABLE": "OpenFactura is not responding. Try later.",
+      "TAX_DOCUMENT_NOT_RETRYABLE": "This document can no longer be retried.",
+      "TAX_DOCUMENT_STATE_CHANGED": "The document changed state. Refresh the list and try again.",
+      "TAX_DOCUMENT_PDF_NOT_AVAILABLE": "This document has no PDF yet.",
+      "TAX_PROVIDER_NOT_ACTIVE": "Electronic invoicing is not active for this branch.",
+      "TAX_DOCUMENT_PDF_UNAVAILABLE": "The PDF is unavailable right now. Try later.",
+      "TAX_DOCUMENT_NOT_FOUND": "We could not find the document.",
+      "TAX_DOCUMENT_NOT_REISSUABLE": "This document cannot be re-issued."
+    },
+    "loadError": "We could not load the provider status.",
+    "listTitle": "Tax documents",
+    "listDescription": "Receipts and credit notes for the branch.",
+    "filterStatus": "Filter by status",
+    "allStatuses": "All statuses",
+    "listEmpty": "No documents.",
+    "listError": "We could not load the documents.",
+    "status": {
+      "PENDING": "Pending",
+      "ISSUED": "Issued",
+      "REJECTED": "Rejected",
+      "NEEDS_RETRY": "Needs retry"
+    },
+    "types": {
+      "BOLETA_AFECTA": "Electronic receipt",
+      "NOTA_CREDITO": "Credit note"
+    },
+    "folio": "Folio {folio}",
+    "viewReceipt": "View receipt",
+    "viewCreditNote": "View credit note",
+    "retry": "Retry",
+    "retrySuccess": "Retry scheduled.",
+    "retryError": "We could not retry the document.",
+    "reissue": "Re-issue",
+    "reissueConfirm": "Confirm re-issue",
+    "reissueSuccess": "Receipt re-issued.",
+    "reissueError": "We could not re-issue the receipt.",
+    "pdfError": "We could not open the PDF.",
+    "billSection": "Electronic receipt",
+    "emitter": {
+      "rutInvalid": "The RUT is not valid: check the number and check digit.",
+      "legalCommune": "Commune",
+      "legalCity": "City",
+      "economicActivityCodeInvalid": "The activity code must be a positive whole number of up to 6 digits.",
+      "economicActivityCode": "Activity code (acteco)"
     }
   }
 }

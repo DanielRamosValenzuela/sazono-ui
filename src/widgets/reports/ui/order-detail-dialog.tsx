@@ -25,6 +25,7 @@ import type {
   OrderDetailResponse,
 } from "@/shared/types/reports";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
+import { BillTaxDocuments } from "@/widgets/tax-invoicing/ui/bill-tax-documents";
 import { RefundDialog } from "./refund-dialog";
 import { DetailGrid, RefundedItemsList } from "./report-parts";
 import { formatReportDateTime } from "./report-range";
@@ -129,6 +130,7 @@ export function OrderDetailDialog({
         ) ?? null)
       : null;
   const canRefund = hasBranchPermission(access, [...REFUND_ROLES]);
+  const isBranchAdmin = hasBranchPermission(access, ["ADMIN"]);
   const query = useQuery({
     queryKey: ["reports", "order-detail", branchId, billId],
     enabled: Boolean(token) && Boolean(billId),
@@ -361,6 +363,13 @@ export function OrderDetailDialog({
                 )}
               </section>
 
+              <BillTaxDocuments
+                token={token}
+                branchId={branchId}
+                billId={detail.billId}
+                canRetry={isBranchAdmin}
+              />
+
               <section aria-labelledby="order-detail-payments" className="space-y-3">
                 <h3 id="order-detail-payments" className="text-sm font-semibold">
                   {t("orderDetail.payments")}
@@ -436,7 +445,7 @@ export function OrderDetailDialog({
                             <Button
                               size="sm"
                               variant="outline"
-                              className="ml-auto h-10 rounded-full sm:h-8"
+                              className="ml-auto h-11 rounded-full sm:h-8"
                               onClick={() => setRefundPayment(payment)}
                             >
                               <Undo2 />
@@ -493,6 +502,13 @@ export function OrderDetailDialog({
                           {" · "}
                           {refund.reasonText}
                         </p>
+                        <BillTaxDocuments
+                          token={token}
+                          branchId={branchId}
+                          billId={detail.billId}
+                          canRetry={isBranchAdmin}
+                          onlyRefundId={refund.id}
+                        />
                         <p className="text-xs text-muted-foreground">
                           {[
                             refund.requestedBy

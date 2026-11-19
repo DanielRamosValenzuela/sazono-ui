@@ -13,6 +13,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  FileText,
   Receipt,
   X,
   Store,
@@ -169,6 +170,11 @@ export function AdminShell({ children, area }: AdminShellProps) {
             href: "/admin/payments",
             labelKey: "navPayments",
             icon: <CreditCard className="size-4" />,
+          },
+          {
+            href: "/admin/invoicing",
+            labelKey: "navInvoicing",
+            icon: <FileText className="size-4" />,
           },
         ]
       : [];
@@ -390,7 +396,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
               </nav>
               <div className="flex flex-wrap items-center gap-2">
                 <LocaleSwitcher />
-                <ThemeToggle />
+                <ThemeToggle className="size-11" />
               </div>
               <div className="flex items-center gap-3 border-t border-border pt-4">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground uppercase">
@@ -404,16 +410,15 @@ export function AdminShell({ children, area }: AdminShellProps) {
                   <p className="truncate text-xs text-muted-foreground">{primaryRole}</p>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-11"
-                  aria-label={t("logout")}
+                  variant="outline"
+                  className="h-11 rounded-full"
                   onClick={() => {
                     setMenuOpen(false);
                     handleLogout();
                   }}
                 >
                   <LogOut className="size-4" />
+                  {t("logout")}
                 </Button>
               </div>
             </DialogContent>

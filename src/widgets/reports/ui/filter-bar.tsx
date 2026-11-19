@@ -284,7 +284,7 @@ export function ReportFilterBar({
     <div className="contents">
       <Button
         variant={count > 0 ? "secondary" : "outline"}
-        className="h-10 rounded-full sm:h-9"
+        className="h-11 rounded-full sm:h-9"
         aria-expanded={expanded}
         aria-controls={panelId}
         onClick={toggle}

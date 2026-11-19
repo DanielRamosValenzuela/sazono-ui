@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
 import { XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type BottomSheetProps = PropsWithChildren<{
@@ -16,6 +17,7 @@ export function BottomSheet({
   showCloseButton = true,
   children,
 }: BottomSheetProps) {
+  const t = useTranslations("Shared");
   const [visible, setVisible] = useState(false);
   const onCloseRef = useRef(onClose);
 
@@ -73,10 +75,10 @@ export function BottomSheet({
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 cursor-pointer rounded-lg p-1 text-muted-foreground opacity-70 transition-opacity outline-none hover:bg-muted hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="absolute top-2 right-2 flex size-11 cursor-pointer items-center justify-center rounded-lg text-muted-foreground opacity-70 transition-opacity outline-none hover:bg-muted hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <XIcon className="size-4" />
-              <span className="sr-only">Cerrar</span>
+              <span className="sr-only">{t("close")}</span>
             </button>
           ) : null}
           <div className="max-h-[80dvh] overflow-y-auto px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-4 sm:max-h-[85vh] sm:pb-5">

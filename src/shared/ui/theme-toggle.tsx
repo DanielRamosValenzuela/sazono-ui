@@ -3,10 +3,11 @@
 import { MoonStar, SunMedium } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useTheme } from "@/shared/lib/theme";
 import { useClientReady } from "@/shared/lib/use-client-ready";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const t = useTranslations("Shared");
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useClientReady();
@@ -18,7 +19,7 @@ export function ThemeToggle() {
         variant="outline"
         size="icon-sm"
         aria-label={t("themeDark")}
-        className="rounded-full border-border/70 bg-card/80"
+        className={cn("rounded-full border-border/70 bg-card/80", className)}
       >
         <SunMedium className="size-4" />
       </Button>
@@ -34,7 +35,10 @@ export function ThemeToggle() {
       size="icon-sm"
       aria-label={isDark ? t("themeLight") : t("themeDark")}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="rounded-full border-border/70 bg-card/80 backdrop-blur hover:bg-card"
+      className={cn(
+        "rounded-full border-border/70 bg-card/80 backdrop-blur hover:bg-card",
+        className
+      )}
     >
       {isDark ? <SunMedium className="size-4" /> : <MoonStar className="size-4" />}
     </Button>
