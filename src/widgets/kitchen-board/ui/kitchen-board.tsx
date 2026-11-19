@@ -21,15 +21,25 @@ import {
   Flame,
   GripVertical,
   Soup,
+  Undo2,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
+import { ApiError } from "@/shared/api/http-client";
 import { kitchenApi } from "@/shared/api/kitchen-api";
 import { menusApi } from "@/shared/api/menus-api";
 import {
@@ -99,6 +109,7 @@ export function KitchenBoard() {
   const canCancel = hasBranchPermission(selectedBranch, KITCHEN_CANCEL_ROLES);
 
   const [selectedStationId, setSelectedStationId] = useState("");
+  const [actionTicket, setActionTicket] = useState<StationTicket | null>(null);
 
   const stationsQuery = useQuery({
     queryKey: ["kitchen", "stations", accessToken, selectedBranchId],
@@ -137,7 +148,14 @@ export function KitchenBoard() {
       void queryClient.invalidateQueries({ queryKey: ["kitchen", "tickets"] });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("updateError"));
+      void queryClient.invalidateQueries({ queryKey: ["kitchen", "tickets"] });
+      toast.error(
+        error instanceof ApiError && error.status === 409
+          ? t("conflictError")
+          : error instanceof Error
+            ? error.message
+            : t("updateError")
+      );
     },
   });
 
@@ -328,7 +346,7 @@ export function KitchenBoard() {
                             <Button
                               type="button"
                               size="sm"
-                              className="min-h-10 flex-1 rounded-full sm:min-h-0"
+                              className="min-h-11 flex-1 rounded-full sm:min-h-0"
                               disabled={isUpdating}
                               onClick={() =>
                                 updateStatusMutation.mutate({
@@ -346,22 +364,31 @@ export function KitchenBoard() {
                             </span>
                           )}
 
-                          {canCancel ? (
+                          {ticket.status !== "PENDING" || canCancel ? (
                             <Button
                               type="button"
                               size="icon-sm"
                               variant="ghost"
-                              className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              aria-label={t("cancelTicket")}
-                              disabled={isUpdating}
-                              onClick={() =>
-                                updateStatusMutation.mutate({
-                                  stationTicketId: ticket.stationTicketId,
-                                  status: "CANCELLED",
-                                })
+                              className={cn(
+                                "size-11 rounded-full sm:size-8",
+                                ticket.status === "READY"
+                                  ? "text-muted-foreground"
+                                  : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              )}
+                              aria-label={
+                                ticket.status === "READY" ? t("returnTicket") : t("cancelTicket")
                               }
+                              title={
+                                ticket.status === "READY" ? t("returnTicket") : t("cancelTicket")
+                              }
+                              disabled={isUpdating}
+                              onClick={() => setActionTicket(ticket)}
                             >
-                              <Ban className="size-4" />
+                              {ticket.status === "READY" ? (
+                                <Undo2 className="size-4" />
+                              ) : (
+                                <Ban className="size-4" />
+                              )}
                             </Button>
                           ) : null}
                         </div>
@@ -374,7 +401,78 @@ export function KitchenBoard() {
           </div>
         </DndContext>
       )}
+
+      {actionTicket ? (
+        <TicketActionDialog
+          ticket={actionTicket}
+          canCancel={canCancel}
+          onClose={() => setActionTicket(null)}
+          onAction={(status) => {
+            updateStatusMutation.mutate({
+              stationTicketId: actionTicket.stationTicketId,
+              status,
+            });
+            setActionTicket(null);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+type TicketActionDialogProps = {
+  ticket: StationTicket;
+  canCancel: boolean;
+  onClose: () => void;
+  onAction: (status: StationTicketStatus) => void;
+};
+
+function TicketActionDialog({ ticket, canCancel, onClose, onAction }: TicketActionDialogProps) {
+  const t = useTranslations("KitchenBoard");
+  const label = ticket.isCounter
+    ? [`#${ticket.ticketNumber ?? ""}`, ticket.customerLabel].filter(Boolean).join(" ")
+    : ticket.tableCode;
+  const returnTarget: StationTicketStatus | null =
+    ticket.status === "IN_PROGRESS" ? "PENDING" : ticket.status === "READY" ? "IN_PROGRESS" : null;
+  const actionClass = "min-h-11 w-full rounded-full sm:w-auto";
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t(`dialogTitle_${ticket.status}`, { label })}</DialogTitle>
+          <DialogDescription>{t(`dialogDescription_${ticket.status}`)}</DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Button type="button" variant="outline" className={actionClass} onClick={onClose}>
+            {t("dialogBack")}
+          </Button>
+          {returnTarget ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className={actionClass}
+              onClick={() => onAction(returnTarget)}
+            >
+              <Undo2 className="size-4" />
+              {t(`returnTo_${returnTarget}`)}
+            </Button>
+          ) : null}
+          {canCancel && ticket.status !== "READY" ? (
+            <Button
+              type="button"
+              variant="destructive"
+              className={actionClass}
+              onClick={() => onAction("CANCELLED")}
+            >
+              <Ban className="size-4" />
+              {t("cancelTicket")}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -434,11 +532,11 @@ function DraggableTicketCard({ ticket, disabled, children }: DraggableTicketCard
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.6 : 1,
       }}
-      className="relative rounded-2xl border border-border/70 bg-background/70 p-3.5 pl-8 shadow-sm"
+      className="relative rounded-2xl border border-border/70 bg-background/70 p-3.5 pl-11 shadow-sm sm:pl-8"
     >
       <button
         type="button"
-        className="absolute top-3.5 left-1.5 cursor-grab touch-none rounded-full p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+        className="absolute top-1.5 left-0.5 flex size-10 cursor-grab touch-none items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:top-3.5 sm:left-1.5 sm:size-auto sm:p-1 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={t("ticketDragHandle")}
         disabled={disabled}
         {...attributes}
