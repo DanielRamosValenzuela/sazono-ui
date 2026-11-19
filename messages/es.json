@@ -807,6 +807,12 @@
     "discountAction": "Descuento"
   },
   "KitchenBoard": {
+    "soundOn": "Sonido de avisos: activado",
+    "soundOff": "Sonido de avisos: desactivado",
+    "soundUnavailable": "Disponible en la app de cocina",
+    "soundOnToast": "Sonido de avisos activado",
+    "soundOffToast": "Sonido de avisos desactivado",
+    "soundError": "No se pudo cambiar el sonido",
     "pageTitle": "Cocina y barra",
     "pageDescription": "Los tickets que llegan de cada pedido, agrupados por estado. Avanza cada uno a medida que se prepara.",
     "branchLabel": "Sucursal activa",

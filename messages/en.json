@@ -807,6 +807,12 @@
     "discountAction": "Discount"
   },
   "KitchenBoard": {
+    "soundOn": "Alert sound: on",
+    "soundOff": "Alert sound: off",
+    "soundUnavailable": "Available in the kitchen app",
+    "soundOnToast": "Alert sound turned on",
+    "soundOffToast": "Alert sound turned off",
+    "soundError": "Could not change the sound",
     "pageTitle": "Kitchen & bar",
     "pageDescription": "The tickets coming from each order, grouped by status. Advance each one as it gets prepared.",
     "branchLabel": "Active branch",

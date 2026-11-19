@@ -17,4 +17,16 @@ export const deviceTokensApi = {
       body: { fcmToken },
     });
   },
+  getSound(token: string, fcmToken: string) {
+    return apiRequest<{ soundEnabled: boolean }>(
+      `/notifications/device-tokens/me?fcmToken=${encodeURIComponent(fcmToken)}`,
+      { token }
+    );
+  },
+  setSound(token: string, fcmToken: string, soundEnabled: boolean) {
+    return apiRequest<{ soundEnabled: boolean }>(
+      "/notifications/device-tokens/sound",
+      { method: "PATCH", token, body: { fcmToken, soundEnabled } }
+    );
+  },
 };

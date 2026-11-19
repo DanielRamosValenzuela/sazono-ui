@@ -38,6 +38,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { SoundToggle } from "@/features/push-notifications/ui/sound-toggle";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { ApiError } from "@/shared/api/http-client";
 import { kitchenApi } from "@/shared/api/kitchen-api";
@@ -271,6 +272,10 @@ export function KitchenBoard() {
               </option>
             ))}
           </SelectInput>
+        </div>
+
+        <div className="ml-auto">
+          <SoundToggle />
         </div>
       </div>
 

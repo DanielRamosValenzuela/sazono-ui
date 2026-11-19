@@ -14,7 +14,11 @@ import {
 } from "@/shared/api/device-tokens-api";
 import { useAdminSessionStore } from "@/features/admin-session/model/admin-session.store";
 import { ApiError } from "@/shared/api/http-client";
-import { setCurrentFcmToken } from "./device-token-registry";
+import {
+  isPushSoundEnabled,
+  setCurrentFcmToken,
+  setPushSoundEnabled,
+} from "./device-token-registry";
 
 let nextLocalNotificationId = 1;
 
@@ -58,6 +62,8 @@ export function usePushRegistration() {
         currentFcmToken,
         Capacitor.getPlatform() as DevicePlatform
       )
+      .then(() => deviceTokensApi.getSound(currentAccessToken, currentFcmToken))
+      .then((preference) => setPushSoundEnabled(preference.soundEnabled))
       .catch((error) => {
         registeredForProfileIdRef.current = null;
         if (error instanceof ApiError && error.status === 401) {
@@ -121,6 +127,9 @@ export function usePushRegistration() {
                 id: nextLocalNotificationId++,
                 title,
                 body,
+                channelId: isPushSoundEnabled()
+                  ? "sazono_alerts"
+                  : "sazono_silent",
                 extra: notification.data,
               },
             ],
@@ -174,6 +183,25 @@ export function usePushRegistration() {
           "[push] local notification permission not granted:",
           localPermStatus.display
         );
+      }
+
+      if (Capacitor.getPlatform() === "android") {
+        try {
+          await PushNotifications.createChannel({
+            id: "sazono_alerts",
+            name: "Avisos con sonido",
+            importance: 4,
+            vibration: true,
+          });
+          await PushNotifications.createChannel({
+            id: "sazono_silent",
+            name: "Avisos silenciosos",
+            importance: 2,
+            vibration: false,
+          });
+        } catch (error) {
+          console.error("[push] create channel error:", error);
+        }
       }
 
       await PushNotifications.register();
