@@ -31,7 +31,12 @@ export function BottomSheet({
     document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      const target = event.target as Element | null;
+
+      if (
+        event.key === "Escape" &&
+        !target?.closest?.('[data-slot="dialog-content"]')
+      ) {
         onCloseRef.current();
       }
     };

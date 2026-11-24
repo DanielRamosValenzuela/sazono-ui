@@ -25,6 +25,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 
 const ROLE_OPTIONS: BranchRole[] = [
@@ -278,10 +279,15 @@ export function TeamPanel() {
                       staffUser.staffUserId
                   }
                   onSave={(payload) =>
-                    updateStaffMutation.mutate({
-                      staffUserId: staffUser.staffUserId,
-                      payload,
-                    })
+                    updateStaffMutation
+                      .mutateAsync({
+                        staffUserId: staffUser.staffUserId,
+                        payload,
+                      })
+                      .then(
+                        () => true,
+                        () => false
+                      )
                   }
                 />
               ))
@@ -306,7 +312,7 @@ type StaffCardProps = {
   isSelf: boolean;
   adminBranches: AdminBranch[];
   isSaving: boolean;
-  onSave: (payload: UpdateStaffUserRequest) => void;
+  onSave: (payload: UpdateStaffUserRequest) => Promise<boolean>;
 };
 
 function StaffCard({
@@ -399,7 +405,7 @@ type StaffEditorProps = {
   isSelf: boolean;
   adminBranches: AdminBranch[];
   isSaving: boolean;
-  onSave: (payload: UpdateStaffUserRequest) => void;
+  onSave: (payload: UpdateStaffUserRequest) => Promise<boolean>;
 };
 
 function StaffEditor({
@@ -412,6 +418,10 @@ function StaffEditor({
 }: StaffEditorProps) {
   const t = useTranslations("AdminStaff");
   const tStaffStatus = useTranslations("Shared.staffStatus");
+  const tConfirm = useTranslations("ConfirmActions.admin");
+  const [confirmPayload, setConfirmPayload] =
+    useState<UpdateStaffUserRequest | null>(null);
+  const [riskLines, setRiskLines] = useState<string[]>([]);
   const [firstName, setFirstName] = useState(staffUser.firstName);
   const [lastName, setLastName] = useState(staffUser.lastName);
   const [status, setStatus] = useState<"ACTIVE" | "DISABLED">(
@@ -456,8 +466,81 @@ function StaffEditor({
     );
   };
 
+  const buildPayload = (): UpdateStaffUserRequest => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    status,
+    branchRoles: draftRoles.map((entry) => ({
+      branchId: entry.branchId,
+      role: entry.role,
+    })),
+  });
+
+  const riskyChanges = (): string[] => {
+    const name = `${staffUser.firstName} ${staffUser.lastName}`;
+    const lines: string[] = [];
+    if (staffUser.status !== "DISABLED" && status === "DISABLED") {
+      lines.push(tConfirm("staff-save-risky.disable", { name }));
+    }
+    for (const entry of draftRoles) {
+      const existed = staffUser.branchRoles.some(
+        (current) =>
+          current.branchId === entry.branchId && current.role === entry.role
+      );
+      if (entry.role === "ADMIN" && !existed) {
+        lines.push(
+          tConfirm("staff-save-risky.admin", {
+            name,
+            role: roleLabel(entry.role),
+            branch: entry.branchName,
+          })
+        );
+      }
+    }
+    return lines;
+  };
+
+  const handleSave = () => {
+    const payload = buildPayload();
+    const lines = riskyChanges();
+    if (lines.length === 0) {
+      void onSave(payload);
+      return;
+    }
+    setRiskLines(lines);
+    setConfirmPayload(payload);
+  };
+
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border/70 bg-card p-4">
+      <ConfirmDialog
+        open={confirmPayload !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmPayload(null);
+          }
+        }}
+        tone="warning"
+        title={tConfirm("staff-save-risky.title")}
+        description={tConfirm("staff-save-risky.description")}
+        confirmLabel={tConfirm("staff-save-risky.confirm")}
+        isPending={isSaving}
+        impact={
+          <ul className="list-disc space-y-1 pl-4">
+            {riskLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        }
+        onConfirm={async () => {
+          if (!confirmPayload) {
+            return;
+          }
+          if (await onSave(confirmPayload)) {
+            setConfirmPayload(null);
+          }
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <FieldGroup>
           <FieldLabel htmlFor={`edit-first-${staffUser.staffUserId}`}>
@@ -567,17 +650,7 @@ function StaffEditor({
         type="button"
         className="w-full rounded-full sm:w-auto"
         disabled={isSaving || !firstName.trim() || !lastName.trim()}
-        onClick={() =>
-          onSave({
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            status,
-            branchRoles: draftRoles.map((entry) => ({
-              branchId: entry.branchId,
-              role: entry.role,
-            })),
-          })
-        }
+        onClick={handleSave}
       >
         {isSaving ? (
           <>

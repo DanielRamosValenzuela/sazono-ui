@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { menusApi } from "@/shared/api/menus-api";
 import { formatMoney } from "@/shared/lib/format";
 import type {
@@ -176,6 +177,7 @@ function ModifierGroupBlock({
             <ModifierOptionRow
               key={option.modifierOptionId}
               option={option}
+              groupName={group.name}
               depth={depth}
               branchId={branchId}
               accessToken={accessToken}
@@ -249,18 +251,22 @@ function ModifierGroupBlock({
 
 function ModifierOptionRow({
   option,
+  groupName,
   depth,
   branchId,
   accessToken,
   onChanged,
 }: {
   option: ModifierOption;
+  groupName: string;
   depth: number;
   branchId: string;
   accessToken: string;
   onChanged: () => void;
 }) {
   const t = useTranslations("MenuStudio");
+  const tc = useTranslations("ConfirmActions.menu.menu-option-image-remove");
+  const [removeOpen, setRemoveOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const [showChildren, setShowChildren] = useState(false);
   const [showNewChild, setShowNewChild] = useState(false);
@@ -389,11 +395,29 @@ function ModifierOptionRow({
             variant="ghost"
             className="min-h-11 rounded-full"
             disabled={busy}
-            onClick={() => removeMutation.mutate()}
+            onClick={() => setRemoveOpen(true)}
           >
             {removeMutation.isPending ? <Spinner /> : t("optionImageRemove")}
           </Button>
         ) : null}
+        <ConfirmDialog
+          open={removeOpen}
+          onOpenChange={setRemoveOpen}
+          tone="destructive"
+          title={tc("title")}
+          description={tc("description")}
+          impact={tc("impact", { option: option.name, group: groupName })}
+          confirmLabel={tc("confirm")}
+          isPending={removeMutation.isPending}
+          onConfirm={async () => {
+            try {
+              await removeMutation.mutateAsync();
+              setRemoveOpen(false);
+            } catch {
+              return;
+            }
+          }}
+        />
         {isSaved || childGroups.length > 0 ? (
           <Button
             type="button"

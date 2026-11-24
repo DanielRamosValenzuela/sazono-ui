@@ -27,6 +27,7 @@ import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { usePayConfirm } from "../lib/use-pay-confirm";
 
 const TIP_PERCENTAGES = [0, 5, 10] as const;
 const AWAITING_ORDER_STATUSES = ["AWAITING_PAYMENT", "PAYMENT_FAILED"];
@@ -59,6 +60,7 @@ export function PaymentSheet({
     ? Math.max(0, Math.floor(Number(customTip) || 0))
     : Math.round((orderTotal * tipPercentage) / 100);
   const totalDue = orderTotal + tipAmount;
+  const payConfirm = usePayConfirm(orderTotal, tipAmount, useCustomTip);
 
   const paymentConfigQuery = useQuery({
     queryKey: ["qr-payment-config", qrToken],
@@ -164,20 +166,36 @@ export function PaymentSheet({
   const isCardBusy = cardPhase !== "idle";
   const isBusy = isCardBusy || startRedirect.isPending;
 
-  const handleBrickSubmit = (checkout: CardCheckoutFields) =>
-    submitCheckout(checkout);
+  const startRedirectConfirmed = async (provider: PaymentGatewayProvider) => {
+    if (await payConfirm.confirmTip()) {
+      startRedirect.mutate(provider);
+    }
+  };
+
+  const payManualConfirmed = async () => {
+    if (await payConfirm.confirmOffline()) {
+      payOrder.mutate();
+    }
+  };
+
+  const handleBrickSubmit = async (checkout: CardCheckoutFields) => {
+    if (!(await payConfirm.confirmTip())) {
+      throw new Error("tip-not-confirmed");
+    }
+    return submitCheckout(checkout);
+  };
 
   const handleSelectOption = (option: QrPaymentConfigOption) => {
     setChosenProvider(option.provider);
 
     if (option.checkoutMode === "redirect") {
-      startRedirect.mutate(option.provider);
+      void startRedirectConfirmed(option.provider);
     }
   };
 
   return (
     <BottomSheet
-      onClose={isBusy ? () => undefined : onClose}
+      onClose={isBusy || payConfirm.asking ? () => undefined : onClose}
       labelledBy="qr-pay-title"
       showCloseButton={!isBusy}
     >
@@ -370,8 +388,8 @@ export function PaymentSheet({
                 type="button"
                 size="lg"
                 className="w-full rounded-xl"
-                disabled={startRedirect.isPending}
-                onClick={() => startRedirect.mutate(activeOption.provider)}
+                disabled={startRedirect.isPending || payConfirm.asking}
+                onClick={() => void startRedirectConfirmed(activeOption.provider)}
               >
                 {startRedirect.isPending ? <Spinner /> : null}
                 {startRedirect.isPending
@@ -393,8 +411,8 @@ export function PaymentSheet({
             type="button"
             size="lg"
             className="w-full rounded-xl"
-            disabled={payOrder.isPending}
-            onClick={() => payOrder.mutate()}
+            disabled={payOrder.isPending || payConfirm.asking}
+            onClick={() => void payManualConfirmed()}
           >
             {payOrder.isPending ? <Spinner /> : null}
             {isRetry ? t("pay_retrySubmit") : t("pay_submit")}
@@ -411,6 +429,7 @@ export function PaymentSheet({
           {t("pay_later")}
         </Button>
       </div>
+      {payConfirm.dialog}
     </BottomSheet>
   );
 }

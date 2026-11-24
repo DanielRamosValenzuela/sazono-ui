@@ -41,6 +41,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { EmptyHint, formatDateTime } from "./studio-primitives";
 
 const MENU_LANGUAGES = ["es", "en"];
@@ -118,13 +119,13 @@ type MenuVersionsPanelProps = {
 
 type NameDialogProps = {
   kind: "duplicate" | "rename";
-  menu: MenuSummary;
+  menu: Pick<MenuSummary, "name">;
   isPending: boolean;
   onClose: () => void;
   onSubmit: (name: string) => void;
 };
 
-function NameDialog({ kind, menu, isPending, onClose, onSubmit }: NameDialogProps) {
+export function NameDialog({ kind, menu, isPending, onClose, onSubmit }: NameDialogProps) {
   const t = useTranslations("MenuStudio");
   const [name, setName] = useState(
     kind === "duplicate"
@@ -172,17 +173,13 @@ function NameDialog({ kind, menu, isPending, onClose, onSubmit }: NameDialogProp
             />
           </FieldGroup>
 
-          <DialogFooter>
+          <DialogFooter className="gap-3 sm:flex-row-reverse sm:justify-start">
             <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              disabled={isPending}
-              onClick={onClose}
+              type="submit"
+              size="lg"
+              className="w-full rounded-full sm:w-auto"
+              disabled={!canSubmit}
             >
-              {t("versionDialogCancel")}
-            </Button>
-            <Button type="submit" className="rounded-full" disabled={!canSubmit}>
               {isPending ? <Spinner /> : null}
               {kind === "duplicate"
                 ? isPending
@@ -191,6 +188,16 @@ function NameDialog({ kind, menu, isPending, onClose, onSubmit }: NameDialogProp
                 : isPending
                   ? t("versionRenameSubmitting")
                   : t("versionRenameSubmit")}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="w-full rounded-full sm:w-auto"
+              disabled={isPending}
+              onClick={onClose}
+            >
+              {t("versionDialogCancel")}
             </Button>
           </DialogFooter>
         </form>
@@ -210,37 +217,22 @@ function DeleteDialog({ menu, isPending, onClose, onConfirm }: DeleteDialogProps
   const t = useTranslations("MenuStudio");
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !isPending && onClose()}>
-      <DialogContent>
-        <DialogHeader className="pr-8">
-          <DialogTitle>{t("versionDeleteTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("versionDeleteDescription", { name: menu.name })}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-full"
-            disabled={isPending}
-            onClick={onClose}
-          >
-            {t("versionDialogCancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            className="rounded-full"
-            disabled={isPending}
-            onClick={onConfirm}
-          >
-            {isPending ? <Spinner /> : <Trash2 className="size-4" />}
-            {isPending ? t("versionDeleteSubmitting") : t("versionDeleteSubmit")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      tone="destructive"
+      isPending={isPending}
+      title={t("versionDeleteTitle")}
+      description={t("versionDeleteDescription", { name: menu.name })}
+      impact={t("versionDeleteImpact", {
+        name: menu.name,
+        categories: menu.categoryCount,
+        items: menu.itemCount,
+      })}
+      confirmLabel={isPending ? t("versionDeleteSubmitting") : t("versionDeleteSubmit")}
+      cancelLabel={t("versionDialogCancel")}
+      onConfirm={onConfirm}
+    />
   );
 }
 

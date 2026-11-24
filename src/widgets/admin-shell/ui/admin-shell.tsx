@@ -25,6 +25,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authApi } from "@/shared/api/auth-api";
 import { LocaleSwitcher } from "@/shared/ui/locale-switcher";
@@ -52,6 +53,8 @@ export function AdminShell({ children, area }: AdminShellProps) {
   const tStaffLoginRequired = useTranslations("StaffLoginRequired");
   const session = useAdminSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const tLogout = useTranslations("ConfirmActions.staff.staff-logout");
   usePushRegistration();
 
   useEffect(() => {
@@ -238,6 +241,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
   const collapseToHeader = adminNav.length === 0 && operationsNav.length <= 1;
 
   const handleLogout = () => {
+    setLogoutOpen(false);
     session.logout();
     toast.success(t("logoutSuccess"));
   };
@@ -301,7 +305,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t("logout")}
-                onClick={handleLogout}
+                onClick={() => setLogoutOpen(true)}
               >
                 <LogOut className="size-4" />
               </Button>
@@ -349,7 +353,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
               <LocaleSwitcher />
               <ThemeToggle />
               {collapseToHeader ? (
-                <Button variant="outline" size="sm" onClick={handleLogout}>
+                <Button variant="outline" size="sm" onClick={() => setLogoutOpen(true)}>
                   <LogOut className="size-4" />
                   {t("logout")}
                 </Button>
@@ -414,7 +418,7 @@ export function AdminShell({ children, area }: AdminShellProps) {
                   className="h-11 rounded-full"
                   onClick={() => {
                     setMenuOpen(false);
-                    handleLogout();
+                    setLogoutOpen(true);
                   }}
                 >
                   <LogOut className="size-4" />
@@ -433,6 +437,18 @@ export function AdminShell({ children, area }: AdminShellProps) {
           {children}
         </main>
       </div>
+      <ConfirmDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        title={tLogout("title")}
+        description={tLogout("description")}
+        confirmLabel={tLogout("confirm")}
+        tone="warning"
+        impact={tLogout("impact", {
+          name: `${user.firstName} ${user.lastName}`,
+        })}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }

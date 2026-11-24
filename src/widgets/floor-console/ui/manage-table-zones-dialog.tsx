@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { floorApi } from "@/shared/api/floor-api";
 import type { FloorTable, TableZone } from "@/shared/types/floor";
@@ -40,6 +41,7 @@ export function ManageTableZonesDialog({
   onClose,
 }: ManageTableZonesDialogProps) {
   const t = useTranslations("FloorConsole");
+  const tc = useTranslations("ConfirmActions.floor.floor-zone-delete");
   const queryClient = useQueryClient();
 
   const [newZoneName, setNewZoneName] = useState("");
@@ -148,9 +150,12 @@ export function ManageTableZonesDialog({
     setStaffDraftByZoneId((prev) => ({ ...prev, [zone.zoneId]: next }));
   };
 
+  const zoneToDelete = zones.find((zone) => zone.zoneId === confirmingDeleteZoneId);
+
   const isLoading = zonesQuery.isPending || staffQuery.isPending;
 
   return (
+    <>
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-2xl gap-5 overflow-y-auto">
         <DialogHeader>
@@ -188,7 +193,6 @@ export function ManageTableZonesDialog({
             {zones.map((zone) => {
               const isExpanded = expandedZoneId === zone.zoneId;
               const isRenaming = renamingZoneId === zone.zoneId;
-              const isConfirmingDelete = confirmingDeleteZoneId === zone.zoneId;
               const staffDraft = staffDraftByZoneId[zone.zoneId] ?? zone.staffUserIds;
               const hasStaffChanges =
                 staffDraft.length !== zone.staffUserIds.length ||
@@ -251,30 +255,16 @@ export function ManageTableZonesDialog({
                         >
                           <Pencil className="size-4" />
                         </Button>
-                        {isConfirmingDelete ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            className="rounded-full"
-                            disabled={deleteZoneMutation.isPending}
-                            onClick={() => deleteZoneMutation.mutate(zone.zoneId)}
-                          >
-                            {deleteZoneMutation.isPending ? <Spinner /> : null}
-                            {t("zoneDeleteConfirm")}
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={t("zoneDeleteAction")}
-                            onClick={() => setConfirmingDeleteZoneId(zone.zoneId)}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        )}
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={t("zoneDeleteAction")}
+                          onClick={() => setConfirmingDeleteZoneId(zone.zoneId)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
                         <Button
                           type="button"
                           size="icon-sm"
@@ -369,7 +359,35 @@ export function ManageTableZonesDialog({
             })}
           </ul>
         )}
+        <ConfirmDialog
+          open={Boolean(zoneToDelete)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConfirmingDeleteZoneId(null);
+            }
+          }}
+          title={tc("title")}
+          description={tc("description")}
+          impact={
+            zoneToDelete
+              ? tc("impact", {
+                  name: zoneToDelete.name,
+                  tables: tables.filter((table) => table.zoneId === zoneToDelete.zoneId).length,
+                  staff: zoneToDelete.staffUserIds.length,
+                })
+              : undefined
+          }
+          confirmLabel={tc("confirm")}
+          tone="destructive"
+          isPending={deleteZoneMutation.isPending}
+          onConfirm={() =>
+            zoneToDelete
+              ? deleteZoneMutation.mutateAsync(zoneToDelete.zoneId).catch(() => undefined)
+              : undefined
+          }
+        />
       </DialogContent>
     </Dialog>
+    </>
   );
 }

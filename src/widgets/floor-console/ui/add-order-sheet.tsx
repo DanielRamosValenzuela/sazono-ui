@@ -47,6 +47,7 @@ import {
   TextArea,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { useConfirm } from "@/shared/ui/confirm-dialog";
 import { ModifierGroupsPicker } from "@/shared/ui/modifier-groups-picker";
 
 type AddOrderSheetProps = {
@@ -66,6 +67,9 @@ export function AddOrderSheet({
 }: AddOrderSheetProps) {
   const t = useTranslations("FloorConsole");
   const queryClient = useQueryClient();
+  const tc = useTranslations("ConfirmActions.floor.floor-add-order-dismiss");
+  const { confirm, dialog } = useConfirm();
+  const confirmingRef = useRef(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -154,6 +158,28 @@ export function AddOrderSheet({
   const cartCount = getCartCount(cart);
   const cartTotal = getCartTotal(cart);
 
+  const handleDismiss = async () => {
+    if (createOrderMutation.isPending || confirmingRef.current) {
+      return;
+    }
+    if (cartCount === 0 && !notes.trim()) {
+      onClose();
+      return;
+    }
+    confirmingRef.current = true;
+    const ok = await confirm({
+      title: tc("title"),
+      description: tc("description"),
+      impact: tc("impact", { count: cartCount }),
+      confirmLabel: tc("confirm"),
+      tone: "warning",
+    });
+    confirmingRef.current = false;
+    if (ok) {
+      onClose();
+    }
+  };
+
   const createOrderMutation = useMutation({
     mutationFn: () =>
       ordersApi.createWaiterOrder(accessToken, {
@@ -195,7 +221,8 @@ export function AddOrderSheet({
   const hasMenuError = menusQuery.isError || menuDetailQuery.isError;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <>
+    <Dialog open onOpenChange={(open) => !open && void handleDismiss()}>
       <DialogContent
         ref={popupRef}
         initialFocus={popupRef}
@@ -496,7 +523,9 @@ export function AddOrderSheet({
             </div>
           </div>
         </div>
+        {dialog}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

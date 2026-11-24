@@ -26,6 +26,7 @@ import type {
   StatementStatus,
   StatementStatusUpdate,
 } from "@/shared/types/platform-billing";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { downloadBlob } from "@/widgets/reports/ui/download-blob";
 
 const STATUS_KEY: Record<StatementStatus, string> = {
@@ -384,7 +385,10 @@ type DetailProps = {
 
 function StatementDetailView({ row, period, token, onChanged }: DetailProps) {
   const t = useTranslations("AdminBilling");
-  const [notes, setNotes] = useState("");
+  const tc = useTranslations("ConfirmActions.money");
+  const [pending, setPending] = useState<"PAID" | "WAIVED" | "VOID" | null>(
+    null,
+  );
 
   const detailQuery = useQuery({
     queryKey: ["admin", "statement-detail", row.restaurantId, period, row.status],
@@ -396,7 +400,6 @@ function StatementDetailView({ row, period, token, onChanged }: DetailProps) {
     mutationFn: (payload: StatementStatusUpdate) =>
       platformBillingApi.updateStatus(token, row.restaurantId, period, payload),
     onSuccess: async () => {
-      setNotes("");
       await onChanged();
       toast.success(t("statusUpdateSuccess"));
     },
@@ -405,6 +408,28 @@ function StatementDetailView({ row, period, token, onChanged }: DetailProps) {
     },
   });
 
+  const runStatus = async (reason?: string) => {
+    if (!pending) {
+      return;
+    }
+
+    try {
+      await statusMutation.mutateAsync({
+        status: pending,
+        notes: reason,
+      });
+      setPending(null);
+    } catch {
+      return;
+    }
+  };
+
+  const confirmKey =
+    pending === "WAIVED"
+      ? "platform-waive"
+      : pending === "VOID"
+        ? "platform-void"
+        : "platform-mark-paid";
   const detail = detailQuery.data;
   const actionable = row.status === "ISSUED";
   const canVoid =
@@ -463,54 +488,66 @@ function StatementDetailView({ row, period, token, onChanged }: DetailProps) {
       ) : null}
 
       {actionable || canVoid ? (
-        <div className="grid gap-3 border-t border-border/70 pt-4">
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            maxLength={500}
-            rows={2}
-            placeholder={t("notesPlaceholder")}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
-          />
-          <div className="flex flex-wrap gap-2">
-            {actionable ? (
-              <Button
-                disabled={statusMutation.isPending}
-                onClick={() =>
-                  statusMutation.mutate({
-                    status: "PAID",
-                    notes: notes.trim() || undefined,
-                  })
-                }
-              >
-                {t("markPaid")}
-              </Button>
-            ) : null}
-            {actionable ? (
-              <Button
-                variant="outline"
-                disabled={statusMutation.isPending || !notes.trim()}
-                onClick={() =>
-                  statusMutation.mutate({ status: "WAIVED", notes: notes.trim() })
-                }
-              >
-                {t("waive")}
-              </Button>
-            ) : null}
-            {canVoid ? (
-              <Button
-                variant="outline"
-                disabled={statusMutation.isPending || !notes.trim()}
-                onClick={() =>
-                  statusMutation.mutate({ status: "VOID", notes: notes.trim() })
-                }
-              >
-                {t("void")}
-              </Button>
-            ) : null}
-          </div>
+        <div className="flex flex-wrap gap-2 border-t border-border/70 pt-4">
+          {actionable ? (
+            <Button
+              className="max-sm:h-11"
+              disabled={statusMutation.isPending}
+              onClick={() => setPending("PAID")}
+            >
+              {t("markPaid")}
+            </Button>
+          ) : null}
+          {actionable ? (
+            <Button
+              variant="outline"
+              className="max-sm:h-11"
+              disabled={statusMutation.isPending}
+              onClick={() => setPending("WAIVED")}
+            >
+              {t("waive")}
+            </Button>
+          ) : null}
+          {canVoid ? (
+            <Button
+              variant="outline"
+              className="max-sm:h-11"
+              disabled={statusMutation.isPending}
+              onClick={() => setPending("VOID")}
+            >
+              {t("void")}
+            </Button>
+          ) : null}
         </div>
       ) : null}
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPending(null);
+          }
+        }}
+        tone={
+          pending === "VOID"
+            ? "destructive"
+            : pending === "WAIVED"
+              ? "warning"
+              : "primary"
+        }
+        requireReason={pending === "WAIVED" || pending === "VOID"}
+        optionalReason={pending === "PAID"}
+        isPending={statusMutation.isPending}
+        title={tc(`${confirmKey}.title`)}
+        description={tc(`${confirmKey}.description`)}
+        confirmLabel={tc(`${confirmKey}.confirm`)}
+        impact={tc(`${confirmKey}.impact`, {
+          name: row.restaurantName,
+          period,
+          amount: formatMoney(row.feeAmount),
+          status: t(STATUS_KEY[row.status] as "statusDraft"),
+        })}
+        onConfirm={runStatus}
+      />
     </div>
   );
 }

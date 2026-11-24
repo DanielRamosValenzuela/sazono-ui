@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Copy, MapPin, Power } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -15,6 +15,7 @@ import { isValidRut } from "@/shared/lib/chilean-rut";
 import { ApiError } from "@/shared/api/http-client";
 import type { UpdateRestaurantRequest } from "@/shared/types/analytics";
 import { ConfirmButton } from "@/shared/ui/confirm-button";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import {
   FieldGroup,
   FieldLabel,
@@ -63,6 +64,10 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
   const tDirectory = useTranslations("RestaurantsDirectory");
   const tTax = useTranslations("TaxInvoicing.emitter");
   const tRoles = useTranslations("Shared.roles");
+  const tConfirm = useTranslations("ConfirmActions.admin");
+  const [confirmPayload, setConfirmPayload] =
+    useState<UpdateRestaurantRequest | null>(null);
+  const [riskLines, setRiskLines] = useState<string[]>([]);
   const tStaffStatus = useTranslations("Shared.staffStatus");
   const locale = useLocale();
   const queryClient = useQueryClient();
@@ -158,6 +163,45 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
     },
   });
 
+  const buildRiskLines = (payload: UpdateRestaurantRequest): string[] => {
+    if (!restaurant) {
+      return [];
+    }
+    const empty = tConfirm("platform-restaurant-edit.empty");
+    const lines: string[] = [];
+    const check = (
+      key: string,
+      before: string | number | null | undefined,
+      after: string | number | null | undefined
+    ) => {
+      const a = before === null || before === undefined ? "" : String(before).trim();
+      const b = after === null || after === undefined ? "" : String(after).trim();
+      if (a !== b) {
+        lines.push(
+          tConfirm(`platform-restaurant-edit.${key}`, {
+            from: a || empty,
+            to: b || empty,
+          })
+        );
+      }
+    };
+    check("slug", restaurant.slug, payload.slug);
+    check("currency", restaurant.currency, payload.currency);
+    check("timezone", restaurant.timezone, payload.timezone);
+    check("taxId", restaurant.taxId, payload.taxId);
+    return lines;
+  };
+
+  const handleSave = (payload: UpdateRestaurantRequest) => {
+    const lines = buildRiskLines(payload);
+    if (lines.length === 0) {
+      updateMutation.mutate(payload);
+      return;
+    }
+    setRiskLines(lines);
+    setConfirmPayload(payload);
+  };
+
   const statusMutation = useMutation({
     mutationFn: (status: "ACTIVE" | "INACTIVE") =>
       adminApi.updateRestaurant(session.accessToken!, restaurantId, { status }),
@@ -204,6 +248,37 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
 
   return (
     <div className="space-y-8">
+      <ConfirmDialog
+        open={confirmPayload !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmPayload(null);
+          }
+        }}
+        tone="warning"
+        title={tConfirm("platform-restaurant-edit.title")}
+        description={tConfirm("platform-restaurant-edit.description")}
+        confirmLabel={tConfirm("platform-restaurant-edit.confirm")}
+        isPending={updateMutation.isPending}
+        impact={
+          <ul className="list-disc space-y-1 pl-4">
+            {riskLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        }
+        onConfirm={async () => {
+          if (!confirmPayload) {
+            return;
+          }
+          try {
+            await updateMutation.mutateAsync(confirmPayload);
+            setConfirmPayload(null);
+          } catch {
+            return;
+          }
+        }}
+      />
       <div>
         <BackLink label={t("backToList")} />
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -229,7 +304,7 @@ export function RestaurantDetail({ restaurantId }: RestaurantDetailProps) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <form
           onSubmit={form.handleSubmit((values) =>
-            updateMutation.mutate({
+            handleSave({
               name: values.name,
               legalName: values.legalName || null,
               taxId: values.taxId.trim() || null,

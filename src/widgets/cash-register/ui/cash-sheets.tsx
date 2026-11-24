@@ -10,6 +10,7 @@ import { cashApi } from "@/shared/api/cash-api";
 import { formatMoney } from "@/shared/lib/format";
 import type { CashCloseResult, CashSession } from "@/shared/types/cash";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import {
   FieldGroup,
   FieldHint,
@@ -126,6 +127,7 @@ export function CloseSheet({
   onClose,
 }: CloseSheetProps) {
   const t = useTranslations("CashRegister");
+  const tc = useTranslations("ConfirmActions.money");
   const locale = useLocale();
   const queryClient = useQueryClient();
   const [counted, setCounted] = useState("");
@@ -133,10 +135,11 @@ export function CloseSheet({
   const [showDenominations, setShowDenominations] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [result, setResult] = useState<CashCloseResult | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const expected = Number(session.expectedCash);
   const difference = counted === "" ? null : Number(counted) - expected;
-  const noteRequired = forced || (difference !== null && difference !== 0);
+  const noteRequired = !forced && (difference !== null && difference !== 0);
 
   const setCount = (value: number, count: number) => {
     const next = { ...counts, [String(value)]: Math.max(0, count) };
@@ -145,10 +148,10 @@ export function CloseSheet({
   };
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (forceReason?: string) => {
       const payload = {
         countedCash: counted,
-        closingNote: note.trim() || undefined,
+        closingNote: (forced ? forceReason : note.trim()) || undefined,
         denominations:
           showDenominations && sumDenominations(counts) > 0
             ? Object.fromEntries(
@@ -166,6 +169,15 @@ export function CloseSheet({
     },
     onError: (error) => toast.error(errorMessage(error, t("genericError"))),
   });
+
+  const confirmClose = async (reason?: string) => {
+    try {
+      await mutation.mutateAsync(reason);
+      setConfirmOpen(false);
+    } catch {
+      return;
+    }
+  };
 
   if (result) {
     const closedDifference = Number(result.session.difference ?? 0);
@@ -310,16 +322,55 @@ export function CloseSheet({
             (noteRequired && note.trim().length < 3) ||
             mutation.isPending
           }
-          onClick={() => mutation.mutate()}
+          onClick={() => setConfirmOpen(true)}
         >
-          {mutation.isPending ? (
-            <Spinner />
-          ) : forced ? (
-            t("forceCloseAction")
-          ) : (
-            t("closeAction")
-          )}
+          {forced ? t("forceCloseAction") : t("closeAction")}
         </Button>
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          tone="destructive"
+          requireReason={forced}
+          isPending={mutation.isPending}
+          title={tc(forced ? "cash-force-close.title" : "cash-close-register.title")}
+          description={tc(
+            forced
+              ? "cash-force-close.description"
+              : "cash-close-register.description",
+          )}
+          confirmLabel={tc(
+            forced ? "cash-force-close.confirm" : "cash-close-register.confirm",
+          )}
+          impact={
+            difference === null
+              ? undefined
+              : forced
+                ? tc("cash-force-close.impact", {
+                    name: session.cashierName ?? "-",
+                    openedAt: new Date(session.openedAt).toLocaleString(locale),
+                    expected: formatMoney(expected),
+                    counted: formatMoney(counted),
+                    difference: formatMoney(difference),
+                  })
+                : (
+                    <>
+                      {tc("cash-close-register.impact", {
+                        expected: formatMoney(expected),
+                        counted: formatMoney(counted),
+                        difference: formatMoney(difference),
+                      })}
+                      {note.trim() ? (
+                        <span className="mt-1 block break-words">
+                          {tc("cash-close-register.noteLine", {
+                            note: note.trim(),
+                          })}
+                        </span>
+                      ) : null}
+                    </>
+                  )
+          }
+          onConfirm={confirmClose}
+        />
       </div>
     </BottomSheet>
   );

@@ -13,6 +13,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { taxDocumentsApi } from "@/shared/api/tax-documents-api";
 import type { TaxProviderEnvironment } from "@/shared/types/tax-documents";
 import { ConfirmButton } from "@/shared/ui/confirm-button";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import {
   FieldGroup,
   FieldHint,
@@ -36,6 +37,8 @@ const KNOWN_ERRORS = [
 
 export function TaxProviderCard({ token, branchId }: TaxProviderCardProps) {
   const t = useTranslations("TaxInvoicing");
+  const tc = useTranslations("ConfirmActions.money");
+  const [envConfirmOpen, setEnvConfirmOpen] = useState(false);
   const locale = useLocale();
   const queryClient = useQueryClient();
   const [pickedEnvironment, setEnvironment] =
@@ -92,6 +95,15 @@ export function TaxProviderCard({ token, branchId }: TaxProviderCardProps) {
     },
     onError: (error) => toast.error(describeError(error)),
   });
+
+  const envChanged = Boolean(state?.environment) && state?.environment !== environment;
+
+  const confirmEnvChange = async () => {
+    await connectMutation.mutateAsync().then(
+      () => setEnvConfirmOpen(false),
+      () => undefined,
+    );
+  };
 
   if (query.isLoading) {
     return <Skeleton className="h-64 w-full rounded-3xl" />;
@@ -174,6 +186,12 @@ export function TaxProviderCard({ token, branchId }: TaxProviderCardProps) {
         onSubmit={(event) => {
           event.preventDefault();
           setFormError(null);
+
+          if (envChanged) {
+            setEnvConfirmOpen(true);
+            return;
+          }
+
           connectMutation.mutate();
         }}
       >
@@ -245,6 +263,20 @@ export function TaxProviderCard({ token, branchId }: TaxProviderCardProps) {
           ) : null}
         </div>
       </form>
+      <ConfirmDialog
+        open={envConfirmOpen}
+        onOpenChange={setEnvConfirmOpen}
+        tone="warning"
+        isPending={connectMutation.isPending}
+        title={tc("fiscal-env-change.title")}
+        description={tc("fiscal-env-change.description")}
+        confirmLabel={tc("fiscal-env-change.confirm")}
+        impact={tc("fiscal-env-change.impact", {
+          from: state.environment ? t(`environment.${state.environment}`) : "-",
+          to: t(`environment.${environment}`),
+        })}
+        onConfirm={confirmEnvChange}
+      />
     </section>
   );
 }

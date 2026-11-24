@@ -473,6 +473,7 @@
     "versionRenameError": "No pudimos renombrar la carta. Inténtalo de nuevo.",
     "versionDeleteTitle": "Eliminar borrador",
     "versionDeleteDescription": "Vas a eliminar el borrador {name} con todo su contenido. Esta acción no se puede deshacer.",
+    "versionDeleteImpact": "Se eliminará el borrador {name}: {categories} categorías y {items} productos.",
     "versionDeleteSubmit": "Eliminar borrador",
     "versionDeleteSubmitting": "Eliminando...",
     "versionDeleteSuccess": "Borrador {name} eliminado.",
@@ -731,7 +732,6 @@
     "zoneCreateLabel": "Nombre de la zona nueva",
     "zoneCreateAction": "Crear zona",
     "zoneDeleteAction": "Eliminar zona",
-    "zoneDeleteConfirm": "Sí, eliminar",
     "zoneTablesLabel": "Mesas de esta zona",
     "zoneStaffLabel": "Mesero(a)s en esta zona",
     "zoneSaveStaff": "Guardar equipo de la zona",
@@ -1048,12 +1048,10 @@
     "connectDialogCancel": "Cancelar",
     "connectDialogContinue": "Continuar a Mercado Pago",
     "disconnectButton": "Desconectar",
-    "disconnecting": "Desconectando...",
     "disconnectSuccess": "Tu cuenta de Mercado Pago fue desconectada.",
     "disconnectError": "No pudimos desconectar la cuenta. Inténtalo de nuevo.",
     "disconnectDialogTitle": "¿Desconectar {provider}?",
     "disconnectDialogDescription": "Tus clientes no podrán pagar con esta pasarela por código QR hasta que la conectes de nuevo.",
-    "disconnectDialogCancel": "Cancelar",
     "disconnectDialogConfirm": "Sí, desconectar",
     "callbackConnected": "Tu cuenta de Mercado Pago quedó conectada.",
     "callbackError": "No pudimos completar la conexión con Mercado Pago. Inténtalo de nuevo.",
@@ -2144,5 +2142,202 @@
       "economicActivityCodeInvalid": "El código de actividad debe ser un número entero positivo de hasta 6 dígitos.",
       "economicActivityCode": "Código de actividad (acteco)"
     }
+  },
+  "ConfirmActions": {
+    "money": {
+      "cash-close-register": {
+        "title": "Cerrar caja",
+        "description": "Se cerrará tu turno de caja con el efectivo contado. No se puede reabrir.",
+        "confirm": "Cerrar caja",
+        "impact": "Esperado: {expected}. Contado: {counted}. Diferencia: {difference}.",
+        "noteLine": "Nota: {note}"
+      },
+      "cash-force-close": {
+        "title": "Forzar cierre de caja",
+        "description": "Se cerrará la caja de otra persona, que perderá su turno. No se puede reabrir. El motivo queda registrado.",
+        "confirm": "Forzar cierre",
+        "impact": "Cajero: {name}. Abierta: {openedAt}. Esperado: {expected}. Contado: {counted}. Diferencia: {difference}."
+      },
+      "refund-mark-manual": {
+        "title": "Registrar como manual",
+        "description": "Confirma que ya devolviste el dinero al cliente fuera de Sazono. Se emitirá una nota de crédito y no se puede deshacer.",
+        "confirm": "Sí, ya lo devolví",
+        "impact": "Monto: {amount}. Pago: …{payment}. Cuenta: …{bill}."
+      },
+      "fiscal-env-change": {
+        "title": "Cambiar entorno tributario",
+        "description": "Desde ahora las boletas se emitirán al entorno elegido. En producción tienen valor legal; en pruebas no son válidas.",
+        "confirm": "Cambiar entorno",
+        "impact": "Entorno actual: {from}. Nuevo entorno: {to}."
+      },
+      "platform-mark-paid": {
+        "title": "Marcar como pagado",
+        "description": "Se registrará el pago de este estado de cuenta. Solo se puede corregir anulándolo.",
+        "confirm": "Marcar pagado",
+        "impact": "Restaurante: {name}. Período: {period}. Monto: {amount}."
+      },
+      "platform-waive": {
+        "title": "Exonerar comisión",
+        "description": "Se condonará el cobro de este mes y no se podrá revertir salvo anulando el estado de cuenta.",
+        "confirm": "Exonerar",
+        "impact": "Restaurante: {name}. Período: {period}. Monto: {amount}."
+      },
+      "platform-void": {
+        "title": "Anular estado de cuenta",
+        "description": "El estado de cuenta quedará anulado, incluso si estaba pagado o exonerado. Es definitivo y no se puede revertir.",
+        "confirm": "Anular",
+        "impact": "Restaurante: {name}. Período: {period}. Monto: {amount}. Estado actual: {status}."
+      },
+      "reports-saved-view-delete": {
+        "title": "Vista eliminada",
+        "description": "Se eliminó la vista {name}.",
+        "confirm": "Deshacer"
+      }
+    },
+    "qr": {
+      "qr-place-order": {
+        "title": "Enviar pedido",
+        "description": "Tu pedido irá directo a cocina y no podrás cancelarlo desde aquí.",
+        "confirm": "Enviar pedido",
+        "impact": "Se enviará tu pedido a cocina: {count, plural, one {# producto} other {# productos}} por {total}."
+      },
+      "qr-pay-offline": {
+        "title": "Confirmar pago",
+        "description": "Se registrará este monto como pagado en el local. Pagarás al personal.",
+        "confirm": "Sí, registrar pago",
+        "impact": "Se registrará un pago de {total}."
+      },
+      "qr-tip-custom": {
+        "title": "Revisar propina",
+        "description": "La propina es mayor a lo habitual. Verifica que el monto sea correcto antes de pagar.",
+        "confirm": "Sí, es correcta",
+        "impact": "Propina {tip} ({percent}%). Total a cobrar: {total}."
+      }
+    },
+    "staff": {
+      "staff-logout": {
+        "title": "Cerrar sesión",
+        "description": "Dejarás de recibir avisos de pedidos en este dispositivo hasta que vuelvas a ingresar.",
+        "confirm": "Cerrar sesión",
+        "impact": "Sesión de {name}."
+      }
+    },
+    "floor": {
+      "floor-add-order-dismiss": {
+        "title": "Descartar pedido",
+        "description": "El pedido aún no se envió a cocina. Si sales se perderán los productos y notas.",
+        "confirm": "Descartar pedido",
+        "impact": "{count, plural, one {# producto en el carrito} other {# productos en el carrito}}"
+      },
+      "floor-zone-delete": {
+        "title": "Eliminar zona",
+        "description": "Las mesas de esta zona quedarán sin zona y se quitarán las asignaciones de garzones. Habrá que reconfigurarlas.",
+        "confirm": "Eliminar zona",
+        "impact": "Zona {name}: {tables, plural, one {# mesa} other {# mesas}} y {staff, plural, one {# garzón afectado} other {# garzones afectados}}."
+      },
+      "floor-assign-select": {
+        "title": "Mesa reasignada",
+        "description": "Mesa asignada a {name}.",
+        "confirm": "Deshacer"
+      },
+      "floor-take-table": {
+        "title": "Mesa tomada",
+        "description": "Ahora la mesa es tuya.",
+        "confirm": "Deshacer"
+      }
+    },
+    "menu": {
+      "menu-publish": {
+        "title": "Publicar carta",
+        "description": "Se publicará la carta y los clientes verán los cambios al instante. La carta publicada actual quedará archivada y no se puede despublicar.",
+        "confirm": "Sí, publicar",
+        "impact": "Carta: {name}. {categories, plural, one {# categoría} other {# categorías}} y {items, plural, one {# producto} other {# productos}}.",
+        "impactWithPublished": "Quedará archivada: {published} (versión {version}). Se publicará: {name}, con {categories, plural, one {# categoría} other {# categorías}} y {items, plural, one {# producto} other {# productos}}."
+      },
+      "menu-option-image-remove": {
+        "title": "Quitar foto de la opción",
+        "description": "La foto se borrará de TODAS las cartas, incluida la publicada, de inmediato. Tendrás que volver a subirla.",
+        "confirm": "Quitar foto",
+        "impact": "Opción: {option}. Grupo: {group}."
+      },
+      "menu-item-image-remove": {
+        "title": "Quitar foto del producto",
+        "description": "La foto se borrará y tendrás que volver a subir el archivo.",
+        "confirm": "Quitar foto",
+        "impact": "Producto: {name}."
+      },
+      "menu-item-unsaved-close": {
+        "title": "Descartar cambios",
+        "description": "Tienes cambios sin guardar en este producto. Si sales se perderán.",
+        "confirm": "Descartar",
+        "impact": "Producto: {name}."
+      }
+    },
+    "admin": {
+      "platform-restaurant-edit": {
+        "title": "Confirmar cambios del restaurante",
+        "description": "Estos cambios afectan enlaces, montos o facturación. Revísalos antes de guardar.",
+        "confirm": "Guardar cambios",
+        "empty": "(vacío)",
+        "slug": "Enlace (slug): {from} → {to}. El enlace de login cambiará.",
+        "currency": "Moneda: {from} → {to}",
+        "timezone": "Zona horaria: {from} → {to}",
+        "taxId": "RUT: {from} → {to}"
+      },
+      "payments-pause": {
+        "title": "Pausar cuenta de cobro",
+        "description": "Los clientes no podrán pagar con esta cuenta hasta que la reanudes. Si es la única activa, no habrá pago en línea.",
+        "confirm": "Pausar",
+        "impact": "Proveedor: {provider}.",
+        "onlyActive": "Es la única cuenta activa: no habrá pago en línea."
+      },
+      "payments-disconnect": {
+        "impact": "Proveedor: {provider}.",
+        "onlyConnected": "Es la única cuenta conectada: no habrá pago en línea."
+      },
+      "payments-transbank-production": {
+        "title": "Conectar en producción",
+        "description": "Los cobros serán reales con este código de comercio. Verifica que sea el correcto.",
+        "confirm": "Conectar",
+        "impact": "Código de comercio: {code}. Ambiente: producción."
+      },
+      "payments-set-preferred": {
+        "title": "Cuenta preferida cambiada",
+        "description": "Cambió el orden de las pasarelas ofrecidas a los clientes: ahora {to} (antes {from}).",
+        "confirm": "Deshacer"
+      },
+      "branch-save-risky": {
+        "title": "Confirmar cambios de sucursal",
+        "description": "Estos cambios se aplican ahora y afectan a clientes o al personal. Revísalos antes de guardar.",
+        "confirm": "Guardar cambios",
+        "on": "activado",
+        "off": "desactivado",
+        "none": "sin definir",
+        "status": "Estado de la sucursal: pasará de {from} a {to}",
+        "qr": "Pedidos por QR: pasará de {from} a {to}",
+        "paymentMode": "Modo de pago QR: pasará de {from} a {to}",
+        "cash": "Exigir caja abierta: pasará de {from} a {to}",
+        "refund": "Límite de reembolso del cajero: pasará de {from} a {to}",
+        "discountPercent": "Umbral de descuento (%): pasará de {from} a {to}",
+        "discountAmount": "Umbral de descuento (monto): pasará de {from} a {to}"
+      },
+      "staff-save-risky": {
+        "title": "Confirmar cambios de acceso",
+        "description": "Una persona perderá el acceso para iniciar sesión, o recibirá permisos de administrador (dinero, equipo y configuración).",
+        "confirm": "Guardar cambios",
+        "disable": "{name} no podrá iniciar sesión.",
+        "admin": "{name} recibirá el rol {role} en {branch}."
+      }
+    }
+  },
+  "Confirm": {
+    "cancel": "Volver",
+    "confirm": "Confirmar",
+    "reasonLabel": "Motivo",
+    "reasonHint": "Mínimo 3 caracteres",
+    "optionalLabel": "Nota (opcional)",
+    "optionalHint": "Por ejemplo, referencia de la transferencia",
+    "reasonCounter": "{count} de {max} caracteres",
+    "typedHint": "Escribe {word} para confirmar"
   }
 }

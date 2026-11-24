@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Popover } from "@base-ui/react/popover";
 import { Bookmark, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ReportFilters, ReportSort } from "@/shared/types/reports";
 import { TextInput } from "@/shared/ui/form-controls";
@@ -37,6 +38,7 @@ export function SavedViewsMenu({
   onApply,
 }: SavedViewsMenuProps) {
   const t = useTranslations("Reports");
+  const tc = useTranslations("ConfirmActions.money");
   const [open, setOpen] = useState(false);
   const [views, setViews] = useState<SavedView[]>([]);
   const [name, setName] = useState("");
@@ -52,6 +54,34 @@ export function SavedViewsMenu({
     if (next) {
       setViews(loadSavedViews(branchId));
     }
+  };
+
+  const remove = (view: SavedView) => {
+    const index = views.findIndex((entry) => entry.id === view.id);
+
+    update(views.filter((entry) => entry.id !== view.id));
+    toast(tc("reports-saved-view-delete.title"), {
+      description: tc("reports-saved-view-delete.description", {
+        name: view.name,
+      }),
+      duration: 6000,
+      action: {
+        label: tc("reports-saved-view-delete.confirm"),
+        onClick: () => {
+          const current = loadSavedViews(branchId);
+
+          if (current.some((entry) => entry.id === view.id)) {
+            return;
+          }
+
+          const next = [...current];
+
+          next.splice(Math.min(index, next.length), 0, view);
+          setViews(next);
+          persistSavedViews(branchId, next);
+        },
+      },
+    });
   };
 
   const apply = (view: SavedView) => {
@@ -142,11 +172,9 @@ export function SavedViewsMenu({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-9 shrink-0 text-muted-foreground"
+                        className="size-11 shrink-0 text-muted-foreground sm:size-9"
                         aria-label={t("views.delete", { name: view.name })}
-                        onClick={() =>
-                          update(views.filter((entry) => entry.id !== view.id))
-                        }
+                        onClick={() => remove(view)}
                       >
                         <Trash2 />
                       </Button>

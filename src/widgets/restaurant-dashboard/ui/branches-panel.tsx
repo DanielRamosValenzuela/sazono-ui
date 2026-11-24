@@ -26,6 +26,7 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 
 const QR_PAYMENT_MODES = ["prepaid_order", "postpaid_bill"] as const;
@@ -305,10 +306,12 @@ export function BranchesPanel() {
                   updateBranchMutation.variables?.branchId === branch.branchId
                 }
                 onSave={(payload) =>
-                  updateBranchMutation.mutate({
-                    branchId: branch.branchId,
-                    payload,
-                  })
+                  updateBranchMutation
+                    .mutateAsync({ branchId: branch.branchId, payload })
+                    .then(
+                      () => true,
+                      () => false
+                    )
                 }
               />
             ))}
@@ -330,7 +333,7 @@ type BranchCardProps = {
   canEdit: boolean;
   members: StaffUser[];
   isSaving: boolean;
-  onSave: (payload: UpdateBranchRequest) => void;
+  onSave: (payload: UpdateBranchRequest) => Promise<boolean>;
 };
 
 function BranchCard({
@@ -456,11 +459,14 @@ function BranchCard({
 type BranchEditorProps = {
   branch: BranchSummary;
   isSaving: boolean;
-  onSave: (payload: UpdateBranchRequest) => void;
+  onSave: (payload: UpdateBranchRequest) => Promise<boolean>;
 };
 
 function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
   const t = useTranslations("AdminBranch");
+  const tConfirm = useTranslations("ConfirmActions.admin");
+  const [confirmPayload, setConfirmPayload] =
+    useState<UpdateBranchRequest | null>(null);
   const [name, setName] = useState(branch.name);
   const [address, setAddress] = useState(branch.address ?? "");
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">(branch.status);
@@ -518,8 +524,161 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
     (REFUND_LIMIT_PATTERN.test(refundLimit) &&
       Number(refundLimit) <= MAX_REFUND_LIMIT);
 
+  const buildPayload = (): UpdateBranchRequest => ({
+    name: name.trim(),
+    address: address.trim() || null,
+    status,
+    settings: {
+      qrOrderingEnabled,
+      qrPaymentMode,
+      splitBillEnabled,
+      partialDeliveryEnabled,
+      autoDeliverAfterMinutes: autoDeliverEnabled ? autoDeliverMinutes : null,
+      tableAssignmentEnabled,
+      cashierRefundLimit: refundLimitEnabled ? Number(refundLimit) : null,
+      refundTipDefault,
+      requireOpenCashSession,
+      discountApprovalPercent:
+        discountPercent === "" ? null : Number(discountPercent),
+      discountApprovalAmount:
+        discountAmount === "" ? null : Number(discountAmount),
+    },
+  });
+
+  const riskyChanges = (payload: UpdateBranchRequest): string[] => {
+    const before = branch.settings;
+    const after = payload.settings;
+    const lines: string[] = [];
+    const onOff = (value: boolean) => tConfirm(value ? "branch-save-risky.on" : "branch-save-risky.off");
+    const num = (value: number | string | null | undefined) =>
+      value === null || value === undefined || value === ""
+        ? null
+        : Number(value);
+    const show = (value: number | null) =>
+      value === null ? tConfirm("branch-save-risky.none") : String(value);
+    const loosened = (from: number | null, to: number | null) =>
+      from !== null && (to === null || to > from);
+    const statusName = (value: string) =>
+      value === "ACTIVE" ? t("statusActive") : t("statusInactive");
+    const modeName = (value: string) =>
+      (QR_PAYMENT_MODES as readonly string[]).includes(value)
+        ? t(`paymentModes.${value}`)
+        : value;
+
+    if (branch.status === "ACTIVE" && payload.status === "INACTIVE") {
+      lines.push(
+        tConfirm("branch-save-risky.status", {
+          from: statusName(branch.status),
+          to: statusName(payload.status),
+        })
+      );
+    }
+    if (!after) {
+      return lines;
+    }
+    const qrBefore = before?.qrOrderingEnabled ?? true;
+    if (qrBefore && !after.qrOrderingEnabled) {
+      lines.push(
+        tConfirm("branch-save-risky.qr", {
+          from: onOff(qrBefore),
+          to: onOff(Boolean(after.qrOrderingEnabled)),
+        })
+      );
+    }
+    const modeBefore = before?.qrPaymentMode ?? "prepaid_order";
+    if (modeBefore !== after.qrPaymentMode) {
+      lines.push(
+        tConfirm("branch-save-risky.paymentMode", {
+          from: modeName(modeBefore),
+          to: modeName(String(after.qrPaymentMode)),
+        })
+      );
+    }
+    const cashBefore = before?.requireOpenCashSession ?? false;
+    if (!cashBefore && after.requireOpenCashSession) {
+      lines.push(
+        tConfirm("branch-save-risky.cash", {
+          from: onOff(cashBefore),
+          to: onOff(Boolean(after.requireOpenCashSession)),
+        })
+      );
+    }
+    const refundBefore = num(before?.cashierRefundLimit);
+    const refundAfter = num(after.cashierRefundLimit);
+    if (loosened(refundBefore, refundAfter)) {
+      lines.push(
+        tConfirm("branch-save-risky.refund", {
+          from: show(refundBefore),
+          to: show(refundAfter),
+        })
+      );
+    }
+    const percentBefore = before ? num(before.discountApprovalPercent) : 10;
+    const percentAfter = num(after.discountApprovalPercent);
+    if (loosened(percentBefore, percentAfter)) {
+      lines.push(
+        tConfirm("branch-save-risky.discountPercent", {
+          from: show(percentBefore),
+          to: show(percentAfter),
+        })
+      );
+    }
+    const amountBefore = num(before?.discountApprovalAmount);
+    const amountAfter = num(after.discountApprovalAmount);
+    if (loosened(amountBefore, amountAfter)) {
+      lines.push(
+        tConfirm("branch-save-risky.discountAmount", {
+          from: show(amountBefore),
+          to: show(amountAfter),
+        })
+      );
+    }
+    return lines;
+  };
+
+  const [riskLines, setRiskLines] = useState<string[]>([]);
+
+  const handleSave = () => {
+    const payload = buildPayload();
+    const lines = riskyChanges(payload);
+    if (lines.length === 0) {
+      void onSave(payload);
+      return;
+    }
+    setRiskLines(lines);
+    setConfirmPayload(payload);
+  };
+
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border/70 bg-background/60 p-4">
+      <ConfirmDialog
+        open={confirmPayload !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmPayload(null);
+          }
+        }}
+        tone="warning"
+        title={tConfirm("branch-save-risky.title")}
+        description={tConfirm("branch-save-risky.description")}
+        confirmLabel={tConfirm("branch-save-risky.confirm")}
+        isPending={isSaving}
+        impact={
+          <ul className="list-disc space-y-1 pl-4">
+            {riskLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        }
+        onConfirm={async () => {
+          if (!confirmPayload) {
+            return;
+          }
+          if (await onSave(confirmPayload)) {
+            setConfirmPayload(null);
+          }
+        }}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <FieldGroup>
           <FieldLabel htmlFor={`branch-edit-name-${branch.branchId}`}>
@@ -763,28 +922,7 @@ function BranchEditor({ branch, isSaving, onSave }: BranchEditorProps) {
           !discountPercentValid ||
           !discountAmountValid
         }
-        onClick={() =>
-          onSave({
-            name: name.trim(),
-            address: address.trim() || null,
-            status,
-            settings: {
-              qrOrderingEnabled,
-              qrPaymentMode,
-              splitBillEnabled,
-              partialDeliveryEnabled,
-              autoDeliverAfterMinutes: autoDeliverEnabled ? autoDeliverMinutes : null,
-              tableAssignmentEnabled,
-              cashierRefundLimit: refundLimitEnabled ? Number(refundLimit) : null,
-              refundTipDefault,
-              requireOpenCashSession,
-              discountApprovalPercent:
-                discountPercent === "" ? null : Number(discountPercent),
-              discountApprovalAmount:
-                discountAmount === "" ? null : Number(discountAmount),
-            },
-          })
-        }
+        onClick={handleSave}
       >
         {isSaving ? (
           <>

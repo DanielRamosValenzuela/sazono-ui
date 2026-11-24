@@ -70,6 +70,7 @@ import type {
   MenuDetail,
   MenuItemDetail,
   MenuItemType,
+  MenuSummary,
   PreparationStation,
   UpdateMenuCategoryRequest,
   UpdateMenuItemRequest,
@@ -84,8 +85,10 @@ import {
   SelectInput,
   TextInput,
 } from "@/shared/ui/form-controls";
+import { ConfirmDialog, useConfirm } from "@/shared/ui/confirm-dialog";
 import { MenuView } from "@/widgets/qr-experience/ui/menu-view";
 import { EmptyHint } from "./studio-primitives";
+import { NameDialog } from "./menu-versions-panel";
 import { ModifierGroupsEditor } from "./modifier-groups-editor";
 
 const ITEM_TYPES: MenuItemType[] = [
@@ -123,6 +126,7 @@ type MenuEditorPanelProps = {
   branchId: string;
   accessToken: string;
   menu: MenuDetail | null;
+  publishedMenu: MenuSummary | null;
   stations: PreparationStation[];
   isLoading: boolean;
   isAddingCategory: boolean;
@@ -137,7 +141,7 @@ type MenuEditorPanelProps = {
   isUpsertingItemTranslation: boolean;
   isPublishing: boolean;
   isDuplicating: boolean;
-  onDuplicate: (menuId: string, name: string) => void;
+  onDuplicate: (menuId: string, name: string) => Promise<unknown>;
   onAddCategory: (menuId: string, payload: CreateMenuCategoryRequest) => void;
   onAddItem: (
     menuCategoryId: string,
@@ -157,7 +161,7 @@ type MenuEditorPanelProps = {
   onReorderCategories: (menuId: string, orderedCategoryIds: string[]) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
   onUploadItemImage: (menuItemId: string, file: File) => void;
-  onRemoveItemImage: (menuItemId: string) => void;
+  onRemoveItemImage: (menuItemId: string) => Promise<unknown>;
   onUpsertCategoryTranslation: (
     menuCategoryId: string,
     locale: string,
@@ -169,13 +173,14 @@ type MenuEditorPanelProps = {
     locale: string,
     payload: UpsertItemTranslationRequest,
   ) => void;
-  onPublish: (menuId: string) => void;
+  onPublish: (menuId: string) => Promise<unknown>;
 };
 
 export function MenuEditorPanel({
   branchId,
   accessToken,
   menu,
+  publishedMenu,
   stations,
   isLoading,
   isAddingCategory,
@@ -204,6 +209,8 @@ export function MenuEditorPanel({
   onPublish,
 }: MenuEditorPanelProps) {
   const t = useTranslations("MenuStudio");
+  const tPublish = useTranslations("ConfirmActions.menu.menu-publish");
+  const [pending, setPending] = useState<"publish" | "duplicate" | null>(null);
   const [isPreviewOpen, setPreviewOpen] = useState(false);
   const categorySensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -326,6 +333,41 @@ export function MenuEditorPanel({
 
   return (
     <Card className="rounded-[1.9rem] border border-border/70 bg-card/82 shadow-lg shadow-primary/8 backdrop-blur">
+      <ConfirmDialog
+        open={pending === "publish"}
+        onOpenChange={(o) => !o && setPending(null)}
+        title={tPublish("title")}
+        description={tPublish("description")}
+        impact={tPublish(publishedMenu ? "impactWithPublished" : "impact", {
+          name: menu.name,
+          categories: menu.categories.length,
+          items: menu.categories.reduce((n, c) => n + c.items.length, 0),
+          published: publishedMenu?.name ?? "",
+          version: publishedMenu?.version ?? 0,
+        })}
+        confirmLabel={tPublish("confirm")}
+        isPending={isPublishing}
+        onConfirm={() =>
+          onPublish(menu.menuId).then(
+            () => setPending(null),
+            () => undefined,
+          )
+        }
+      />
+      {pending === "duplicate" ? (
+        <NameDialog
+          kind="duplicate"
+          menu={menu}
+          isPending={isDuplicating}
+          onClose={() => setPending(null)}
+          onSubmit={(name) => {
+            void onDuplicate(menu.menuId, name).then(
+              () => setPending(null),
+              () => undefined,
+            );
+          }}
+        />
+      ) : null}
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -360,7 +402,7 @@ export function MenuEditorPanel({
                   size="lg"
                   className="rounded-full"
                   disabled={!hasPublishableContent || isPublishing}
-                  onClick={() => onPublish(menu.menuId)}
+                  onClick={() => setPending("publish")}
                 >
                   {isPublishing ? <Spinner /> : <Rocket className="size-4" />}
                   {isPublishing ? t("publishSubmitting") : t("publishSubmit")}
@@ -385,12 +427,7 @@ export function MenuEditorPanel({
               size="lg"
               className="rounded-full"
               disabled={isDuplicating}
-              onClick={() =>
-                onDuplicate(
-                  menu.menuId,
-                  t("versionCopyName", { name: menu.name.slice(0, 100) })
-                )
-              }
+              onClick={() => setPending("duplicate")}
             >
               {isDuplicating ? <Spinner /> : <Copy className="size-4" />}
               {isDuplicating ? t("editorDuplicating") : t("editorDuplicateAndEdit")}
@@ -531,7 +568,7 @@ type CategorySectionProps = {
   ) => void;
   onReorderItems: (menuCategoryId: string, orderedItemIds: string[]) => void;
   onUploadItemImage: (menuItemId: string, file: File) => void;
-  onRemoveItemImage: (menuItemId: string) => void;
+  onRemoveItemImage: (menuItemId: string) => Promise<unknown>;
   onUpsertCategoryTranslation: (
     menuCategoryId: string,
     locale: string,
@@ -929,7 +966,7 @@ function CategorySection({
                 {t("itemFormEyebrow", { category: category.name })}
               </p>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FieldGroup>
                   <FieldLabel htmlFor={`item-name-${category.menuCategoryId}`}>
                     {t("itemNameLabel")}
@@ -1231,7 +1268,7 @@ type EditItemDialogProps = {
   onClose: () => void;
   onSave: (payload: UpdateMenuItemRequest) => void;
   onUploadImage: (file: File) => void;
-  onRemoveImage: () => void;
+  onRemoveImage: () => Promise<unknown>;
   onUpsertTranslation: (
     locale: string,
     payload: UpsertItemTranslationRequest,
@@ -1257,6 +1294,10 @@ function EditItemDialog({
 }: EditItemDialogProps) {
   const t = useTranslations("MenuStudio");
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const tImage = useTranslations("ConfirmActions.menu.menu-item-image-remove");
+  const tDiscard = useTranslations("ConfirmActions.menu.menu-item-unsaved-close");
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const [isRemovingConfirm, setRemovingConfirm] = useState(false);
   const existingTranslation = item.translations.find(
     (translation) => translation.locale === targetLocale,
   );
@@ -1275,17 +1316,52 @@ function EditItemDialog({
     },
   });
 
+  const { isDirty } = form.formState;
+
+  const requestClose = async () => {
+    if (isDirty) {
+      const ok = await confirm({
+        title: tDiscard("title"),
+        description: tDiscard("description"),
+        impact: tDiscard("impact", { name: item.name }),
+        confirmLabel: tDiscard("confirm"),
+        tone: "warning",
+      });
+      if (!ok) {
+        return;
+      }
+    }
+    onClose();
+  };
+
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && requestClose()}>
       <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden p-0 max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto]">
+        {confirmDialog}
+        <ConfirmDialog
+          open={isRemovingConfirm}
+          onOpenChange={setRemovingConfirm}
+          title={tImage("title")}
+          description={tImage("description")}
+          impact={tImage("impact", { name: item.name })}
+          confirmLabel={tImage("confirm")}
+          tone="destructive"
+          isPending={isRemovingImage}
+          onConfirm={() =>
+            onRemoveImage().then(
+              () => setRemovingConfirm(false),
+              () => undefined,
+            )
+          }
+        />
         <DialogHeader className="border-b border-border/60 p-5 pr-14">
           <DialogTitle>
             {t("itemEditFormEyebrow", { category: categoryName })}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid min-h-0 gap-6 overflow-y-auto p-5 lg:grid-cols-2">
-          <div className="grid content-start gap-5">
+        <div className="grid min-h-0 gap-6 overflow-y-auto p-5 grid-cols-1 lg:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 content-start gap-5">
             <div className="flex items-center gap-4">
               <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted">
                 {item.imageUrl ? (
@@ -1334,9 +1410,9 @@ function EditItemDialog({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="rounded-full"
+                      className="min-h-11 rounded-full"
                       disabled={isRemovingImage}
-                      onClick={onRemoveImage}
+                      onClick={() => setRemovingConfirm(true)}
                     >
                       {isRemovingImage ? <Spinner /> : null}
                       {t("itemImageRemove")}
@@ -1371,7 +1447,7 @@ function EditItemDialog({
               })}
               className="grid gap-4"
             >
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FieldGroup>
                   <FieldLabel htmlFor="edit-item-name">
                     {t("itemNameLabel")}
@@ -1459,7 +1535,7 @@ function EditItemDialog({
                 {t("itemAvailableLabel")}
               </CheckboxRow>
 
-              <div className="grid gap-4 rounded-[1.25rem] border border-border/70 bg-background/50 p-4 md:grid-cols-2">
+              <div className="grid gap-4 rounded-[1.25rem] border border-border/70 bg-background/50 p-4 grid-cols-1 md:grid-cols-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground md:col-span-2">
                   {t("translationSectionTitle", { locale: targetLocale })}
                 </p>
@@ -1505,7 +1581,7 @@ function EditItemDialog({
             type="button"
             variant="outline"
             className="rounded-full"
-            onClick={onClose}
+            onClick={requestClose}
           >
             {t("itemCancel")}
           </Button>

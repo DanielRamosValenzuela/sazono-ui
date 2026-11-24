@@ -473,6 +473,7 @@
     "versionRenameError": "We couldn't rename the menu. Please try again.",
     "versionDeleteTitle": "Delete draft",
     "versionDeleteDescription": "You are about to delete the draft {name} and all of its content. This cannot be undone.",
+    "versionDeleteImpact": "This will delete the draft {name}: {categories} categories and {items} products.",
     "versionDeleteSubmit": "Delete draft",
     "versionDeleteSubmitting": "Deleting...",
     "versionDeleteSuccess": "Draft {name} deleted.",
@@ -731,7 +732,6 @@
     "zoneCreateLabel": "New zone name",
     "zoneCreateAction": "Create zone",
     "zoneDeleteAction": "Delete zone",
-    "zoneDeleteConfirm": "Yes, delete",
     "zoneTablesLabel": "Tables in this zone",
     "zoneStaffLabel": "Staff in this zone",
     "zoneSaveStaff": "Save zone team",
@@ -1048,12 +1048,10 @@
     "connectDialogCancel": "Cancel",
     "connectDialogContinue": "Continue to Mercado Pago",
     "disconnectButton": "Disconnect",
-    "disconnecting": "Disconnecting...",
     "disconnectSuccess": "Your Mercado Pago account was disconnected.",
     "disconnectError": "We couldn't disconnect the account. Please try again.",
     "disconnectDialogTitle": "Disconnect {provider}?",
     "disconnectDialogDescription": "Your guests won't be able to pay with this gateway through the QR code until you connect it again.",
-    "disconnectDialogCancel": "Cancel",
     "disconnectDialogConfirm": "Yes, disconnect",
     "callbackConnected": "Your Mercado Pago account is now connected.",
     "callbackError": "We couldn't complete the connection with Mercado Pago. Please try again.",
@@ -2144,5 +2142,202 @@
       "economicActivityCodeInvalid": "The activity code must be a positive whole number of up to 6 digits.",
       "economicActivityCode": "Activity code (acteco)"
     }
+  },
+  "ConfirmActions": {
+    "money": {
+      "cash-close-register": {
+        "title": "Close cash register",
+        "description": "Your cash shift will be closed with the counted cash. It cannot be reopened.",
+        "confirm": "Close register",
+        "impact": "Expected: {expected}. Counted: {counted}. Difference: {difference}.",
+        "noteLine": "Note: {note}"
+      },
+      "cash-force-close": {
+        "title": "Force close register",
+        "description": "Another person's register will be closed and they will lose their shift. It cannot be reopened. The reason is recorded.",
+        "confirm": "Force close",
+        "impact": "Cashier: {name}. Opened: {openedAt}. Expected: {expected}. Counted: {counted}. Difference: {difference}."
+      },
+      "refund-mark-manual": {
+        "title": "Record as manual",
+        "description": "Confirm you already returned the money to the customer outside Sazono. A credit note will be issued and this cannot be undone.",
+        "confirm": "Yes, already refunded",
+        "impact": "Amount: {amount}. Payment: …{payment}. Bill: …{bill}."
+      },
+      "fiscal-env-change": {
+        "title": "Change tax environment",
+        "description": "From now on receipts will be issued to the selected environment. In production they have legal value; in sandbox they are not valid.",
+        "confirm": "Change environment",
+        "impact": "Current environment: {from}. New environment: {to}."
+      },
+      "platform-mark-paid": {
+        "title": "Mark as paid",
+        "description": "Payment of this statement will be recorded. It can only be corrected by voiding it.",
+        "confirm": "Mark paid",
+        "impact": "Restaurant: {name}. Period: {period}. Amount: {amount}."
+      },
+      "platform-waive": {
+        "title": "Waive fee",
+        "description": "This month's fee will be waived and cannot be reverted except by voiding the statement.",
+        "confirm": "Waive",
+        "impact": "Restaurant: {name}. Period: {period}. Amount: {amount}."
+      },
+      "platform-void": {
+        "title": "Void statement",
+        "description": "The statement will be voided, even if it was paid or waived. This is final and cannot be reverted.",
+        "confirm": "Void",
+        "impact": "Restaurant: {name}. Period: {period}. Amount: {amount}. Current status: {status}."
+      },
+      "reports-saved-view-delete": {
+        "title": "View deleted",
+        "description": "The saved view {name} was deleted.",
+        "confirm": "Undo"
+      }
+    },
+    "qr": {
+      "qr-place-order": {
+        "title": "Send order",
+        "description": "Your order will go straight to the kitchen and you will not be able to cancel it from here.",
+        "confirm": "Send order",
+        "impact": "Your order will be sent to the kitchen: {count, plural, one {# item} other {# items}} for {total}."
+      },
+      "qr-pay-offline": {
+        "title": "Confirm payment",
+        "description": "This amount will be recorded as paid at the venue. You will pay the staff.",
+        "confirm": "Yes, record payment",
+        "impact": "A payment of {total} will be recorded."
+      },
+      "qr-tip-custom": {
+        "title": "Check tip",
+        "description": "The tip is higher than usual. Make sure the amount is correct before paying.",
+        "confirm": "Yes, it is correct",
+        "impact": "Tip {tip} ({percent}%). Total to charge: {total}."
+      }
+    },
+    "staff": {
+      "staff-logout": {
+        "title": "Sign out",
+        "description": "You will stop receiving order alerts on this device until you sign in again.",
+        "confirm": "Sign out",
+        "impact": "Signed in as {name}."
+      }
+    },
+    "floor": {
+      "floor-add-order-dismiss": {
+        "title": "Discard order",
+        "description": "The order has not been sent to the kitchen yet. If you leave, the items and notes will be lost.",
+        "confirm": "Discard order",
+        "impact": "{count, plural, one {# item in the cart} other {# items in the cart}}"
+      },
+      "floor-zone-delete": {
+        "title": "Delete zone",
+        "description": "Tables in this zone will be left without a zone and waiter assignments will be removed. They will need to be reconfigured.",
+        "confirm": "Delete zone",
+        "impact": "Zone {name}: {tables, plural, one {# table} other {# tables}} and {staff, plural, one {# waiter affected} other {# waiters affected}}."
+      },
+      "floor-assign-select": {
+        "title": "Table reassigned",
+        "description": "Table assigned to {name}.",
+        "confirm": "Undo"
+      },
+      "floor-take-table": {
+        "title": "Table taken",
+        "description": "The table is now yours.",
+        "confirm": "Undo"
+      }
+    },
+    "menu": {
+      "menu-publish": {
+        "title": "Publish menu",
+        "description": "The menu will be published and customers will see the changes immediately. The current published menu will be archived and publishing cannot be undone.",
+        "confirm": "Yes, publish",
+        "impact": "Menu: {name}. {categories, plural, one {# category} other {# categories}} and {items, plural, one {# product} other {# products}}.",
+        "impactWithPublished": "Will be archived: {published} (version {version}). Will be published: {name}, with {categories, plural, one {# category} other {# categories}} and {items, plural, one {# product} other {# products}}."
+      },
+      "menu-option-image-remove": {
+        "title": "Remove option photo",
+        "description": "The photo will be deleted from ALL menus, including the published one, immediately. You will have to upload it again.",
+        "confirm": "Remove photo",
+        "impact": "Option: {option}. Group: {group}."
+      },
+      "menu-item-image-remove": {
+        "title": "Remove product photo",
+        "description": "The photo will be deleted and you will need to upload the file again.",
+        "confirm": "Remove photo",
+        "impact": "Product: {name}."
+      },
+      "menu-item-unsaved-close": {
+        "title": "Discard changes",
+        "description": "You have unsaved changes on this product. If you leave they will be lost.",
+        "confirm": "Discard",
+        "impact": "Product: {name}."
+      }
+    },
+    "admin": {
+      "platform-restaurant-edit": {
+        "title": "Confirm restaurant changes",
+        "description": "These changes affect links, amounts or invoicing. Review them before saving.",
+        "confirm": "Save changes",
+        "empty": "(empty)",
+        "slug": "Link (slug): {from} → {to}. The login link will change.",
+        "currency": "Currency: {from} → {to}",
+        "timezone": "Time zone: {from} → {to}",
+        "taxId": "Tax ID: {from} → {to}"
+      },
+      "payments-pause": {
+        "title": "Pause payment account",
+        "description": "Customers will not be able to pay with this account until you resume it. If it is the only active one, online payment will be unavailable.",
+        "confirm": "Pause",
+        "impact": "Provider: {provider}.",
+        "onlyActive": "It is the only active account: online payment will be unavailable."
+      },
+      "payments-disconnect": {
+        "impact": "Provider: {provider}.",
+        "onlyConnected": "It is the only connected account: online payment will be unavailable."
+      },
+      "payments-transbank-production": {
+        "title": "Connect in production",
+        "description": "Charges will be real with this merchant code. Make sure it is correct.",
+        "confirm": "Connect",
+        "impact": "Merchant code: {code}. Environment: production."
+      },
+      "payments-set-preferred": {
+        "title": "Preferred account changed",
+        "description": "The order of payment options shown to customers changed: now {to} (was {from}).",
+        "confirm": "Undo"
+      },
+      "branch-save-risky": {
+        "title": "Confirm branch changes",
+        "description": "These changes apply now and affect customers or staff. Review them before saving.",
+        "confirm": "Save changes",
+        "on": "on",
+        "off": "off",
+        "none": "not set",
+        "status": "Branch status: will change from {from} to {to}",
+        "qr": "QR ordering: will change from {from} to {to}",
+        "paymentMode": "QR payment mode: will change from {from} to {to}",
+        "cash": "Require open cash register: will change from {from} to {to}",
+        "refund": "Cashier refund limit: will change from {from} to {to}",
+        "discountPercent": "Discount threshold (%): will change from {from} to {to}",
+        "discountAmount": "Discount threshold (amount): will change from {from} to {to}"
+      },
+      "staff-save-risky": {
+        "title": "Confirm access changes",
+        "description": "A person will lose the ability to sign in, or will receive administrator permissions (money, team and settings).",
+        "confirm": "Save changes",
+        "disable": "{name} will no longer be able to sign in.",
+        "admin": "{name} will receive the {role} role at {branch}."
+      }
+    }
+  },
+  "Confirm": {
+    "cancel": "Go back",
+    "confirm": "Confirm",
+    "reasonLabel": "Reason",
+    "reasonHint": "At least 3 characters",
+    "optionalLabel": "Note (optional)",
+    "optionalHint": "For example, the transfer reference",
+    "reasonCounter": "{count} of {max} characters",
+    "typedHint": "Type {word} to confirm"
   }
 }

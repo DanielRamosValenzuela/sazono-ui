@@ -581,8 +581,13 @@ export function MenuStudio() {
           isUpsertingItemTranslation={upsertItemTranslationMutation.isPending}
           isPublishing={publishMenuMutation.isPending}
           isDuplicating={duplicateMenuMutation.isPending}
+          publishedMenu={
+            menus.find(
+              (m) => m.status === "PUBLISHED" && m.menuId !== menuDetail?.menuId,
+            ) ?? null
+          }
           onDuplicate={(menuId, name) =>
-            duplicateMenuMutation.mutate({ menuId, name })
+            duplicateMenuMutation.mutateAsync({ menuId, name })
           }
           onAddCategory={(menuId, payload) =>
             createCategoryMutation.mutate({ menuId, payload })
@@ -612,7 +617,7 @@ export function MenuStudio() {
             uploadItemImageMutation.mutate({ menuItemId, file })
           }
           onRemoveItemImage={(menuItemId) =>
-            removeItemImageMutation.mutate(menuItemId)
+            removeItemImageMutation.mutateAsync(menuItemId)
           }
           onUpsertCategoryTranslation={(menuCategoryId, locale, payload, options) =>
             upsertCategoryTranslationMutation.mutate(
@@ -627,7 +632,7 @@ export function MenuStudio() {
           onUpsertItemTranslation={(menuItemId, locale, payload) =>
             upsertItemTranslationMutation.mutate({ menuItemId, locale, payload })
           }
-          onPublish={(menuId) => publishMenuMutation.mutate(menuId)}
+          onPublish={(menuId) => publishMenuMutation.mutateAsync(menuId)}
         />
       </section>
     </div>

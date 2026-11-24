@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError } from "@/shared/api/http-client";
 import { refundsApi } from "@/shared/api/refunds-api";
+import { formatMoney } from "@/shared/lib/format";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import type { RefundRecord, RefundResult } from "@/shared/types/refunds";
 
 const STALE_PENDING_MS = 2 * 60 * 1000;
@@ -37,6 +39,8 @@ export function RefundStatusPanel({
   onSettled,
 }: RefundStatusPanelProps) {
   const t = useTranslations("Refunds");
+  const tc = useTranslations("ConfirmActions.money");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [mountedAt] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +61,14 @@ export function RefundStatusPanel({
   };
   const retry = useMutation({ mutationFn: run("retry"), ...options });
   const markManual = useMutation({ mutationFn: run("markManual"), ...options });
+  const confirmManual = async () => {
+    try {
+      await markManual.mutateAsync();
+      setConfirmOpen(false);
+    } catch {
+      return;
+    }
+  };
   const busy = retry.isPending || markManual.isPending;
 
   if (refund.method !== "GATEWAY") {
@@ -103,7 +115,7 @@ export function RefundStatusPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-full"
+            className="rounded-full max-sm:h-11"
             disabled={busy}
             onClick={() => retry.mutate()}
           >
@@ -114,15 +126,29 @@ export function RefundStatusPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-full"
+            className="rounded-full max-sm:h-11"
             disabled={busy}
-            onClick={() => markManual.mutate()}
+            onClick={() => setConfirmOpen(true)}
           >
-            {markManual.isPending ? <Spinner /> : null}
             {t("markManual")}
           </Button>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        tone="destructive"
+        isPending={markManual.isPending}
+        title={tc("refund-mark-manual.title")}
+        description={tc("refund-mark-manual.description")}
+        confirmLabel={tc("refund-mark-manual.confirm")}
+        impact={tc("refund-mark-manual.impact", {
+          amount: formatMoney(refund.amount),
+          payment: refund.paymentId.slice(-8),
+          bill: refund.billId.slice(-8),
+        })}
+        onConfirm={confirmManual}
+      />
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

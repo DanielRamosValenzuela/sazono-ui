@@ -1,7 +1,7 @@
 "use client";
 
 import { formatModifierLines } from "@/shared/lib/modifiers";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -265,6 +265,8 @@ function isBillSettled(bill: CurrentBill | undefined) {
 
 export function FloorConsole() {
   const t = useTranslations("FloorConsole");
+  const tAssign = useTranslations("ConfirmActions.floor.floor-assign-select");
+  const tTake = useTranslations("ConfirmActions.floor.floor-take-table");
   const locale = useLocale();
   const queryClient = useQueryClient();
   const session = useAdminSession();
@@ -528,6 +530,10 @@ export function FloorConsole() {
     currentSessionData?.assignedStaffUserId ??
     focusedTable?.currentSession?.assignedStaffUserId ??
     null;
+  const assignedRef = useRef(focusedAssignedStaffUserId);
+  useEffect(() => {
+    assignedRef.current = focusedAssignedStaffUserId;
+  }, [focusedAssignedStaffUserId]);
 
   const {
     data: currentBill,
@@ -666,7 +672,6 @@ export function FloorConsole() {
           queryKey: ["orders", "branch-ready-summary"],
         }),
       ]);
-      toast.success(t("assignSuccess"));
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("assignError"));
@@ -1155,7 +1160,45 @@ export function FloorConsole() {
             if (!activeSessionId) {
               return;
             }
-            assignTableMutation.mutate({ sessionId: activeSessionId, staffUserId });
+            const previousStaffUserId = focusedAssignedStaffUserId;
+            const sessionId = activeSessionId;
+            assignTableMutation.mutate(
+              { sessionId, staffUserId },
+              {
+                onSuccess: () => {
+                  const newAssigneeId = staffUserId ?? currentUser.profileId;
+                  const isTake = !staffUserId;
+                  if (!previousStaffUserId || (isTake && !canReassignAnyone)) {
+                    toast.success(t("assignSuccess"));
+                    return;
+                  }
+                  const name = isTake
+                    ? ""
+                    : (assignableStaffOptions.find(
+                        (option) => option.staffUserId === staffUserId,
+                      )?.name ?? "");
+                  const copy = isTake ? tTake : tAssign;
+                  toast.success(copy("title"), {
+                    description: isTake
+                      ? copy("description")
+                      : copy("description", { name }),
+                    duration: 6000,
+                    action: {
+                      label: copy("confirm"),
+                      onClick: () => {
+                        if (assignedRef.current !== newAssigneeId) {
+                          return;
+                        }
+                        assignTableMutation.mutate(
+                          { sessionId, staffUserId: previousStaffUserId },
+                          { onSuccess: () => toast.success(t("assignSuccess")) },
+                        );
+                      },
+                    },
+                  });
+                },
+              },
+            );
           }}
           closeForm={closeSessionForm}
           isClosing={closeTableMutation.isPending}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { useMutation } from "@tanstack/react-query";
 import { Minus, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -40,7 +41,9 @@ export function CartSheet({
   onCreated,
 }: CartSheetProps) {
   const t = useTranslations("QrPage");
+  const tc = useTranslations("ConfirmActions.qr.qr-place-order");
   const [notes, setNotes] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const total = getCartTotal(cart);
 
@@ -65,7 +68,7 @@ export function CartSheet({
   });
 
   return (
-    <BottomSheet onClose={onClose} labelledBy="qr-cart-title">
+    <BottomSheet onClose={confirmOpen ? () => undefined : onClose} labelledBy="qr-cart-title">
       <h2
         id="qr-cart-title"
         className="font-heading text-2xl font-bold text-foreground"
@@ -180,7 +183,7 @@ export function CartSheet({
           size="lg"
           className="w-full rounded-xl"
           disabled={cart.length === 0 || createOrder.isPending}
-          onClick={() => createOrder.mutate()}
+          onClick={() => setConfirmOpen(true)}
         >
           {createOrder.isPending ? <Spinner /> : null}
           {t("cart_submit")}
@@ -195,6 +198,26 @@ export function CartSheet({
           {t("cart_continue")}
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={tc("title")}
+        description={tc("description")}
+        confirmLabel={tc("confirm")}
+        tone="primary"
+        isPending={createOrder.isPending}
+        impact={tc("impact", {
+          count: cart.reduce((sum, line) => sum + line.quantity, 0),
+          total: formatMoney(total, "CLP"),
+        })}
+        onConfirm={async () => {
+          try {
+            await createOrder.mutateAsync();
+          } catch {
+            return;
+          }
+        }}
+      />
     </BottomSheet>
   );
 }

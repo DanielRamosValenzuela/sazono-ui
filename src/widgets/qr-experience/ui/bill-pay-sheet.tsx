@@ -27,6 +27,7 @@ import { FieldGroup, FieldLabel } from "@/shared/ui/form-controls";
 import { TextInput } from "@/shared/ui/form-controls";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { usePayConfirm } from "../lib/use-pay-confirm";
 
 const TIP_PERCENTAGES = [0, 5, 10] as const;
 
@@ -59,6 +60,7 @@ export function BillPaySheet({
     ? Math.max(0, Math.floor(Number(customTip) || 0))
     : Math.round((remainingAmount * tipPercentage) / 100);
   const totalDue = remainingAmount + tipAmount;
+  const payConfirm = usePayConfirm(remainingAmount, tipAmount, useCustomTip);
 
   const billableOrders = orders.filter((order) => order.status !== "CANCELLED");
 
@@ -156,7 +158,22 @@ export function BillPaySheet({
   const isCardBusy = cardPhase !== "idle";
   const isBusy = isCardBusy || startRedirect.isPending;
 
-  const handleBrickSubmit = (checkout: CardCheckoutFields) => {
+  const startRedirectConfirmed = async (provider: PaymentGatewayProvider) => {
+    if (await payConfirm.confirmTip()) {
+      startRedirect.mutate(provider);
+    }
+  };
+
+  const payManualConfirmed = async () => {
+    if (await payConfirm.confirmOffline()) {
+      payBill.mutate();
+    }
+  };
+
+  const handleBrickSubmit = async (checkout: CardCheckoutFields) => {
+    if (!(await payConfirm.confirmTip())) {
+      throw new Error("tip-not-confirmed");
+    }
     submittedRemainingRef.current = remainingAmount;
     return submitCheckout(checkout);
   };
@@ -165,13 +182,13 @@ export function BillPaySheet({
     setChosenProvider(option.provider);
 
     if (option.checkoutMode === "redirect") {
-      startRedirect.mutate(option.provider);
+      void startRedirectConfirmed(option.provider);
     }
   };
 
   return (
     <BottomSheet
-      onClose={isBusy ? () => undefined : onClose}
+      onClose={isBusy || payConfirm.asking ? () => undefined : onClose}
       labelledBy="qr-bill-title"
       showCloseButton={!isBusy}
     >
@@ -380,8 +397,8 @@ export function BillPaySheet({
                 type="button"
                 size="lg"
                 className="w-full rounded-xl"
-                disabled={startRedirect.isPending}
-                onClick={() => startRedirect.mutate(activeOption.provider)}
+                disabled={startRedirect.isPending || payConfirm.asking}
+                onClick={() => void startRedirectConfirmed(activeOption.provider)}
               >
                 {startRedirect.isPending ? <Spinner /> : null}
                 {startRedirect.isPending
@@ -403,8 +420,8 @@ export function BillPaySheet({
             type="button"
             size="lg"
             className="w-full rounded-xl"
-            disabled={payBill.isPending}
-            onClick={() => payBill.mutate()}
+            disabled={payBill.isPending || payConfirm.asking}
+            onClick={() => void payManualConfirmed()}
           >
             {payBill.isPending ? <Spinner /> : null}
             {t("pay_submit")}
@@ -421,6 +438,7 @@ export function BillPaySheet({
           {t("pay_later")}
         </Button>
       </div>
+      {payConfirm.dialog}
     </BottomSheet>
   );
 }

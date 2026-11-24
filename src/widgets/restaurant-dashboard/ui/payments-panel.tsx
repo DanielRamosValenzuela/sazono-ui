@@ -35,6 +35,7 @@ import type {
   PaymentGatewayProvider,
   TransbankEnvironment,
 } from "@/shared/types/payments";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { FieldGroup, FieldLabel, SelectInput, TextInput } from "@/shared/ui/form-controls";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
@@ -72,8 +73,12 @@ function PaymentsCallbackWatcher({ onStatus }: PaymentsCallbackWatcherProps) {
 
 export function PaymentsPanel() {
   const t = useTranslations("AdminPayments");
+  const tConfirm = useTranslations("ConfirmActions.admin");
   const queryClient = useQueryClient();
   const session = useAdminSession();
+  const [pauseTarget, setPauseTarget] = useState<PaymentGatewayProvider | null>(
+    null
+  );
   const [disconnectTarget, setDisconnectTarget] =
     useState<PaymentGatewayProvider | null>(null);
   const [pendingAuthorization, setPendingAuthorization] =
@@ -155,6 +160,7 @@ export function PaymentsPanel() {
     mutationFn: (provider: PaymentGatewayProvider) =>
       paymentAccountsApi.pauseAccount(session.accessToken!, provider),
     onSuccess: () => {
+      setPauseTarget(null);
       invalidateAccounts();
       toast.success(t("pauseSuccess"));
     },
@@ -180,7 +186,6 @@ export function PaymentsPanel() {
       paymentAccountsApi.setPreferredAccount(session.accessToken!, provider),
     onSuccess: () => {
       invalidateAccounts();
-      toast.success(t("preferredSuccess"));
     },
     onError: (error) => {
       toast.error(
@@ -206,6 +211,69 @@ export function PaymentsPanel() {
         isActiveStatus(account.status) &&
         account.displayPriority === topPriority
     );
+
+  const providerTitle = (provider: PaymentGatewayProvider) =>
+    provider === "TRANSBANK" ? t("transbankTitle") : t("mercadoPagoTitle");
+
+  const connectedCount = [mercadoPagoAccount, transbankAccount].filter(
+    (account) => account?.status === "CONNECTED"
+  ).length;
+
+  const currentPreferred = (): PaymentGatewayProvider | null => {
+    const mp = queryClient.getQueryData<PaymentAccountStatusResponse>([
+      ...MERCADO_PAGO_QUERY_KEY,
+      session.accessToken,
+    ]);
+    const tb = queryClient.getQueryData<PaymentAccountStatusResponse>([
+      ...TRANSBANK_QUERY_KEY,
+      session.accessToken,
+    ]);
+    const top = [mp, tb].reduce(
+      (max, account) =>
+        account && isActiveStatus(account.status)
+          ? Math.max(max, account.displayPriority)
+          : max,
+      Number.NEGATIVE_INFINITY
+    );
+    const winners: PaymentGatewayProvider[] = [];
+    if (mp && isActiveStatus(mp.status) && mp.displayPriority === top) {
+      winners.push("MERCADO_PAGO");
+    }
+    if (tb && isActiveStatus(tb.status) && tb.displayPriority === top) {
+      winners.push("TRANSBANK");
+    }
+    return winners.length === 1 ? winners[0] : null;
+  };
+
+  const handleSetPreferred = (provider: PaymentGatewayProvider) => {
+    const previous = currentPreferred();
+    preferredMutation.mutate(provider, {
+      onSuccess: () => {
+        if (!previous || previous === provider) {
+          toast.success(t("preferredSuccess"));
+          return;
+        }
+        toast(tConfirm("payments-set-preferred.title"), {
+          description: tConfirm("payments-set-preferred.description", {
+            from: providerTitle(previous),
+            to: providerTitle(provider),
+          }),
+          duration: 6000,
+          action: {
+            label: tConfirm("payments-set-preferred.confirm"),
+            onClick: () => {
+              if (currentPreferred() !== provider) {
+                return;
+              }
+              preferredMutation.mutate(previous, {
+                onSuccess: () => toast.success(t("preferredSuccess")),
+              });
+            },
+          },
+        });
+      },
+    });
+  };
 
   const disconnectLabel =
     disconnectTarget === "TRANSBANK"
@@ -256,9 +324,9 @@ export function PaymentsPanel() {
               preferredMutation.isPending &&
               preferredMutation.variables === "MERCADO_PAGO"
             }
-            onPause={() => pauseMutation.mutate("MERCADO_PAGO")}
+            onPause={() => setPauseTarget("MERCADO_PAGO")}
             onResume={() => resumeMutation.mutate("MERCADO_PAGO")}
-            onSetPreferred={() => preferredMutation.mutate("MERCADO_PAGO")}
+            onSetPreferred={() => handleSetPreferred("MERCADO_PAGO")}
             onRequestDisconnect={() => setDisconnectTarget("MERCADO_PAGO")}
             connectSlot={
               <Button
@@ -298,21 +366,61 @@ export function PaymentsPanel() {
               preferredMutation.isPending &&
               preferredMutation.variables === "TRANSBANK"
             }
-            onPause={() => pauseMutation.mutate("TRANSBANK")}
+            onPause={() => setPauseTarget("TRANSBANK")}
             onResume={() => resumeMutation.mutate("TRANSBANK")}
-            onSetPreferred={() => preferredMutation.mutate("TRANSBANK")}
+            onSetPreferred={() => handleSetPreferred("TRANSBANK")}
             onRequestDisconnect={() => setDisconnectTarget("TRANSBANK")}
             connectSlot={
               <TransbankConnectForm
                 isSubmitting={connectTransbankMutation.isPending}
                 onSubmit={(payload) =>
-                  connectTransbankMutation.mutate(payload)
+                  payload.environment === "production"
+                    ? connectTransbankMutation.mutateAsync(payload)
+                    : connectTransbankMutation.mutate(payload)
                 }
               />
             }
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={pauseTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPauseTarget(null);
+          }
+        }}
+        tone="warning"
+        title={tConfirm("payments-pause.title")}
+        description={tConfirm("payments-pause.description")}
+        confirmLabel={tConfirm("payments-pause.confirm")}
+        isPending={pauseMutation.isPending}
+        impact={
+          <>
+            <p>
+              {tConfirm("payments-pause.impact", {
+                provider: pauseTarget ? providerTitle(pauseTarget) : "",
+              })}
+            </p>
+            {connectedCount <= 1 ? (
+              <p className="mt-1 font-medium">
+                {tConfirm("payments-pause.onlyActive")}
+              </p>
+            ) : null}
+          </>
+        }
+        onConfirm={async () => {
+          if (!pauseTarget) {
+            return;
+          }
+          try {
+            await pauseMutation.mutateAsync(pauseTarget);
+          } catch {
+            return;
+          }
+        }}
+      />
 
       <Dialog
         open={pendingAuthorization !== null}
@@ -366,57 +474,43 @@ export function PaymentsPanel() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
         open={disconnectTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
             setDisconnectTarget(null);
           }
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-                <Unlink className="size-5" />
-              </div>
-              <div>
-                <DialogTitle>
-                  {t("disconnectDialogTitle", { provider: disconnectLabel })}
-                </DialogTitle>
-                <DialogDescription>
-                  {t("disconnectDialogDescription")}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              className="rounded-full"
-              onClick={() => setDisconnectTarget(null)}
-            >
-              {t("disconnectDialogCancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="rounded-full"
-              disabled={disconnectMutation.isPending}
-              onClick={() =>
-                disconnectTarget && disconnectMutation.mutate(disconnectTarget)
-              }
-            >
-              {disconnectMutation.isPending ? <Spinner /> : null}
-              {disconnectMutation.isPending
-                ? t("disconnecting")
-                : t("disconnectDialogConfirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        tone="destructive"
+        title={t("disconnectDialogTitle", { provider: disconnectLabel })}
+        description={t("disconnectDialogDescription")}
+        confirmLabel={t("disconnectDialogConfirm")}
+        isPending={disconnectMutation.isPending}
+        impact={
+          <>
+            <p>
+              {tConfirm("payments-disconnect.impact", {
+                provider: disconnectLabel,
+              })}
+            </p>
+            {connectedCount <= 1 ? (
+              <p className="mt-1 font-medium">
+                {tConfirm("payments-disconnect.onlyConnected")}
+              </p>
+            ) : null}
+          </>
+        }
+        onConfirm={async () => {
+          if (!disconnectTarget) {
+            return;
+          }
+          try {
+            await disconnectMutation.mutateAsync(disconnectTarget);
+          } catch {
+            return;
+          }
+        }}
+      />
     </div>
   );
 }
@@ -600,7 +694,7 @@ function PaymentProviderCard({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-full"
+                className="min-h-11 rounded-full sm:min-h-0"
                 disabled={isPausing}
                 onClick={onPause}
               >
@@ -612,7 +706,7 @@ function PaymentProviderCard({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-full"
+                className="min-h-11 rounded-full sm:min-h-0"
                 disabled={isResuming}
                 onClick={onResume}
               >
@@ -626,7 +720,7 @@ function PaymentProviderCard({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="rounded-full"
+                className="min-h-11 rounded-full sm:min-h-0"
                 disabled={isSettingPreferred}
                 onClick={onSetPreferred}
               >
@@ -641,7 +735,7 @@ function PaymentProviderCard({
               type="button"
               variant="destructive"
               size="sm"
-              className="rounded-full"
+              className="min-h-11 rounded-full sm:min-h-0"
               onClick={onRequestDisconnect}
             >
               <Unlink className="size-4" />
@@ -658,7 +752,7 @@ function PaymentProviderCard({
 
 type TransbankConnectFormProps = {
   isSubmitting: boolean;
-  onSubmit: (payload: ConnectTransbankAccountRequest) => void;
+  onSubmit: (payload: ConnectTransbankAccountRequest) => void | Promise<unknown>;
 };
 
 function TransbankConnectForm({
@@ -666,6 +760,8 @@ function TransbankConnectForm({
   onSubmit,
 }: TransbankConnectFormProps) {
   const t = useTranslations("AdminPayments");
+  const tConfirm = useTranslations("ConfirmActions.admin");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [childCommerceCode, setChildCommerceCode] = useState("");
   const [environment, setEnvironment] =
     useState<TransbankEnvironment>("integration");
@@ -677,10 +773,16 @@ function TransbankConnectForm({
       return;
     }
 
+    if (environment === "production") {
+      setConfirmOpen(true);
+      return;
+    }
+
     onSubmit({ childCommerceCode: childCommerceCode.trim(), environment });
   };
 
   return (
+    <>
     <form
       onSubmit={handleSubmit}
       className="w-full space-y-4 rounded-2xl border border-border/70 bg-background/60 p-4"
@@ -724,5 +826,29 @@ function TransbankConnectForm({
         {isSubmitting ? t("connecting") : t("connectTransbankSubmit")}
       </Button>
     </form>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      tone="warning"
+      title={tConfirm("payments-transbank-production.title")}
+      description={tConfirm("payments-transbank-production.description")}
+      confirmLabel={tConfirm("payments-transbank-production.confirm")}
+      isPending={isSubmitting}
+      impact={tConfirm("payments-transbank-production.impact", {
+        code: childCommerceCode.trim(),
+      })}
+      onConfirm={async () => {
+        try {
+          await onSubmit({
+            childCommerceCode: childCommerceCode.trim(),
+            environment,
+          });
+          setConfirmOpen(false);
+        } catch {
+          return;
+        }
+      }}
+    />
+    </>
   );
 }
