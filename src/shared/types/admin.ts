@@ -43,6 +43,7 @@ export type BranchSettings = {
   discountApprovalPercent?: string | null;
   discountApprovalAmount?: string | null;
   requireOpenCashSession?: boolean;
+  businessDayStartHour?: number;
 };
 
 export type BranchSettingsInput = Omit<

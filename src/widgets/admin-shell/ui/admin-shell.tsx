@@ -14,6 +14,7 @@ import {
   MapPin,
   Menu,
   FileText,
+  Printer,
   Receipt,
   X,
   Store,
@@ -178,6 +179,11 @@ export function AdminShell({ children, area }: AdminShellProps) {
             href: "/admin/invoicing",
             labelKey: "navInvoicing",
             icon: <FileText className="size-4" />,
+          },
+          {
+            href: "/admin/impresion",
+            labelKey: "navPrinting",
+            icon: <Printer className="size-4" />,
           },
         ]
       : [];

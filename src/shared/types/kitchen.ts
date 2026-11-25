@@ -13,6 +13,14 @@ export interface StationTicketItem {
   modifiers: string[];
 }
 
+export type TicketPrintStatus = "NONE" | "PENDING" | "PRINTED" | "FAILED";
+
+export interface TicketPrint {
+  status: TicketPrintStatus;
+  lastJobId: string | null;
+  printerOffline: boolean;
+}
+
 export interface StationTicket {
   stationTicketId: string;
   orderId: string;
@@ -25,6 +33,8 @@ export interface StationTicket {
   tableCode: string;
   isCounter: boolean;
   ticketNumber: number | null;
+  displayNumber?: string | null;
+  print?: TicketPrint;
   customerLabel: string | null;
   orderNotes: string | null;
   sentAt: string | null;

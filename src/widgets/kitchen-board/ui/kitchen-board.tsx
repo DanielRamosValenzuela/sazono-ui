@@ -22,6 +22,7 @@ import {
   GripVertical,
   Soup,
   Undo2,
+  WifiOff,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { PrintStatusIndicator } from "@/features/print-client/ui/print-status-indicator";
 import { SoundToggle } from "@/features/push-notifications/ui/sound-toggle";
 import { useAdminSession } from "@/features/admin-session/model/use-admin-session";
 import { ApiError } from "@/shared/api/http-client";
@@ -51,6 +53,7 @@ import {
 import type { BranchRole } from "@/shared/types/auth";
 import type { StationTicket, StationTicketStatus } from "@/shared/types/kitchen";
 import { SelectInput } from "@/shared/ui/form-controls";
+import { TicketPrintIcon, TicketReprintButton } from "./ticket-print-controls";
 
 const STATION_TICKET_STATUSES: StationTicketStatus[] = [
   "PENDING",
@@ -182,6 +185,11 @@ export function KitchenBoard() {
 
   const tickets = useMemo(() => ticketsQuery.data ?? [], [ticketsQuery.data]);
 
+  const printerOffline = useMemo(
+    () => tickets.some((ticket) => ticket.print?.printerOffline),
+    [tickets]
+  );
+
   const ticketsByStatus = useMemo(() => {
     const grouped = new Map<StationTicketStatus, StationTicket[]>();
 
@@ -274,7 +282,8 @@ export function KitchenBoard() {
           </SelectInput>
         </div>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <PrintStatusIndicator />
           <SoundToggle />
         </div>
       </div>
@@ -285,12 +294,22 @@ export function KitchenBoard() {
           <p>{t("readForbiddenDescription")}</p>
         </div>
       ) : (
+        <>
+        {printerOffline ? (
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-2xl border border-amber-500/50 bg-amber-500/10 p-3 text-sm font-medium text-amber-800 dark:text-amber-300"
+          >
+            <WifiOff className="size-4 shrink-0" aria-hidden="true" />
+            {t("printerOfflineBanner")}
+          </div>
+        ) : null}
         <DndContext
           sensors={dragSensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[repeat(3,minmax(0,1fr))]">
             {BOARD_COLUMNS.map((column) => {
               const columnTickets = ticketsByStatus.get(column.status) ?? [];
 
@@ -319,29 +338,41 @@ export function KitchenBoard() {
                         ticket={ticket}
                         disabled={isUpdating}
                       >
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          {ticket.displayNumber ? (
+                            <span className="max-w-full font-mono text-base font-bold tabular-nums break-all">
+                              {ticket.displayNumber}
+                            </span>
+                          ) : null}
                           {ticket.isCounter ? (
-                            <Badge className="bg-primary text-primary-foreground">
+                            <Badge className="min-w-0 max-w-full bg-primary text-primary-foreground">
+                              <span className="min-w-0 truncate">
                               {[t("counterBadge", { ticket: ticket.ticketNumber ?? "" }), ticket.customerLabel]
                                 .filter(Boolean)
                                 .join(" ")}
+                              </span>
                             </Badge>
                           ) : (
-                            <Badge variant="outline">{ticket.tableCode}</Badge>
+                            <Badge variant="outline" className="min-w-0 max-w-full">
+                              <span className="min-w-0 truncate">{ticket.tableCode}</span>
+                            </Badge>
                           )}
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" className="max-w-full shrink-0">
                             {t(`source_${ticket.orderSource}`)}
                           </Badge>
-                          {sentTime ? (
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {sentTime}
-                            </span>
-                          ) : null}
+                          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                            <TicketPrintIcon ticket={ticket} />
+                            {sentTime ? (
+                              <span className="text-xs text-muted-foreground">
+                                {sentTime}
+                              </span>
+                            ) : null}
+                          </span>
                         </div>
 
-                        <ul className="mt-2.5 space-y-1 text-sm">
+                        <ul className="mt-2.5 min-w-0 space-y-1 text-sm break-words">
                           {ticket.items.map((item) => (
-                            <li key={item.stationTicketItemId} className="text-foreground">
+                            <li key={item.stationTicketItemId} className="min-w-0 text-foreground">
                               <span className="font-semibold tabular-nums">
                                 {item.quantity}×
                               </span>{" "}
@@ -361,12 +392,12 @@ export function KitchenBoard() {
                         </ul>
 
                         {ticket.orderNotes ? (
-                          <p className="mt-2 rounded-lg bg-accent/25 px-2.5 py-1.5 text-xs leading-5 text-accent-foreground">
+                          <p className="mt-2 rounded-lg bg-accent/25 px-2.5 py-1.5 text-xs leading-5 break-words text-accent-foreground">
                             {ticket.orderNotes}
                           </p>
                         ) : null}
 
-                        <div className="mt-3 flex items-center gap-1.5">
+                        <div className="mt-3 flex min-w-0 items-center gap-1.5">
                           {column.nextStatus ? (
                             <Button
                               type="button"
@@ -388,6 +419,13 @@ export function KitchenBoard() {
                               {t("readyHint")}
                             </span>
                           )}
+
+                          <TicketReprintButton
+                            ticket={ticket}
+                            token={accessToken}
+                            branchId={selectedBranchId}
+                            disabled={isUpdating}
+                          />
 
                           {column.returnStatus ? (
                             <Button
@@ -425,6 +463,7 @@ export function KitchenBoard() {
             })}
           </div>
         </DndContext>
+        </>
       )}
 
       {cancelTarget ? (
@@ -511,7 +550,7 @@ function KitchenColumn({ column, count, children }: KitchenColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-[1.7rem] border p-4 transition-colors",
+        "min-w-0 rounded-[1.7rem] border p-4 transition-colors",
         isOver
           ? "border-primary/50 bg-primary/5"
           : "border-border/70 bg-card/70"
@@ -527,7 +566,7 @@ function KitchenColumn({ column, count, children }: KitchenColumnProps) {
         </span>
       </div>
 
-      <div className="mt-3 space-y-3">{children}</div>
+      <div className="mt-3 min-w-0 space-y-3">{children}</div>
     </div>
   );
 }
@@ -552,11 +591,11 @@ function DraggableTicketCard({ ticket, disabled, children }: DraggableTicketCard
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.6 : 1,
       }}
-      className="relative rounded-2xl border border-border/70 bg-background/70 p-3.5 pl-11 shadow-sm sm:pl-8"
+      className="relative min-w-0 rounded-2xl border border-border/70 bg-background/70 p-3.5 pl-12 shadow-sm sm:pl-8"
     >
       <button
         type="button"
-        className="absolute top-1.5 left-0.5 flex size-10 cursor-grab touch-none items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:top-3.5 sm:left-1.5 sm:size-auto sm:p-1 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+        className="absolute top-1.5 left-0.5 flex size-11 cursor-grab touch-none items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:top-3.5 sm:left-1.5 sm:size-auto sm:p-1 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={t("ticketDragHandle")}
         disabled={disabled}
         {...attributes}

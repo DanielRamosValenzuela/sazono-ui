@@ -119,6 +119,16 @@ export function usePushRegistration() {
         (notification) => {
           console.log("[push] notification received:", notification);
 
+          const pushType = notification.data?.type;
+
+          if (pushType === "PRINT_WAKE" || pushType === "order.created") {
+            window.dispatchEvent(new CustomEvent("sazono:print-wake"));
+          }
+
+          if (pushType === "PRINT_WAKE") {
+            return;
+          }
+
           const { title, body } = resolveNotificationText(notification);
 
           void LocalNotifications.schedule({

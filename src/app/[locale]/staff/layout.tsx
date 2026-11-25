@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { setRequestLocale } from "next-intl/server";
+import { PrintClientRunner } from "@/features/print-client/ui/print-client-runner";
 import { AdminShell } from "@/widgets/admin-shell";
 
 type StaffLayoutProps = {
@@ -16,5 +17,10 @@ export default async function StaffLayout({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  return <AdminShell area="staff">{children}</AdminShell>;
+  return (
+    <>
+      <PrintClientRunner />
+      <AdminShell area="staff">{children}</AdminShell>
+    </>
+  );
 }
